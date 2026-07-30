@@ -199,8 +199,9 @@
 </div>
 
 <!-- headers rendered per screen -->
-<input type="file" id="img-input" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="img-input" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="txt-input" accept=".txt,text/plain" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="doc-input" accept=".docx,.txt" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="audio-input" accept="audio/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
 <button class="fab" id="fab" onclick="onFab()">+</button>
@@ -245,6 +246,9 @@
       <label class="f">보장 텍스트 <span style="font-weight:400;color:var(--ink-mute)">· 가린 이미지에서 문자 추출(OCR)</span></label>
       <button class="btn ghost sm wide" id="ocr-btn" onclick="runOCR()">첨부 이미지에서 문자 추출</button>
       <div id="ocr-progress" class="note" style="display:none;"></div>
+      <button class="btn ghost sm wide" id="doc-btn" style="margin-top:6px" onclick="pickDoc()">문서 파일 불러오기 · 워드(.docx)/텍스트(.txt)</button>
+      <div id="doc-progress" class="note" style="display:none;"></div>
+      <div class="note" style="margin-top:2px">한글(.hwp)은 한글 프로그램에서 '다른 이름으로 저장 → 워드(.docx) 또는 텍스트(.txt)'로 바꿔 올려주세요.</div>
       <button class="btn ghost sm wide" id="tidy-btn" style="margin-top:6px" onclick="tidyCoverage()">AI로 정리 · 보장급부·내보장자산 구분</button>
       <div id="tidy-progress" class="note" style="display:none;"></div>
       <textarea class="t" id="c-coverage" style="min-height:120px;margin-top:8px" placeholder="OCR 결과가 여기 채워집니다. 개인정보 줄은 지우고, 숫자는 원본과 반드시 대조해 확인하세요."></textarea>
@@ -350,7 +354,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 /* ---------- 상태 ---------- */
 let customers=[], pools=[], curScreen='customers';
 let lastAnalysis=null;
-const ANALYZE_URL='/api/analyze';
+const ANALYZE_URL='/.netlify/functions/analyze';
 let editingCust=null, editingPool=null, poolType='case';
 let custFilter={seg:'전체', src:'전체'};
 let poolFilter=[];
@@ -539,11 +543,17 @@ async function tidyCoverage(){
   btn.disabled=false; btn.style.opacity=1;
 }
 let redState=null;
+let redQueue=[];
 function pickImage(){
   const inp=document.getElementById('img-input');
   inp.value='';
-  inp.onchange=e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(f) startRedact(f);};
+  inp.onchange=e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null; if(fs.length){ redQueue=fs; processNextRedact(); }};
   inp.click();
+}
+function processNextRedact(){
+  if(!redQueue.length) return;
+  const f=redQueue.shift();
+  startRedact(f);
 }
 function startRedact(file){
   const reader=new FileReader();
@@ -604,7 +614,47 @@ function redSave(){
     await idbPut('images',{id:rid,kind:redState.kind,blob,created:today()});
     editingCust.images=editingCust.images||[]; editingCust.images.push(rid);
     closeSheet('ov-redact'); renderThumbs();
+    if(redQueue.length) setTimeout(processNextRedact, 200);
   },'image/jpeg',0.82);
+}
+
+function pickDoc(){
+  const inp=document.getElementById('doc-input'); inp.value='';
+  inp.onchange=e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(f) importDoc(f);};
+  inp.click();
+}
+let mammothLoading=null;
+function ensureMammoth(){
+  if(window.mammoth) return Promise.resolve();
+  if(mammothLoading) return mammothLoading;
+  mammothLoading=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+    s.onload=()=>res();
+    s.onerror=()=>{mammothLoading=null; rej(new Error('문서 처리기를 불러오지 못했습니다. 인터넷 연결을 확인하세요.'));};
+    document.head.appendChild(s);
+  });
+  return mammothLoading;
+}
+async function importDoc(file){
+  const prog=document.getElementById('doc-progress'); prog.style.display='block';
+  const name=(file.name||'').toLowerCase();
+  const append=(txt)=>{const ta=document.getElementById('c-coverage'); const t=(txt||'').trim(); if(!t){prog.textContent='문서에서 읽을 텍스트가 없습니다.'; return;} ta.value = ta.value ? (ta.value+'\n\n'+t) : t; prog.textContent='불러오기 완료. "AI로 정리"로 다듬을 수 있어요. 숫자는 원본과 대조하세요.';};
+  try{
+    if(name.endsWith('.txt')){
+      const r=new FileReader(); r.onerror=()=>prog.textContent='파일을 읽지 못했습니다.'; r.onload=()=>append(r.result); r.readAsText(file); return;
+    }
+    if(name.endsWith('.docx')){
+      prog.textContent='워드 문서를 읽는 중…';
+      await ensureMammoth();
+      const buf=await file.arrayBuffer();
+      const result=await window.mammoth.extractRawText({arrayBuffer:buf});
+      append(result && result.value ? result.value : '');
+      return;
+    }
+    if(name.endsWith('.hwp')){ prog.textContent='한글(.hwp)은 직접 읽을 수 없어요. 워드(.docx)나 텍스트(.txt)로 저장해 올려주세요.'; return; }
+    prog.textContent='지원하지 않는 형식입니다. .docx 또는 .txt로 올려주세요.';
+  }catch(err){ prog.textContent=(err&&err.message)?err.message:'문서를 읽는 중 오류가 발생했습니다.'; }
 }
 
 async function saveCustomer(){
