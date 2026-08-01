@@ -1,1055 +1,164 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1c2530">
-<title>고객상담관리</title>
-<style>
-  :root{
-    --ink:#1c2530; --ink-soft:#4a5560; --ink-mute:#8892a0;
-    --paper:#f6f7f9; --card:#ffffff; --line:#e5e8ec; --line-strong:#d3d8de;
-    --accent:#2f6f5e; --accent-soft:#e5f0ec; --accent-ink:#1e4d40;
-    --db:#2a5b8c; --db-soft:#e6eef6;
-    --acq:#8a5a2b; --acq-soft:#f5ebdd;
-    --ok:#2f7d4f; --ok-soft:#e4f2e9;
-    --hold:#9a7714; --hold-soft:#f7efd6;
-    --no:#a33636; --no-soft:#f7e4e4;
-    --radius:12px; --radius-sm:9px;
-    --shadow:0 1px 2px rgba(28,37,48,.04),0 2px 8px rgba(28,37,48,.05);
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --ink:#e8eaed; --ink-soft:#aab2bd; --ink-mute:#7c8794;
-      --paper:#14181d; --card:#1d232a; --line:#2b323b; --line-strong:#3a424c;
-      --accent:#5dbfa3; --accent-soft:#1e2e2a; --accent-ink:#9fe1cb;
-      --db:#7bb0e0; --db-soft:#1a2733;
-      --acq:#d3a066; --acq-soft:#2c2418;
-      --ok:#6bc48c; --ok-soft:#1a2a20;
-      --hold:#d8bd63; --hold-soft:#2a2716;
-      --no:#e08585; --no-soft:#2c1c1c;
-      --shadow:0 1px 2px rgba(0,0,0,.2),0 2px 8px rgba(0,0,0,.25);
-    }
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;}
-  body{
-    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic","Segoe UI",sans-serif;
-    background:var(--paper); color:var(--ink);
-    -webkit-font-smoothing:antialiased; line-height:1.5;
-    padding-bottom:calc(64px + env(safe-area-inset-bottom));
-  }
-  #app{max-width:520px; margin:0 auto; min-height:100vh;}
-  .screen{display:none; padding:14px 16px 24px;}
-  .screen.active{display:block;}
+// 보장 분석 중계 함수
+// 앱에서 보낸 고객 정보 + 보장 텍스트 + 참고 사례를 받아
+// Anthropic API로 분석을 요청하고, 정해진 JSON 형식으로 돌려줍니다.
+// API 키는 Netlify 환경변수(ANTHROPIC_API_KEY)에서만 읽으며 코드에 넣지 않습니다.
 
-  header.top{
-    position:sticky; top:0; z-index:20; background:var(--paper);
-    padding:16px 16px 8px; max-width:520px; margin:0 auto;
-  }
-  .top h1{font-size:22px; font-weight:700; letter-spacing:-.02em; margin:0;}
-  .top .sub{font-size:12.5px; color:var(--ink-mute); margin-top:2px;}
-
-  .row{display:flex; gap:8px; align-items:center;}
-  .grow{flex:1;}
-  .spacer{flex:1;}
-
-  .chips{display:flex; flex-wrap:wrap; gap:6px;}
-  .chip{
-    font-size:12.5px; padding:6px 12px; border-radius:999px;
-    border:1px solid var(--line-strong); background:var(--card); color:var(--ink-soft);
-    cursor:pointer; user-select:none; transition:.12s; white-space:nowrap;
-  }
-  .chip.on{background:var(--accent); border-color:var(--accent); color:#fff;}
-  .chip.tag.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink);}
-
-  .card{
-    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-    padding:14px 15px; box-shadow:var(--shadow); margin-bottom:10px;
-  }
-  .card.tap{cursor:pointer; transition:.12s;}
-  .card.tap:active{transform:scale(.99); border-color:var(--line-strong);}
-
-  .badge{font-size:11px; padding:3px 9px; border-radius:999px; font-weight:600; white-space:nowrap;}
-  .b-db{background:var(--db-soft); color:var(--db);}
-  .b-acq{background:var(--acq-soft); color:var(--acq);}
-  .b-ok{background:var(--ok-soft); color:var(--ok);}
-  .b-hold{background:var(--hold-soft); color:var(--hold);}
-  .b-no{background:var(--no-soft); color:var(--no);}
-  .b-seg{background:var(--accent-soft); color:var(--accent-ink);}
-  .b-grade{background:var(--line); color:var(--ink-soft);}
-
-  .meta{font-size:12px; color:var(--ink-mute); display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
-  .name{font-size:16px; font-weight:600; letter-spacing:-.01em;}
-
-  button.btn{
-    font-family:inherit; font-size:14px; font-weight:600; cursor:pointer;
-    border-radius:var(--radius-sm); padding:10px 14px; border:1px solid var(--line-strong);
-    background:var(--card); color:var(--ink); transition:.12s; display:inline-flex;
-    align-items:center; justify-content:center; gap:6px;
-  }
-  button.btn:active{transform:scale(.98);}
-  button.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
-  button.btn.ghost{background:transparent; border-color:var(--line);}
-  button.btn.danger{color:var(--no); border-color:var(--no-soft);}
-  button.btn.wide{width:100%;}
-  button.btn.sm{padding:7px 11px; font-size:12.5px;}
-
-  label.f{display:block; font-size:12.5px; color:var(--ink-soft); font-weight:600; margin:14px 2px 6px;}
-  input.t, textarea.t, select.t{
-    width:100%; font-family:inherit; font-size:15px; color:var(--ink);
-    background:var(--card); border:1px solid var(--line-strong); border-radius:var(--radius-sm);
-    padding:11px 12px; outline:none; transition:.12s;
-  }
-  input.t:focus, textarea.t:focus, select.t:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);}
-  textarea.t{resize:vertical; min-height:76px; line-height:1.55;}
-
-  .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;}
-  .thumb{position:relative; aspect-ratio:3/4; border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--line); background:var(--paper);}
-  .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
-  .thumb .k{position:absolute; left:5px; top:5px; font-size:10px; padding:2px 6px; border-radius:6px; background:rgba(28,37,48,.72); color:#fff;}
-  .thumb .del{position:absolute; right:4px; top:4px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(28,37,48,.72); color:#fff; font-size:14px; line-height:1; cursor:pointer;}
-  .add-thumb{aspect-ratio:3/4; border:1.5px dashed var(--line-strong); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--ink-mute); font-size:12px; cursor:pointer; background:var(--card);}
-
-  .empty{text-align:center; color:var(--ink-mute); padding:48px 20px; font-size:14px;}
-  .empty .big{font-size:15px; color:var(--ink-soft); font-weight:600; margin-bottom:6px;}
-
-  .fab{
-    position:fixed; right:calc(50% - 260px + 16px); bottom:calc(78px + env(safe-area-inset-bottom));
-    width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#fff;
-    font-size:26px; line-height:1; box-shadow:0 4px 14px rgba(47,111,94,.4); cursor:pointer; z-index:30;
-  }
-  @media(max-width:552px){.fab{right:16px;}}
-
-  nav.tabs{
-    position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--card);
-    border-top:1px solid var(--line); display:flex; padding:6px 0 env(safe-area-inset-bottom);
-    max-width:520px; margin:0 auto;
-  }
-  nav.tabs button{
-    flex:1; border:none; background:none; font-family:inherit; cursor:pointer;
-    padding:8px 4px; color:var(--ink-mute); font-size:11px; display:flex; flex-direction:column; align-items:center; gap:3px;
-  }
-  nav.tabs button .ic{font-size:19px; line-height:1;}
-  nav.tabs button.on{color:var(--accent); font-weight:600;}
-
-  .overlay{
-    position:fixed; inset:0; z-index:100; background:rgba(20,24,29,.55);
-    display:none; align-items:flex-end; justify-content:center;
-  }
-  .overlay.show{display:flex;}
-  .sheet{
-    background:var(--card); width:100%; max-width:520px; max-height:92vh; overflow:auto;
-    border-radius:18px 18px 0 0; padding:18px 16px calc(20px + env(safe-area-inset-bottom));
-  }
-  .sheet h2{font-size:18px; margin:0 0 2px; font-weight:700;}
-  .sheet .close{position:absolute;}
-  .handle{width:38px; height:4px; border-radius:2px; background:var(--line-strong); margin:0 auto 14px;}
-
-  /* redaction */
-  .redwrap{position:relative; width:100%; background:#0d0f12; border-radius:var(--radius-sm); overflow:hidden; touch-action:none; user-select:none;}
-  .redwrap canvas{display:block; width:100%; height:auto;}
-  .red-hint{font-size:12.5px; color:var(--ink-soft); background:var(--accent-soft); padding:9px 11px; border-radius:var(--radius-sm); margin-bottom:10px; line-height:1.5;}
-
-  .note{font-size:12px; color:var(--ink-mute); line-height:1.55; margin-top:8px;}
-  .divider{height:1px; background:var(--line); margin:16px 0;}
-  .seg-toggle{display:flex; background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm); padding:3px; gap:3px; margin-bottom:14px;}
-  .seg-toggle button{flex:1; border:none; background:none; font-family:inherit; font-size:13px; font-weight:600; color:var(--ink-mute); padding:8px; border-radius:7px; cursor:pointer;}
-  .seg-toggle button.on{background:var(--card); color:var(--ink); box-shadow:var(--shadow);}
-
-  .kv{display:flex; justify-content:space-between; padding:6px 0; font-size:14px; border-bottom:1px solid var(--line);}
-  .kv:last-child{border-bottom:none;}
-  .kv .k{color:var(--ink-soft);}
-  .stage-note{border:1px dashed var(--line-strong); border-radius:var(--radius); padding:14px; font-size:13px; color:var(--ink-soft); line-height:1.6; background:var(--card);}
-  .pill-tags{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;}
-  .pt{font-size:11px; padding:3px 8px; border-radius:999px; background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);}
-</style>
-</head>
-<body>
-
-<div id="app">
-  <!-- ===== 고객 목록 ===== -->
-  <div class="screen active" id="s-customers">
-    <div id="cust-list"></div>
-  </div>
-
-  <!-- ===== 풀 관리 ===== -->
-  <div class="screen" id="s-pools">
-    <div class="seg-toggle">
-      <button id="pt-case" class="on" onclick="setPoolType('case')">상담사례 풀</button>
-      <button id="pt-plan" onclick="setPoolType('plan')">가입설계서 풀</button>
-    </div>
-    <div class="chips" id="pool-filter" style="margin-bottom:14px;"></div>
-    <div id="pool-list"></div>
-    <div class="divider"></div>
-    <div class="row">
-      <button class="btn ghost sm grow" onclick="exportPools()">JSON 백업</button>
-      <button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">불러오기</button>
-      <input type="file" id="import-pools" accept="application/json" style="display:none" onchange="importPools(event)">
-    </div>
-  </div>
-
-  <!-- ===== 분석 ===== -->
-  <div class="screen" id="s-analysis">
-    <div id="cost-meter" style="margin-bottom:14px"></div>
-    <label class="f">분석할 고객</label>
-    <select class="t" id="an-cust" onchange="renderAnalysis()"></select>
-    <div id="an-body"></div>
-  </div>
-</div>
-
-<!-- headers rendered per screen -->
-<input type="file" id="img-input" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="txt-input" accept=".txt,text/plain" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="doc-input" accept=".docx,.txt" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="audio-input" accept="audio/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
-<button class="fab" id="fab" onclick="onFab()">+</button>
-
-<nav class="tabs">
-  <button id="tab-customers" class="on" onclick="go('customers')"><span class="ic">◐</span>고객</button>
-  <button id="tab-pools" onclick="go('pools')"><span class="ic">▤</span>참조 풀</button>
-  <button id="tab-analysis" onclick="go('analysis')"><span class="ic">✦</span>분석</button>
-</nav>
-
-<!-- ===== Sheet: 고객 편집 ===== -->
-<div class="overlay" id="ov-cust">
-  <div class="sheet">
-    <div class="handle"></div>
-    <div class="row"><h2 id="cust-title">고객 등록</h2><span class="spacer"></span>
-      <button class="btn ghost sm" onclick="closeSheet('ov-cust')">닫기</button></div>
-
-    <label class="f">고객 유형</label>
-    <div class="chips" id="cust-source"></div>
-
-    <label class="f">이름</label>
-    <input class="t" id="c-name" placeholder="이름">
-    <div class="row" style="gap:10px;">
-      <div class="grow"><label class="f">연령대</label>
-        <select class="t" id="c-age"></select></div>
-      <div class="grow"><label class="f">등급</label>
-        <select class="t" id="c-grade"><option value="">-</option><option>A</option><option>B</option><option>C</option></select></div>
-    </div>
-    <label class="f">지역</label>
-    <input class="t" id="c-region" placeholder="예: 부산 해운대구">
-    <label class="f">진행 단계</label>
-    <div class="chips" id="cust-seg"></div>
-
-    <label class="f">상품 관심</label>
-    <div class="chips tags" id="cust-product"></div>
-    <label class="f">상담 상황</label>
-    <div class="chips tags" id="cust-situation"></div>
-
-    <div id="cust-images-block">
-      <label class="f">보장 자료 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 등록 전 개인정보 가리기</span></label>
-      <div class="thumbs" id="c-thumbs"></div>
-      <label class="f">보장 텍스트 <span style="font-weight:400;color:var(--ink-mute)">· 가린 이미지에서 문자 추출(OCR)</span></label>
-      <button class="btn ghost sm wide" id="ocr-btn" onclick="runOCR()">첨부 이미지에서 문자 추출</button>
-      <div id="ocr-progress" class="note" style="display:none;"></div>
-      <button class="btn ghost sm wide" id="doc-btn" style="margin-top:6px" onclick="pickDoc()">문서 파일 불러오기 · 워드(.docx)/텍스트(.txt)</button>
-      <div id="doc-progress" class="note" style="display:none;"></div>
-      <div class="note" style="margin-top:2px">한글(.hwp)은 한글 프로그램에서 '다른 이름으로 저장 → 워드(.docx) 또는 텍스트(.txt)'로 바꿔 올려주세요.</div>
-      <button class="btn ghost sm wide" id="tidy-btn" style="margin-top:6px" onclick="tidyCoverage()">AI로 정리 · 보장급부·내보장자산 구분</button>
-      <div id="tidy-progress" class="note" style="display:none;"></div>
-      <textarea class="t" id="c-coverage" style="min-height:120px;margin-top:8px" placeholder="OCR 결과가 여기 채워집니다. 개인정보 줄은 지우고, 숫자는 원본과 반드시 대조해 확인하세요."></textarea>
-    </div>
-
-    <label class="f">메모</label>
-    <textarea class="t" id="c-memo" placeholder="상담 메모, 특이사항"></textarea>
-
-    <div class="divider"></div>
-    <button class="btn primary wide" onclick="saveCustomer()">저장</button>
-    <button class="btn danger wide" id="c-delete" style="margin-top:8px;" onclick="deleteCustomer()">삭제</button>
-  </div>
-</div>
-
-<!-- ===== Sheet: 가리기 ===== -->
-<div class="overlay" id="ov-redact" style="z-index:110;">
-  <div class="sheet">
-    <div class="handle"></div>
-    <div class="row"><h2>개인정보 가리기</h2><span class="spacer"></span>
-      <button class="btn ghost sm" onclick="closeSheet('ov-redact')">취소</button></div>
-    <div class="red-hint">이름·주민번호·주소·증권번호 등 개인을 식별할 수 있는 부분을 손가락으로 드래그해 덮으세요. 보장 항목·금액은 남겨두세요.</div>
-    <label class="f">자료 종류</label>
-    <div class="chips" id="red-kind"></div>
-    <div class="redwrap" id="redwrap" style="margin-top:12px;"><canvas id="redcanvas"></canvas></div>
-    <div class="row" style="margin-top:10px;">
-      <button class="btn ghost sm grow" onclick="redUndo()">되돌리기</button>
-      <button class="btn ghost sm grow" onclick="redTop()">상단 한번에</button>
-      <button class="btn ghost sm grow" onclick="redClear()">전체 지우기</button>
-    </div>
-    <div class="row" style="margin-top:6px;"><span class="meta" id="red-count">가린 곳 0</span></div>
-    <div class="divider"></div>
-    <button class="btn primary wide" onclick="redSave()">가린 상태로 등록</button>
-    <div class="note">등록하면 가린 부분이 이미지에 그대로 합쳐지고, 원본은 저장하지 않아 되돌릴 수 없습니다.</div>
-  </div>
-</div>
-
-<!-- ===== Sheet: 풀 편집 ===== -->
-<div class="overlay" id="ov-pool">
-  <div class="sheet">
-    <div class="handle"></div>
-    <div class="row"><h2 id="pool-title">사례 등록</h2><span class="spacer"></span>
-      <button class="btn ghost sm" onclick="closeSheet('ov-pool')">닫기</button></div>
-    <label class="f">제목</label>
-    <input class="t" id="p-title" placeholder="예: 연금 만기 앞둔 40대, 종신 전환 성공">
-    <div id="p-result-block">
-      <label class="f">상담 결과</label>
-      <div class="chips" id="pool-result"></div>
-    </div>
-    <label class="f">상품군</label>
-    <div class="chips tags" id="pool-product"></div>
-    <label class="f">상황</label>
-    <div class="chips tags" id="pool-situation"></div>
-    <label class="f">연령대</label>
-    <div class="chips tags" id="pool-age"></div>
-    <label class="f">자유 태그 <span style="font-weight:400;color:var(--ink-mute)">· 쉼표로 구분</span></label>
-    <input class="t" id="p-freetags" placeholder="예: 보험료부담, 배우자상의">
-    <label class="f">본문 <span style="font-weight:400;color:var(--ink-mute)">· 분석에 참고될 내용</span></label>
-    <button class="btn ghost sm wide" style="margin-bottom:8px;" onclick="pickPoolText()">텍스트 파일 불러오기 (.txt)</button>
-    <textarea class="t" id="p-body" style="min-height:130px" placeholder="상담 흐름, 핵심 반론과 대응, 결정적 멘트 등을 적어두세요."></textarea>
-    <div id="p-audio-block">
-      <label class="f">상담 음원 <span style="font-weight:400;color:var(--ink-mute)">· 녹음 파일 첨부</span></label>
-      <div id="p-audio"></div>
-    </div>
-    <div class="divider"></div>
-    <button class="btn primary wide" onclick="savePool()">저장</button>
-    <button class="btn danger wide" id="p-delete" style="margin-top:8px;" onclick="deletePool()">삭제</button>
-  </div>
-</div>
-
-<script>
-/* ---------- 상수 ---------- */
-const AGES=['20대','30대','40대','50대','60대+'];
-const PRODUCTS=['종신','정기','암','건강','실손','연금저축','어린이','CI'];
-const SITUATIONS=['신규','리모델링','갱신전환','해약방어','만기도래','증권점검'];
-const SEGMENTS=['방문예정','상담','계약'];
-const SOURCES=[['db','DB 고객'],['acq','지인 고객']];
-const RESULTS=[['성공','ok'],['보류','hold'],['실패','no']];
-const IMG_KINDS=['보장급부','내보장자산','기타'];
-
-/* ---------- IndexedDB ---------- */
-let db;
-function openDB(){
-  return new Promise((res,rej)=>{
-    const r=indexedDB.open('cust-consult',1);
-    r.onupgradeneeded=e=>{
-      const d=e.target.result;
-      if(!d.objectStoreNames.contains('customers')) d.createObjectStore('customers',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('pools')) d.createObjectStore('pools',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('images')) d.createObjectStore('images',{keyPath:'id'});
-    };
-    r.onsuccess=e=>{db=e.target.result; res();};
-    r.onerror=e=>rej(e);
-  });
-}
-function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
-function idbAll(store){return new Promise(r=>{const q=tx(store,'readonly').getAll(); q.onsuccess=()=>r(q.result||[]);});}
-function idbGet(store,id){return new Promise(r=>{const q=tx(store,'readonly').get(id); q.onsuccess=()=>r(q.result);});}
-function idbPut(store,v){return new Promise(r=>{const q=tx(store,'readwrite').put(v); q.onsuccess=()=>r();});}
-function idbDel(store,id){return new Promise(r=>{const q=tx(store,'readwrite').delete(id); q.onsuccess=()=>r();});}
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const today=()=>new Date().toISOString().slice(0,10);
-
-/* ---------- 상태 ---------- */
-let customers=[], pools=[], curScreen='customers';
-let lastAnalysis=null;
-const ANALYZE_URL='/.netlify/functions/analyze';
-let editingCust=null, editingPool=null, poolType='case';
-let custFilter={seg:'전체', src:'전체'};
-let poolFilter=[];
-let objectUrls=[];
-
-function freeUrls(){objectUrls.forEach(u=>URL.revokeObjectURL(u)); objectUrls=[];}
-function blobUrl(b){const u=URL.createObjectURL(b); objectUrls.push(u); return u;}
-
-/* ---------- 헤더 ---------- */
-function header(title,sub){
-  const old=document.querySelector('header.top'); if(old) old.remove();
-  const h=document.createElement('header'); h.className='top';
-  h.innerHTML='<h1>'+title+'</h1><div class="sub">'+sub+'</div>';
-  document.getElementById('app').prepend(h);
-}
-
-/* ---------- 네비 ---------- */
-function go(s){
-  curScreen=s; freeUrls();
-  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
-  document.getElementById('s-'+s).classList.add('active');
-  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('on'));
-  document.getElementById('tab-'+s).classList.add('on');
-  const fab=document.getElementById('fab');
-  fab.style.display = (s==='analysis')?'none':'flex';
-  if(s==='customers') renderCustomers();
-  if(s==='pools') renderPools();
-  if(s==='analysis') fillAnalysisSelect();
-  window.scrollTo(0,0);
-}
-function onFab(){ if(curScreen==='customers') openCustomer(null); else if(curScreen==='pools') openPool(null); }
-
-/* ---------- chip helpers ---------- */
-function chipGroup(el, items, selected, multi, onchange){
-  el.innerHTML='';
-  items.forEach(it=>{
-    const val=Array.isArray(it)?it[0]:it, label=Array.isArray(it)?it[1]:it;
-    const c=document.createElement('div'); c.className='chip'+(el.classList.contains('tags')?' tag':'');
-    c.textContent=label;
-    const isOn = multi ? selected.includes(val) : selected===val;
-    if(isOn) c.classList.add('on');
-    c.onclick=()=>{
-      if(multi){ const i=selected.indexOf(val); if(i>=0) selected.splice(i,1); else selected.push(val); }
-      else { selected=val; }
-      chipGroup(el,items,selected,multi,onchange);
-      if(onchange) onchange(selected);
-    };
-    el.appendChild(c);
-  });
-}
-
-/* =========================================================
-   고객 (1·2단계)
-========================================================= */
-function renderCustomers(){
-  header('고객', customers.length+'명 · 방문예정·상담·계약 관리');
-  // filter bar
-  let bar='<div class="chips" style="margin-bottom:8px;">';
-  ['전체',...SEGMENTS].forEach(s=>{ bar+='<div class="chip'+(custFilter.seg===s?' on':'')+'" onclick="setCF(\'seg\',\''+s+'\')">'+s+'</div>'; });
-  bar+='</div><div class="chips" style="margin-bottom:14px;">';
-  bar+='<div class="chip'+(custFilter.src==='전체'?' on':'')+'" onclick="setCF(\'src\',\'전체\')">전체</div>';
-  SOURCES.forEach(([v,l])=>{ bar+='<div class="chip'+(custFilter.src===v?' on':'')+'" onclick="setCF(\'src\',\''+v+'\')">'+l+'</div>'; });
-  bar+='</div>';
-
-  let list = customers.slice().sort((a,b)=>b.updated.localeCompare(a.updated));
-  if(custFilter.seg!=='전체') list=list.filter(c=>c.seg===custFilter.seg);
-  if(custFilter.src!=='전체') list=list.filter(c=>c.source===custFilter.src);
-
-  let html=bar;
-  if(list.length===0){
-    html+='<div class="empty"><div class="big">아직 등록된 고객이 없어요</div>오른쪽 아래 + 버튼으로 첫 고객을 등록하세요.</div>';
-  } else {
-    list.forEach(c=>{
-      const src = c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>';
-      const seg = c.seg?'<span class="badge b-seg">'+c.seg+'</span>':'';
-      const grade = c.grade?'<span class="badge b-grade">'+c.grade+'</span>':'';
-      const imgN = (c.images||[]).length;
-      const tags=[...(c.product||[]),...(c.situation||[])].slice(0,4).map(t=>'<span class="pt">'+t+'</span>').join('');
-      html+='<div class="card tap" onclick="openCustomer(\''+c.id+'\')">'
-        +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+src+'</div>'
-        +'<div class="meta">'+(c.age?c.age+' · ':'')+(c.region?esc(c.region):'지역 미입력')
-        +(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')+'</div>'
-        +(tags?'<div class="pill-tags">'+tags+'</div>':'')
-        +'</div>';
-    });
-  }
-  html+='<div class="divider"></div>';
-  html+='<div class="row"><button class="btn ghost sm grow" onclick="exportCustomers()">고객 백업</button><button class="btn ghost sm grow" onclick="document.getElementById(\'import-cust-input\').click()">불러오기</button></div>';
-  document.getElementById('cust-list').innerHTML=html;
-}
-function setCF(k,v){custFilter[k]=v; renderCustomers();}
-
-async function openCustomer(id){
-  const c = id ? customers.find(x=>x.id===id) : {id:null,source:'db',seg:'방문예정',product:[],situation:[],images:[]};
-  editingCust = JSON.parse(JSON.stringify(c));
-  document.getElementById('cust-title').textContent = id?'고객 상세':'고객 등록';
-  document.getElementById('c-delete').style.display = id?'flex':'none';
-  document.getElementById('c-name').value=c.name||'';
-  document.getElementById('c-region').value=c.region||'';
-  document.getElementById('c-memo').value=c.memo||'';
-  document.getElementById('c-coverage').value=c.coverageText||'';
-  fillSelect('c-age',AGES,c.age); fillSelect('c-grade',null,c.grade);
-  chipGroup(document.getElementById('cust-source'),SOURCES,editingCust.source,false,v=>{editingCust.source=v; toggleImageBlock();});
-  chipGroup(document.getElementById('cust-seg'),SEGMENTS,editingCust.seg,false,v=>editingCust.seg=v);
-  chipGroup(document.getElementById('cust-product'),PRODUCTS,editingCust.product,true);
-  chipGroup(document.getElementById('cust-situation'),SITUATIONS,editingCust.situation,true);
-  toggleImageBlock();
-  await renderThumbs();
-  openSheet('ov-cust');
-}
-function toggleImageBlock(){
-  document.getElementById('cust-images-block').style.display = (editingCust.source==='db')?'block':'none';
-}
-async function renderThumbs(){
-  const wrap=document.getElementById('c-thumbs'); wrap.innerHTML='';
-  for(const ref of (editingCust.images||[])){
-    const rec=await idbGet('images',ref);
-    const d=document.createElement('div'); d.className='thumb';
-    if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'"><span class="k">'+(rec.kind||'')+'</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>'; }
-    else d.innerHTML='<span class="k">없음</span>';
-    wrap.appendChild(d);
-  }
-  const add=document.createElement('div'); add.className='add-thumb';
-  add.innerHTML='<span style="font-size:22px">＋</span>이미지 추가';
-  add.onclick=pickImage;
-  wrap.appendChild(add);
-}
-function removeImage(e,ref){e.stopPropagation(); editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}
-
-/* ---------- OCR (앱 내장) ---------- */
-let tessLoading=null;
-function ensureTesseract(){
-  if(window.Tesseract) return Promise.resolve();
-  if(tessLoading) return tessLoading;
-  tessLoading=new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload=()=>res();
-    s.onerror=()=>{tessLoading=null; rej(new Error('OCR 엔진을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도하세요.'));};
-    document.head.appendChild(s);
-  });
-  return tessLoading;
-}
-async function runOCR(){
-  if(!editingCust.images||!editingCust.images.length){alert('먼저 보장 이미지를 추가하세요. 가린 이미지에서 개인정보를 뺀 문자만 추출됩니다.'); return;}
-  const btn=document.getElementById('ocr-btn'), prog=document.getElementById('ocr-progress');
-  btn.disabled=true; btn.style.opacity=.6; prog.style.display='block'; prog.textContent='OCR 엔진 준비 중… (처음 한 번은 다운로드로 시간이 걸립니다)';
-  try{
-    await ensureTesseract();
-    const n=editingCust.images.length; const groups={'보장급부':[],'내보장자산':[],'기타':[]};
-    for(let i=0;i<n;i++){
-      const rec=await idbGet('images',editingCust.images[i]); if(!rec||!rec.blob) continue;
-      const url=URL.createObjectURL(rec.blob);
-      const res=await Tesseract.recognize(url,'kor+eng',{logger:m=>{
-        if(m.status==='recognizing text') prog.textContent='이미지 '+(i+1)+'/'+n+' 인식 중 '+Math.round((m.progress||0)*100)+'%';
-        else prog.textContent='이미지 '+(i+1)+'/'+n+' 준비 중…';
-      }});
-      URL.revokeObjectURL(url);
-      const kind=(rec.kind && groups[rec.kind])?rec.kind:'기타';
-      const txt=(res.data.text||'').trim(); if(txt) groups[kind].push(txt);
-    }
-    let blocks=[];
-    ['보장급부','내보장자산','기타'].forEach(k=>{ if(groups[k].length) blocks.push('['+k+']\n'+groups[k].join('\n')); });
-    const joined=blocks.join('\n\n');
-    const ta=document.getElementById('c-coverage');
-    ta.value = ta.value ? (ta.value+'\n\n'+joined) : joined;
-    prog.textContent='추출 완료. 종류별로 묶었어요. "AI로 정리"를 누르면 깔끔하게 다듬습니다. 정리 후에도 숫자는 원본과 대조하세요.';
-  }catch(err){ prog.textContent=(err&&err.message)?err.message:'OCR 중 오류가 발생했습니다.'; }
-  btn.disabled=false; btn.style.opacity=1;
-}
-async function tidyCoverage(){
-  const ta=document.getElementById('c-coverage'); const raw=(ta.value||'').trim();
-  if(!raw){alert('먼저 OCR로 문자를 추출하거나 보장 텍스트를 입력하세요.'); return;}
-  const btn=document.getElementById('tidy-btn'), prog=document.getElementById('tidy-progress');
-  btn.disabled=true; btn.style.opacity=.6; prog.style.display='block'; prog.textContent='AI가 보장급부·내보장자산을 구분해 정리 중입니다…';
-  try{
-    const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'tidy',rawText:raw})});
-    const data=await res.json();
-    if(!res.ok){prog.textContent='정리 실패: '+(data.error||'오류'); btn.disabled=false; btn.style.opacity=1; return;}
-    if(data.text) ta.value=data.text;
-    addUsage(data._usage,'보장 정리');
-    prog.textContent='정리 완료. 숫자는 원본과 대조해 확인하세요.';
-  }catch(err){
-    prog.textContent='정리 요청을 보내지 못했습니다. 넷리파이 배포 주소에서 열었는지 확인하세요. ('+(err.message||'')+')';
-  }
-  btn.disabled=false; btn.style.opacity=1;
-}
-let redState=null;
-let redQueue=[];
-function pickImage(){
-  const inp=document.getElementById('img-input');
-  inp.value='';
-  inp.onchange=e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null; if(fs.length){ redQueue=fs; processNextRedact(); }};
-  inp.click();
-}
-function processNextRedact(){
-  if(!redQueue.length) return;
-  const f=redQueue.shift();
-  startRedact(f);
-}
-function startRedact(file){
-  const reader=new FileReader();
-  reader.onerror=()=>alert('사진 파일을 읽지 못했습니다.');
-  reader.onload=()=>{
-    const img=new Image();
-    img.onerror=()=>alert('이미지를 열 수 없습니다. HEIC 등 일부 형식은 지원되지 않을 수 있어요. JPG/PNG로 시도해 주세요.');
-    img.onload=()=>{
-      try{
-        const MAX=1600; let w=img.width,h=img.height;
-        if(!w||!h){alert('이미지 크기를 인식하지 못했습니다.'); return;}
-        if(Math.max(w,h)>MAX){const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r);}
-        const canvas=document.getElementById('redcanvas'); canvas.width=w; canvas.height=h;
-        const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
-        redState={canvas,ctx,img,w,h,rects:[],drawing:null,start:null,kind:'보장급부'};
-        chipGroup(document.getElementById('red-kind'),IMG_KINDS,'보장급부',false,v=>redState.kind=v);
-        updateRedCount();
-        openSheet('ov-redact');
-        bindRedact();
-      }catch(err){ alert('가리기 화면 준비 중 오류: '+(err&&err.message?err.message:err)); }
-    };
-    img.src=reader.result;
+exports.handler = async (event) => {
+  const cors = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
-  reader.readAsDataURL(file);
-}
-function redPos(e){
-  const c=redState.canvas, r=c.getBoundingClientRect();
-  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
-  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
-  const sx=c.width/r.width, sy=c.height/r.height;
-  return {x:Math.max(0,Math.min(cx*sx,c.width)), y:Math.max(0,Math.min(cy*sy,c.height))};
-}
-function redDraw(){
-  const {ctx,img,w,h,rects,drawing}=redState;
-  ctx.drawImage(img,0,0,w,h);
-  ctx.fillStyle='#141410';
-  rects.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
-  if(drawing) ctx.fillRect(drawing.x,drawing.y,drawing.w,drawing.h);
-}
-let redBound=false;
-function bindRedact(){
-  if(redBound) return; redBound=true;
-  const c=document.getElementById('redcanvas');
-  c.addEventListener('pointerdown',e=>{const p=redPos(e); redState.start=p; redState.drawing={x:p.x,y:p.y,w:0,h:0}; c.setPointerCapture(e.pointerId);});
-  c.addEventListener('pointermove',e=>{ if(!redState||!redState.drawing) return; const p=redPos(e),s=redState.start;
-    redState.drawing={x:Math.min(p.x,s.x),y:Math.min(p.y,s.y),w:Math.abs(p.x-s.x),h:Math.abs(p.y-s.y)}; redDraw();});
-  c.addEventListener('pointerup',()=>{ if(!redState||!redState.drawing) return; const d=redState.drawing;
-    if(d.w>6&&d.h>6) redState.rects.push(d); redState.drawing=null; redDraw(); updateRedCount();});
-}
-function updateRedCount(){document.getElementById('red-count').textContent='가린 곳 '+(redState?redState.rects.length:0);}
-function redUndo(){if(redState){redState.rects.pop(); redDraw(); updateRedCount();}}
-function redClear(){if(redState){redState.rects=[]; redDraw(); updateRedCount();}}
-function redTop(){if(redState){redState.rects.push({x:0,y:0,w:redState.w,h:Math.round(redState.h*0.22)}); redDraw(); updateRedCount();}}
-function redSave(){
-  redState.drawing=null; redDraw();
-  redState.canvas.toBlob(async(blob)=>{
-    const rid=uid();
-    await idbPut('images',{id:rid,kind:redState.kind,blob,created:today()});
-    editingCust.images=editingCust.images||[]; editingCust.images.push(rid);
-    closeSheet('ov-redact'); renderThumbs();
-    if(redQueue.length) setTimeout(processNextRedact, 200);
-  },'image/jpeg',0.82);
-}
 
-function pickDoc(){
-  const inp=document.getElementById('doc-input'); inp.value='';
-  inp.onchange=e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(f) importDoc(f);};
-  inp.click();
-}
-let mammothLoading=null;
-function ensureMammoth(){
-  if(window.mammoth) return Promise.resolve();
-  if(mammothLoading) return mammothLoading;
-  mammothLoading=new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
-    s.onload=()=>res();
-    s.onerror=()=>{mammothLoading=null; rej(new Error('문서 처리기를 불러오지 못했습니다. 인터넷 연결을 확인하세요.'));};
-    document.head.appendChild(s);
-  });
-  return mammothLoading;
-}
-async function importDoc(file){
-  const prog=document.getElementById('doc-progress'); prog.style.display='block';
-  const name=(file.name||'').toLowerCase();
-  const append=(txt)=>{const ta=document.getElementById('c-coverage'); const t=(txt||'').trim(); if(!t){prog.textContent='문서에서 읽을 텍스트가 없습니다.'; return;} ta.value = ta.value ? (ta.value+'\n\n'+t) : t; prog.textContent='불러오기 완료. "AI로 정리"로 다듬을 수 있어요. 숫자는 원본과 대조하세요.';};
-  try{
-    if(name.endsWith('.txt')){
-      const r=new FileReader(); r.onerror=()=>prog.textContent='파일을 읽지 못했습니다.'; r.onload=()=>append(r.result); r.readAsText(file); return;
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: cors, body: '' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'POST 요청만 허용됩니다.' }) };
+
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return { statusCode: 500, headers: cors, body: JSON.stringify({ error: '서버에 API 키가 없습니다. Netlify 환경변수 ANTHROPIC_API_KEY를 설정하세요.' }) };
+
+  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+
+  let payload;
+  try { payload = JSON.parse(event.body || '{}'); }
+  catch (e) { return { statusCode: 400, headers: cors, body: JSON.stringify({ error: '요청 형식이 잘못되었습니다.' }) }; }
+
+  const customer = payload.customer || {};
+  const coverageText = (payload.coverageText || '').trim();
+  const cases = payload.cases || [];
+
+  // 정리(tidy) 모드: OCR 원문을 보장급부·내보장자산으로 구분해 깔끔하게 정돈
+  if (payload.mode === 'tidy') {
+    const raw = (payload.rawText || '').trim();
+    const images = Array.isArray(payload.images) ? payload.images : [];
+    if (!raw && images.length === 0) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: '정리할 자료(이미지 또는 텍스트)가 없습니다.' }) };
+    const custName = (payload.custName || '').trim();
+    const custAge = (payload.custAge || '').trim();
+    const tidyModel = process.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const tidySystem = [
+      '당신은 한국 보험 보장분석 전문가입니다. 재무설계사(FP)가 상담을 준비하도록, 첨부된 보장 자료 사진을 직접 읽어 상세히 정리하고 분석합니다.',
+      '사진은 vFlat 등으로 찍은 보험 증권·보장분석표이며, 개인정보(주민번호 등)는 별표로 가려져 있을 수 있습니다.',
+      '아래 형식과 규칙을 반드시 지키세요.',
+      '',
+      '## [보장급부]',
+      '- 이 고객이 현재 가입한 보장 내역을 정리합니다.',
+      (custName || custAge)
+        ? ('- 먼저 고객 정보를 한 줄로 밝히세요: 이름 ' + (custName || '(자료 참조)') + ', 나이 ' + (custAge || '(자료 참조)') + '.')
+        : '- 자료에 고객 이름·나이가 보이면 먼저 한 줄로 밝히세요.',
+      '- 그다음 보장 항목을 하나도 빠짐없이 상세히 나열하세요: 담보명, 가입금액, 납입기간, 만기, 갱신여부 등 사진에서 읽히는 정보를 항목별로.',
+      '- 영역(사망/암·3대진단/입원·수술/실손/간병 등)별로 묶어 보기 좋게 정리하세요.',
+      '',
+      '## [내보장자산]',
+      '- 고객이 여러 보험회사에 가입한 보장 자산을 분석합니다.',
+      '- 회사(보험사)별로 구분해서, 각 회사가 어떤 담보를 얼마나 보장하는지 자세히 정리하세요.',
+      '- 회사별 정리 후, 전체를 종합해 어느 영역이 중복되고 어느 영역이 비어 있는지(취약한지) 분석해 설명하세요.',
+      '',
+      '## 규칙',
+      '- 숫자·금액은 사진에 보이는 그대로 쓰고, 없는 금액·항목을 지어내지 마세요. 흐릿해 확실치 않으면 그렇게 표시하세요.',
+      '- 각 사진에 [보장급부] 또는 [내보장자산] 표시가 함께 주어집니다. 그 구분에 맞게 배치하세요.',
+      '- 표현은 상담사가 바로 읽고 활용할 수 있도록 구체적이고 친절하게. 항목은 줄바꿈으로 구분.',
+      '- 출력은 정리·분석 결과 본문만. 인사말·사족 없이.'
+    ].join('\n');
+    const content = [];
+    if (raw) content.push({ type: 'text', text: '참고 텍스트:\n' + raw });
+    images.forEach(function (im, i) {
+      content.push({ type: 'text', text: '[' + (im.kind || '보장급부') + '] 자료 사진 ' + (i + 1) + ':' });
+      content.push({ type: 'image', source: { type: 'base64', media_type: im.media_type || 'image/jpeg', data: im.data } });
+    });
+    content.push({ type: 'text', text: '위 자료를 형식과 규칙에 맞춰 정리·분석해 주세요.' });
+    try {
+      const rr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: tidyModel, max_tokens: 3500, system: tidySystem, messages: [{ role: 'user', content: content }] })
+      });
+      const dd = await rr.json();
+      if (!rr.ok) {
+        const msg = (dd && dd.error && dd.error.message) ? dd.error.message : ('API 오류 (' + rr.status + ')');
+        return { statusCode: rr.status, headers: cors, body: JSON.stringify({ error: msg }) };
+      }
+      const tidied = (dd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      return { statusCode: 200, headers: Object.assign({}, cors, { 'content-type': 'application/json' }), body: JSON.stringify({
+        text: tidied,
+        _usage: { input_tokens: (dd.usage && dd.usage.input_tokens) || 0, output_tokens: (dd.usage && dd.usage.output_tokens) || 0, model: dd.model || tidyModel }
+      }) };
+    } catch (err) {
+      return { statusCode: 500, headers: cors, body: JSON.stringify({ error: '정리 요청 실패: ' + (err && err.message ? err.message : String(err)) }) };
     }
-    if(name.endsWith('.docx')){
-      prog.textContent='워드 문서를 읽는 중…';
-      await ensureMammoth();
-      const buf=await file.arrayBuffer();
-      const result=await window.mammoth.extractRawText({arrayBuffer:buf});
-      append(result && result.value ? result.value : '');
-      return;
+  }
+
+  if (!coverageText) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: '보장 텍스트가 비어 있습니다. OCR 또는 직접 입력으로 채운 뒤 분석하세요.' }) };
+
+  const caseText = cases.length
+    ? cases.map((c, i) => '[사례 ' + (i + 1) + '] ' + (c.title || '') + ' (' + (c.result || '-') + ')\n' + (c.body || '').slice(0, 800)).join('\n\n')
+    : '(없음)';
+
+  const system = [
+    '당신은 대한민국 보험 보장분석 전문가입니다. 재무설계사(FP)가 고객 상담을 준비하도록 돕습니다.',
+    "주어진 '보장 텍스트'는 고객이 현재 가입한 보장 내용이며 OCR로 추출되어 숫자 오류가 있을 수 있습니다. 텍스트에 적힌 내용만 근거로 분석하세요.",
+    '반드시 아래 JSON 형식 하나만 출력하세요. 마크다운, 코드블록(```), 설명 문장 없이 순수 JSON만 출력합니다.',
+    '{',
+    '  "summary": "종합 요약 2~3문장",',
+    '  "areas": [{"name":"영역명","level":"충분|보통|취약","reason":"한 줄 근거"}],',
+    '  "priorities": ["보강 제안 1","보강 제안 2","보강 제안 3"],',
+    '  "detail": "상세 분석. 문단으로 구분하고 최대한 구체적으로."',
+    '}',
+    '규칙:',
+    '- 영역은 사망보장, 암·3대진단(암/뇌혈관/허혈성심장), 입원·수술, 실손의료, 간병·치매, 상해·재해 중 텍스트에서 확인되는 것을 다룹니다.',
+    "- 텍스트에 관련 담보가 전혀 없으면 그 영역을 '취약'으로 판정하고 reason에 '해당 담보 없음'을 명시합니다.",
+    '- 보험료, 해약환급금 등 텍스트에 없는 구체적인 숫자는 지어내지 마세요.',
+    '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.'
+  ].join('\n');
+
+  const user = [
+    '# 고객 정보',
+    '이름: ' + (customer.name || '-') + ' / 연령: ' + (customer.age || '-') + ' / 지역: ' + (customer.region || '-'),
+    '상품 관심: ' + ((customer.products || []).join(', ') || '-'),
+    '상담 상황: ' + ((customer.situations || []).join(', ') || '-'),
+    '',
+    '# 보장 텍스트 (현재 가입 내용)',
+    coverageText,
+    '',
+    '# 참고할 과거 상담사례',
+    caseText
+  ].join('\n');
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 4000,
+        system: system,
+        messages: [{ role: 'user', content: user }]
+      })
+    });
+
+    const data = await r.json();
+    if (!r.ok) {
+      const msg = (data && data.error && data.error.message) ? data.error.message : ('API 오류 (' + r.status + ')');
+      return { statusCode: r.status, headers: cors, body: JSON.stringify({ error: msg }) };
     }
-    if(name.endsWith('.hwp')){ prog.textContent='한글(.hwp)은 직접 읽을 수 없어요. 워드(.docx)나 텍스트(.txt)로 저장해 올려주세요.'; return; }
-    prog.textContent='지원하지 않는 형식입니다. .docx 또는 .txt로 올려주세요.';
-  }catch(err){ prog.textContent=(err&&err.message)?err.message:'문서를 읽는 중 오류가 발생했습니다.'; }
-}
 
-async function saveCustomer(){
-  editingCust.name=document.getElementById('c-name').value.trim();
-  editingCust.region=document.getElementById('c-region').value.trim();
-  editingCust.memo=document.getElementById('c-memo').value.trim();
-  editingCust.coverageText=document.getElementById('c-coverage').value.trim();
-  editingCust.age=document.getElementById('c-age').value;
-  editingCust.grade=document.getElementById('c-grade').value;
-  if(!editingCust.name){alert('이름을 입력하세요.'); return;}
-  if(!editingCust.id){editingCust.id=uid(); editingCust.created=today();}
-  editingCust.updated=new Date().toISOString();
-  await idbPut('customers',editingCust);
-  customers=await idbAll('customers');
-  closeSheet('ov-cust'); renderCustomers();
-}
-async function deleteCustomer(){
-  if(!editingCust.id||!confirm('이 고객을 삭제할까요? 첨부 이미지도 함께 삭제됩니다.')) return;
-  for(const ref of (editingCust.images||[])) await idbDel('images',ref);
-  await idbDel('customers',editingCust.id);
-  customers=await idbAll('customers');
-  closeSheet('ov-cust'); renderCustomers();
-}
-function blobToDataURL(blob){return new Promise(res=>{const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob);});}
-async function exportCustomers(){
-  if(!customers.length){alert('백업할 고객이 없습니다.'); return;}
-  const ids=new Set(); customers.forEach(c=>(c.images||[]).forEach(id=>ids.add(id)));
-  const images=[];
-  for(const id of ids){ const rec=await idbGet('images',id); if(rec&&rec.blob){ images.push({id:rec.id,kind:rec.kind,created:rec.created,dataURL:await blobToDataURL(rec.blob)}); } }
-  const payload={type:'customers-backup',exported:today(),customers,images};
-  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='고객백업_'+today()+'.json'; a.click();
-}
-async function importCustomers(e){
-  const f=e.target.files&&e.target.files[0]; if(!f){return;}
-  try{
-    const data=JSON.parse(await f.text());
-    const custs=data.customers||[], imgs=data.images||[];
-    for(const im of imgs){ if(im&&im.id&&im.dataURL){ const blob=await (await fetch(im.dataURL)).blob(); await idbPut('images',{id:im.id,kind:im.kind,created:im.created,blob}); } }
-    for(const c of custs){ if(c&&c.id){ await idbPut('customers',c); } }
-    customers=await idbAll('customers'); renderCustomers();
-    alert('불러오기 완료: 고객 '+custs.length+'명, 이미지 '+imgs.length+'장');
-  }catch(err){ alert('파일을 읽을 수 없습니다. 고객 백업 파일이 맞는지 확인하세요.'); }
-  e.target.value='';
-}
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch (e) {
+      const m = text.match(/\{[\s\S]*\}/);
+      parsed = m ? JSON.parse(m[0]) : { summary: text, areas: [], priorities: [], detail: text };
+    }
+    parsed._usage = {
+      input_tokens: (data.usage && data.usage.input_tokens) || 0,
+      output_tokens: (data.usage && data.usage.output_tokens) || 0,
+      model: data.model || model
+    };
+    return { statusCode: 200, headers: Object.assign({}, cors, { 'content-type': 'application/json' }), body: JSON.stringify(parsed) };
 
-/* =========================================================
-   참조 풀 (3단계 기반)
-========================================================= */
-function setPoolType(t){
-  poolType=t; poolFilter=[];
-  document.getElementById('pt-case').classList.toggle('on',t==='case');
-  document.getElementById('pt-plan').classList.toggle('on',t==='plan');
-  renderPools();
-}
-function renderPools(){
-  header('참조 풀', poolType==='case'?'상담사례를 쌓아 분석에 활용':'가입설계서를 쌓아 제안에 활용');
-  const items=pools.filter(p=>p.poolType===poolType);
-  // filter chips = union of product tags
-  const allTags=[...new Set(items.flatMap(p=>p.product||[]))];
-  const fEl=document.getElementById('pool-filter');
-  fEl.innerHTML='';
-  allTags.forEach(t=>{const c=document.createElement('div'); c.className='chip'+(poolFilter.includes(t)?' on':'');
-    c.textContent=t; c.onclick=()=>{const i=poolFilter.indexOf(t); if(i>=0)poolFilter.splice(i,1); else poolFilter.push(t); renderPools();}; fEl.appendChild(c);});
-
-  let list=items.slice().sort((a,b)=>(b.created||'').localeCompare(a.created||''));
-  if(poolFilter.length) list=list.filter(p=>poolFilter.every(t=>(p.product||[]).includes(t)));
-
-  const wrap=document.getElementById('pool-list');
-  if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+(poolType==='case'?'등록된 사례가 없어요':'등록된 설계서가 없어요')+'</div>+ 버튼으로 추가하세요.</div>'; return; }
-  let html='';
-  list.forEach(p=>{
-    let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
-    const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
-    html+='<div class="card tap" onclick="openPool(\''+p.id+'\')">'
-      +'<div class="row" style="margin-bottom:4px;"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+'</div>'
-      +'<div class="pill-tags">'+tags+'</div>'
-      +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+'</div></div>';
-  });
-  wrap.innerHTML=html;
-}
-function openPool(id){
-  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,product:[],situation:[],age:[],free:[],result:'',audio:null};
-  editingPool=JSON.parse(JSON.stringify(p));
-  document.getElementById('pool-title').textContent = id?'항목 편집':(poolType==='case'?'사례 등록':'설계서 등록');
-  document.getElementById('p-delete').style.display=id?'flex':'none';
-  document.getElementById('p-result-block').style.display = (editingPool.poolType==='case')?'block':'none';
-  document.getElementById('p-title').value=p.title||'';
-  document.getElementById('p-body').value=p.body||'';
-  document.getElementById('p-freetags').value=(p.free||[]).join(', ');
-  chipGroup(document.getElementById('pool-result'),RESULTS,editingPool.result,false,v=>editingPool.result=v);
-  chipGroup(document.getElementById('pool-product'),PRODUCTS,editingPool.product,true);
-  chipGroup(document.getElementById('pool-situation'),SITUATIONS,editingPool.situation,true);
-  chipGroup(document.getElementById('pool-age'),AGES,editingPool.age,true);
-  document.getElementById('p-audio-block').style.display = (editingPool.poolType==='case')?'block':'none';
-  renderPoolAudio();
-  openSheet('ov-pool');
-}
-function renderPoolAudio(){
-  const wrap=document.getElementById('p-audio'); wrap.innerHTML='';
-  if(editingPool.audio){
-    idbGet('images',editingPool.audio).then(rec=>{
-      if(rec&&rec.blob){
-        const a=document.createElement('audio'); a.controls=true; a.style.width='100%'; a.src=blobUrl(rec.blob);
-        wrap.appendChild(a);
-        const del=document.createElement('button'); del.className='btn danger sm wide'; del.style.marginTop='8px';
-        del.textContent='음원 삭제'; del.onclick=removePoolAudio; wrap.appendChild(del);
-      } else addAudioBtn(wrap);
-    });
-  } else addAudioBtn(wrap);
-}
-function addAudioBtn(wrap){
-  const add=document.createElement('button'); add.className='btn ghost sm wide';
-  add.textContent='＋ 음원 추가'; add.onclick=pickPoolAudio; wrap.appendChild(add);
-}
-function pickPoolText(){
-  const inp=document.getElementById('txt-input'); inp.value='';
-  inp.onchange=e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return;
-    const r=new FileReader(); r.onerror=()=>alert('텍스트 파일을 읽지 못했습니다.');
-    r.onload=()=>{const ta=document.getElementById('p-body'); ta.value = ta.value ? (ta.value+'\n\n'+r.result) : r.result;};
-    r.readAsText(f);};
-  inp.click();
-}
-function pickPoolAudio(){
-  const inp=document.getElementById('audio-input'); inp.value='';
-  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return;
-    const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:f,created:today()});
-    if(editingPool.audio) await idbDel('images',editingPool.audio);
-    editingPool.audio=rid; renderPoolAudio();};
-  inp.click();
-}
-async function removePoolAudio(){
-  if(editingPool.audio){await idbDel('images',editingPool.audio); editingPool.audio=null;}
-  renderPoolAudio();
-}
-async function savePool(){
-  editingPool.title=document.getElementById('p-title').value.trim();
-  editingPool.body=document.getElementById('p-body').value.trim();
-  editingPool.free=document.getElementById('p-freetags').value.split(',').map(s=>s.trim()).filter(Boolean);
-  if(!editingPool.title){alert('제목을 입력하세요.'); return;}
-  if(!editingPool.id){editingPool.id=uid(); editingPool.created=today();}
-  await idbPut('pools',editingPool);
-  pools=await idbAll('pools');
-  closeSheet('ov-pool'); renderPools();
-}
-async function deletePool(){
-  if(!editingPool.id||!confirm('삭제할까요?')) return;
-  if(editingPool.audio) await idbDel('images',editingPool.audio);
-  await idbDel('pools',editingPool.id); pools=await idbAll('pools');
-  closeSheet('ov-pool'); renderPools();
-}
-function exportPools(){
-  const data=JSON.stringify(pools,null,2);
-  const blob=new Blob([data],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='참조풀_백업_'+today()+'.json'; a.click();
-}
-async function importPools(e){
-  const f=e.target.files[0]; if(!f) return;
-  try{
-    const arr=JSON.parse(await f.text());
-    for(const p of arr){ if(p&&p.id){ await idbPut('pools',p);} }
-    pools=await idbAll('pools'); renderPools(); alert('불러오기 완료: '+arr.length+'건');
-  }catch(err){alert('파일을 읽을 수 없습니다.');}
-  e.target.value='';
-}
-
-/* =========================================================
-   분석 (3단계 뼈대)
-========================================================= */
-const PRICING={opus:[5,25],sonnet:[2,10],haiku:[1,5],fable:[5,25],mythos:[5,25]};
-const USD_KRW=1380;
-function priceFor(model){const k=Object.keys(PRICING).find(x=>(model||'').includes(x)); return PRICING[k||'sonnet'];}
-function loadCost(){try{return JSON.parse(localStorage.getItem('costMeter'))||{balance:null,count:0,correctedAt:null,history:[]};}catch(e){return {balance:null,count:0,correctedAt:null,history:[]};}}
-function saveCost(o){try{localStorage.setItem('costMeter',JSON.stringify(o));}catch(e){}}
-function addUsage(u,label){
-  if(!u) return;
-  const pr=priceFor(u.model); const cost=(u.input_tokens/1e6)*pr[0]+(u.output_tokens/1e6)*pr[1];
-  const m=loadCost();
-  if(m.balance!=null) m.balance=m.balance-cost;
-  m.count=(m.count||0)+1;
-  m.history=m.history||[];
-  m.history.unshift({t:new Date().toISOString(), label:label||'분석', usd:cost});
-  if(m.history.length>200) m.history=m.history.slice(0,200);
-  saveCost(m);
-  return cost;
-}
-function renderCostMeter(lastCost){
-  const el=document.getElementById('cost-meter'); if(!el) return;
-  const m=loadCost();
-  let s='<div class="card" style="padding:11px 13px"><div class="row"><div style="flex:1">';
-  if(m.balance==null){
-    s+='<div class="meta">남은 잔액 미설정</div>'
-      +'<div style="font-size:15px;font-weight:600;margin-top:2px">보정을 눌러 콘솔 잔액을 입력하세요</div>';
-  } else {
-    const krw=Math.round(m.balance*USD_KRW);
-    s+='<div class="meta">남은 잔액 (추정)'+(m.correctedAt?' · '+m.correctedAt+' 보정':'')+'</div>'
-      +'<div style="font-size:16px;font-weight:600;margin-top:2px">US$'+m.balance.toFixed(2)+' <span class="meta" style="font-weight:400">약 '+krw.toLocaleString()+'원 · 보정 후 '+(m.count||0)+'회</span></div>';
+  } catch (err) {
+    return { statusCode: 500, headers: cors, body: JSON.stringify({ error: '분석 요청 실패: ' + (err && err.message ? err.message : String(err)) }) };
   }
-  if(lastCost!=null) s+='<div class="meta" style="margin-top:3px">이번 약 US$'+lastCost.toFixed(3)+' ('+Math.round(lastCost*USD_KRW).toLocaleString()+'원) 차감</div>';
-  s+='</div></div>'
-    +'<div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="correctCost()">보정</button>'
-    +'<button class="btn ghost sm grow" onclick="toggleCostHistory()">사용 히스토리</button></div>'
-    +'<div id="cost-history" style="display:none;margin-top:8px"></div></div>';
-  el.innerHTML=s;
-}
-function toggleCostHistory(){
-  const el=document.getElementById('cost-history'); if(!el) return;
-  if(el.style.display!=='none'){el.style.display='none'; return;}
-  const m=loadCost(); const h=m.history||[];
-  let s='';
-  if(!h.length){ s='<div class="stage-note">아직 사용 내역이 없어요.</div>'; }
-  else {
-    const sum={}; h.forEach(r=>{sum[r.label]=(sum[r.label]||0)+r.usd;});
-    s+='<div class="card" style="padding:10px 12px"><div class="meta" style="margin-bottom:4px">종류별 합계</div>';
-    Object.keys(sum).forEach(k=>{ s+='<div class="kv"><span class="k">'+esc(k)+'</span><span>US$'+sum[k].toFixed(3)+' · '+Math.round(sum[k]*USD_KRW).toLocaleString()+'원</span></div>'; });
-    s+='</div>';
-    s+='<div class="card" style="padding:6px 12px;max-height:260px;overflow:auto">';
-    h.forEach(r=>{ const d=new Date(r.t); const ds=d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-      s+='<div class="kv"><span class="k">'+ds+' · '+esc(r.label)+'</span><span>US$'+r.usd.toFixed(3)+'</span></div>'; });
-    s+='</div>';
-  }
-  el.innerHTML=s; el.style.display='block';
-}
-function correctCost(){
-  const m=loadCost();
-  const cur=(m.balance!=null)?m.balance.toFixed(2):'5.00';
-  const v=prompt('콘솔(platform.claude.com)에서 확인한 현재 남은 잔액을 US$ 숫자로 입력하세요.\n이 값으로 맞추고, 이후 분석·정리 때마다 여기서 차감됩니다.\n예: 4.90', cur);
-  if(v==null) return;
-  const num=parseFloat(v);
-  if(isNaN(num)||num<0){alert('숫자로 입력하세요. 예: 4.90'); return;}
-  m.balance=num; m.count=0; m.correctedAt=today();
-  m.history=m.history||[]; m.history.unshift({t:new Date().toISOString(), label:'보정', usd:0});
-  saveCost(m);
-  renderCostMeter();
-}
-function fillAnalysisSelect(){
-  header('매니저 상담', '고객 자료를 모아 분석·제안으로 연결');
-  renderCostMeter();
-  const sel=document.getElementById('an-cust'); sel.innerHTML='<option value="">— 고객 선택 —</option>';
-  customers.forEach(c=>{const o=document.createElement('option'); o.value=c.id; o.textContent=c.name+(c.region?' · '+c.region:''); sel.appendChild(o);});
-  document.getElementById('an-body').innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>';
-}
-function renderAnalysis(){
-  const id=document.getElementById('an-cust').value;
-  const body=document.getElementById('an-body');
-  if(!id){body.innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>'; return;}
-  const c=customers.find(x=>x.id===id);
-  const imgN=(c.images||[]).length;
-  // matched pool cases by shared product/situation tags
-  const want=[...(c.product||[]),...(c.situation||[])];
-  const matches=pools.filter(p=>p.poolType==='case').map(p=>{
-    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
-    return {p,overlap};
-  }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
-
-  let html='<div class="card"><div class="row" style="margin-bottom:8px;"><span class="name">'+esc(c.name)+'</span><span class="spacer"></span>'
-    +(c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>')+'</div>'
-    +'<div class="kv"><span class="k">연령 / 지역</span><span>'+(c.age||'-')+' · '+(esc(c.region)||'-')+'</span></div>'
-    +'<div class="kv"><span class="k">상품 관심</span><span>'+((c.product||[]).join(', ')||'-')+'</span></div>'
-    +'<div class="kv"><span class="k">상담 상황</span><span>'+((c.situation||[]).join(', ')||'-')+'</span></div>'
-    +'<div class="kv"><span class="k">보장 자료</span><span>'+(imgN?'이미지 '+imgN+'장':'없음')+'</span></div>'
-    +'</div>';
-
-  html+='<label class="f">유사 상담사례 매칭 ('+matches.length+')</label>';
-  if(matches.length){ matches.forEach(m=>{
-    const rc=RESULTS.find(r=>r[0]===m.p.result);
-    html+='<div class="card"><div class="row"><span class="name" style="font-size:14px">'+esc(m.p.title)+'</span><span class="spacer"></span>'
-      +(m.p.result?'<span class="badge b-'+(rc?rc[1]:'hold')+'">'+m.p.result+'</span>':'')+'</div>'
-      +'<div class="meta" style="margin-top:5px;">공통 태그 '+m.overlap+'개</div></div>';
-  });} else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조 풀에 사례를 쌓을수록 매칭이 정확해집니다.</div>'; }
-
-  html+='<div class="divider"></div>';
-  const hasText=(c.coverageText||'').trim().length>0;
-  const alist=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
-  const hasAnalysis=alist.length>0;
-  if(!hasText){
-    html+='<div class="stage-note">보장 텍스트가 아직 없습니다. 고객 화면에서 이미지 OCR 또는 직접 입력으로 보장 내용을 채운 뒤 분석하세요.</div>';
-  } else if(hasAnalysis){
-    html+='<div class="stage-note">저장된 분석 결과입니다 (최근 '+esc(alist[0].date||'')+' · 총 '+alist.length+'회). 다시 분석하면 기록에 추가되며 비용이 한 번 더 듭니다.</div>';
-  } else {
-    html+='<div class="stage-note">확인된 보장 텍스트를 바탕으로 영역별 취약·충분을 분석합니다. 이미지는 전송하지 않고 텍스트만 보냅니다.</div>';
-  }
-  html+='<button class="btn primary wide" style="margin-top:12px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">'+(hasAnalysis?'다시 분석':'분석 실행')+'</button>';
-  html+='<div id="an-result" style="margin-top:14px"></div>';
-  body.innerHTML=html;
-  if(hasAnalysis){ renderResultWithHistory(c, 0); }
-}
-function renderResultWithHistory(c, idx){
-  const list=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
-  const entry=list[idx]; if(!entry) return;
-  lastAnalysis=entry.data;
-  renderAnalysisResult(entry.data, entry.date);
-  if(list.length>1){
-    let hh='<label class="f">분석 기록 ('+list.length+')</label>';
-    list.forEach((e,i)=>{
-      const active=i===idx;
-      const sm=(e.data&&e.data.summary)?e.data.summary.slice(0,42):'';
-      hh+='<div class="card tap" style="'+(active?'border-color:var(--accent);':'')+'" onclick="showHistoryEntry(\''+c.id+'\','+i+')">'
-        +'<div class="row"><span style="font-size:13px;font-weight:600">'+esc(e.date||'')+'</span>'+(active?'<span class="spacer"></span><span class="badge b-seg">보는 중</span>':'<span class="spacer"></span><span class="meta">열기</span>')+'</div>'
-        +'<div class="meta" style="margin-top:3px">'+esc(sm)+'</div></div>';
-    });
-    document.getElementById('an-result').insertAdjacentHTML('beforeend', hh);
-  }
-}
-function showHistoryEntry(custId, idx){
-  const c=customers.find(x=>x.id===custId); if(!c) return;
-  renderResultWithHistory(c, idx);
-}
-async function runAnalysis(id){
-  const c=customers.find(x=>x.id===id); if(!c) return;
-  if(!(c.coverageText||'').trim()){alert('보장 텍스트가 비어 있어요. 고객 화면에서 OCR 또는 직접 입력으로 채운 뒤 분석하세요.'); return;}
-  const box=document.getElementById('an-result'); box.innerHTML='<div class="stage-note">분석 중입니다… 잠시만 기다려 주세요.</div>';
-  const want=[...(c.product||[]),...(c.situation||[])];
-  const cases=pools.filter(p=>p.poolType==='case').map(p=>{
-    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
-    return {overlap,title:p.title,result:p.result,body:p.body};
-  }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
-  try{
-    const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases})});
-    const data=await res.json();
-    if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
-    c.analyses=c.analyses||[];
-    c.analyses.unshift({date:today(), data});
-    if(c.analyses.length>50) c.analyses=c.analyses.slice(0,50);
-    c.analysis=data; c.analysisDate=today();
-    await idbPut('customers',c);
-    const lc=addUsage(data._usage,'매니저 분석');
-    lastAnalysis=data; renderAnalysis(); renderCostMeter(lc);
-  }catch(err){
-    box.innerHTML='<div class="stage-note">분석 요청을 보내지 못했습니다. 넷리파이에 배포된 주소에서 열었는지, 인터넷 연결을 확인하세요. (로컬 파일에서는 분석이 동작하지 않습니다)<br><span class="meta">'+esc(err.message||'')+'</span></div>';
-  }
-}
-function renderAnalysisResult(d, date){
-  const box=document.getElementById('an-result'); let h='';
-  if(date) h+='<div class="meta" style="margin:0 2px 8px">분석일 '+esc(date)+'</div>';
-  if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.6;color:var(--ink-soft)">'+esc(d.summary)+'</div></div>';
-  if(d.areas&&d.areas.length){
-    h+='<label class="f">영역별 판정</label><div class="card" style="padding:0;overflow:hidden">';
-    d.areas.forEach((a,i)=>{
-      const lv=a.level||''; const cls=lv==='충분'?'ok':(lv==='보통'?'hold':'no'); const col=lv==='충분'?'var(--ok)':(lv==='보통'?'var(--hold)':'var(--no)');
-      h+='<div style="display:flex;gap:10px;padding:11px 13px;border-left:3px solid '+col+';'+(i<d.areas.length-1?'border-bottom:1px solid var(--line);':'')+'">'
-        +'<div style="flex:1"><div style="font-size:14px">'+esc(a.name||'')+'</div><div class="meta" style="margin-top:2px">'+esc(a.reason||'')+'</div></div>'
-        +'<span class="badge b-'+cls+'" style="align-self:flex-start">'+esc(lv)+'</span></div>';
-    });
-    h+='</div>';
-  }
-  if(d.priorities&&d.priorities.length){
-    h+='<label class="f">보강 우선순위</label><div class="card">';
-    d.priorities.forEach((p,i)=>{h+='<div class="row" style="padding:7px 0;'+(i<d.priorities.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:22px;text-align:center">'+(i+1)+'</span><span style="font-size:14px;margin-left:9px">'+esc(p)+'</span></div>';});
-    h+='</div>';
-  }
-  if(d.detail){
-    h+='<button class="btn ghost sm wide" onclick="toggleDetail()">자세히 보기 / 접기</button>'
-     +'<div id="an-detail" class="card" style="display:none;white-space:pre-wrap;font-size:13.5px;line-height:1.65;color:var(--ink-soft)">'+esc(d.detail)+'</div>';
-  }
-  h+='<button class="btn primary wide" style="margin-top:10px" onclick="ttsResult()">▶ 분석 결과 음원으로 듣기</button>';
-  box.innerHTML=h;
-}
-function toggleDetail(){const e=document.getElementById('an-detail'); if(e) e.style.display=e.style.display==='none'?'block':'none';}
-function ttsResult(){
-  if(!lastAnalysis) return;
-  if(!('speechSynthesis' in window)){alert('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return;}
-  let t=(lastAnalysis.summary||'')+' ';
-  (lastAnalysis.priorities||[]).forEach((p,i)=>{t+='보강 '+(i+1)+', '+p+'. ';});
-  speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='ko-KR'; speechSynthesis.speak(u);
-}
-function ttsDemo(name){
-  if(!('speechSynthesis' in window)){alert('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return;}
-  const text=name+' 고객님은 현재 보장 자료를 바탕으로 볼 때, 사망 보장은 확보되어 있으나 진단·입원 영역에 공백이 있습니다. '
-    +'만기가 다가오는 상품에서 확보되는 여유 보험료를 새로운 보장으로 전환하는 방향을 제안드립니다. '
-    +'이것은 예시 음원이며, 실제 분석 결과가 연결되면 이 자리에서 전체 내용을 읽어드립니다.';
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text); u.lang='ko-KR'; u.rate=1.0;
-  speechSynthesis.speak(u);
-}
-
-/* ---------- 시트 ---------- */
-function openSheet(id){document.getElementById(id).classList.add('show'); document.body.style.overflow='hidden';}
-function closeSheet(id){document.getElementById(id).classList.remove('show'); document.body.style.overflow='';}
-function fillSelect(id,items,val){const s=document.getElementById(id); if(items){s.innerHTML='<option value="">-</option>'; items.forEach(i=>{const o=document.createElement('option'); o.value=i; o.textContent=i; s.appendChild(o);});} s.value=val||'';}
-function esc(s){return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-
-/* 오버레이 배경 탭으로 닫기 */
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) closeSheet(o.id);}));
-
-/* ---------- 시작 ---------- */
-(async function init(){
-  await openDB();
-  customers=await idbAll('customers');
-  pools=await idbAll('pools');
-  go('customers');
-})();
-</script>
-</body>
-</html>
+};
