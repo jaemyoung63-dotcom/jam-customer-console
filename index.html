@@ -580,8 +580,14 @@ async function tidyCoverage(){
     }
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({mode:'tidy', images, custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
-    const data=await res.json();
-    if(!res.ok){prog.textContent='정리 실패: '+(data.error||'오류'); btn.disabled=false; btn.style.opacity=1; return;}
+    const rawResp=await res.text();
+    let data;
+    try{ data=JSON.parse(rawResp); }
+    catch(e){
+      prog.textContent='서버 응답 이상 (HTTP '+res.status+'). 본문: '+(rawResp?rawResp.slice(0,400):'(빈 응답)');
+      btn.disabled=false; btn.style.opacity=1; return;
+    }
+    if(!res.ok){prog.textContent='정리 실패: '+(data.error||'오류')+' (HTTP '+res.status+')'; btn.disabled=false; btn.style.opacity=1; return;}
     if(data.text) ta.value=data.text;
     addUsage(data._usage,'보장 정리');
     prog.textContent='정리·분석 완료. 숫자는 원본과 대조해 확인하세요.';
