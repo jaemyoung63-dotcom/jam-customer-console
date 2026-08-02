@@ -1,26 +1,32 @@
-// 보장 분석 중계 함수
-// 앱에서 보낸 고객 정보 + 보장 텍스트 + 참고 사례를 받아
-// Anthropic API로 분석을 요청하고, 정해진 JSON 형식으로 돌려줍니다.
-// API 키는 Netlify 환경변수(ANTHROPIC_API_KEY)에서만 읽으며 코드에 넣지 않습니다.
+// 보장 분석 중계 함수 (Cloudflare Pages Functions)
+// API 키는 Cloudflare 환경변수(ANTHROPIC_API_KEY)에서만 읽으며 코드에 넣지 않습니다.
 
-exports.handler = async (event) => {
-  const cors = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
 
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: cors, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'POST 요청만 허용됩니다.' }) };
+function json(obj, status) {
+  return new Response(JSON.stringify(obj), {
+    status: status || 200,
+    headers: Object.assign({ 'content-type': 'application/json' }, CORS)
+  });
+}
 
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return { statusCode: 500, headers: cors, body: JSON.stringify({ error: '서버에 API 키가 없습니다. Netlify 환경변수 ANTHROPIC_API_KEY를 설정하세요.' }) };
+export async function onRequestOptions() {
+  return new Response('', { status: 200, headers: CORS });
+}
 
-  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+export async function onRequestPost(context) {
+  const key = context.env.ANTHROPIC_API_KEY;
+  if (!key) return json({ error: '서버에 API 키가 없습니다. Cloudflare 환경변수 ANTHROPIC_API_KEY를 설정하세요.' }, 500);
+
+  const model = context.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 
   let payload;
-  try { payload = JSON.parse(event.body || '{}'); }
-  catch (e) { return { statusCode: 400, headers: cors, body: JSON.stringify({ error: '요청 형식이 잘못되었습니다.' }) }; }
+  try { payload = await context.request.json(); }
+  catch (e) { return json({ error: '요청 형식이 잘못되었습니다.' }, 400); }
 
   const customer = payload.customer || {};
   const coverageText = (payload.coverageText || '').trim();
@@ -30,10 +36,10 @@ exports.handler = async (event) => {
   if (payload.mode === 'tidy') {
     const raw = (payload.rawText || '').trim();
     const images = Array.isArray(payload.images) ? payload.images : [];
-    if (!raw && images.length === 0) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: '정리할 자료(이미지 또는 텍스트)가 없습니다.' }) };
+    if (!raw && images.length === 0) return json({ error: '정리할 자료(이미지 또는 텍스트)가 없습니다.' }, 400);
     const custName = (payload.custName || '').trim();
     const custAge = (payload.custAge || '').trim();
-    const tidyModel = process.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const tidyModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
     const tidySystem = [
       '당신은 한국 보험 보장분석 전문가입니다. 재무설계사(FP)가 상담을 준비하도록, 첨부된 보장 자료 사진을 직접 읽어 상세히 정리하고 분석합니다.',
       '사진은 vFlat 등으로 찍은 보험 증권·보장분석표이며, 개인정보(주민번호 등)는 별표로 가려져 있을 수 있습니다.',
@@ -74,19 +80,19 @@ exports.handler = async (event) => {
       const dd = await rr.json();
       if (!rr.ok) {
         const msg = (dd && dd.error && dd.error.message) ? dd.error.message : ('API 오류 (' + rr.status + ')');
-        return { statusCode: rr.status, headers: cors, body: JSON.stringify({ error: msg }) };
+        return json({ error: msg }, rr.status);
       }
       const tidied = (dd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-      return { statusCode: 200, headers: Object.assign({}, cors, { 'content-type': 'application/json' }), body: JSON.stringify({
+      return json({
         text: tidied,
         _usage: { input_tokens: (dd.usage && dd.usage.input_tokens) || 0, output_tokens: (dd.usage && dd.usage.output_tokens) || 0, model: dd.model || tidyModel }
-      }) };
+      });
     } catch (err) {
-      return { statusCode: 500, headers: cors, body: JSON.stringify({ error: '정리 요청 실패: ' + (err && err.message ? err.message : String(err)) }) };
+      return json({ error: '정리 요청 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
     }
   }
 
-  if (!coverageText) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: '보장 텍스트가 비어 있습니다. OCR 또는 직접 입력으로 채운 뒤 분석하세요.' }) };
+  if (!coverageText) return json({ error: '보장 텍스트가 비어 있습니다. OCR 또는 직접 입력으로 채운 뒤 분석하세요.' }, 400);
 
   const caseText = cases.length
     ? cases.map((c, i) => '[사례 ' + (i + 1) + '] ' + (c.title || '') + ' (' + (c.result || '-') + ')\n' + (c.body || '').slice(0, 800)).join('\n\n')
@@ -95,7 +101,7 @@ exports.handler = async (event) => {
   const system = [
     '당신은 대한민국 보험 보장분석 전문가입니다. 재무설계사(FP)가 고객 상담을 준비하도록 돕습니다.',
     "주어진 '보장 텍스트'는 고객이 현재 가입한 보장 내용이며 OCR로 추출되어 숫자 오류가 있을 수 있습니다. 텍스트에 적힌 내용만 근거로 분석하세요.",
-    '반드시 아래 JSON 형식 하나만 출력하세요. 마크다운, 코드블록(```), 설명 문장 없이 순수 JSON만 출력합니다.',
+    '반드시 아래 JSON 형식 하나만 출력하세요. 마크다운, 코드블록, 설명 문장 없이 순수 JSON만 출력합니다.',
     '{',
     '  "summary": "종합 요약 2~3문장",',
     '  "areas": [{"name":"영역명","level":"충분|보통|취약","reason":"한 줄 근거"}],',
@@ -125,25 +131,14 @@ exports.handler = async (event) => {
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 4000,
-        system: system,
-        messages: [{ role: 'user', content: user }]
-      })
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: model, max_tokens: 4000, system: system, messages: [{ role: 'user', content: user }] })
     });
-
     const data = await r.json();
     if (!r.ok) {
       const msg = (data && data.error && data.error.message) ? data.error.message : ('API 오류 (' + r.status + ')');
-      return { statusCode: r.status, headers: cors, body: JSON.stringify({ error: msg }) };
+      return json({ error: msg }, r.status);
     }
-
     const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
     let parsed;
     try { parsed = JSON.parse(text); }
@@ -156,9 +151,8 @@ exports.handler = async (event) => {
       output_tokens: (data.usage && data.usage.output_tokens) || 0,
       model: data.model || model
     };
-    return { statusCode: 200, headers: Object.assign({}, cors, { 'content-type': 'application/json' }), body: JSON.stringify(parsed) };
-
+    return json(parsed);
   } catch (err) {
-    return { statusCode: 500, headers: cors, body: JSON.stringify({ error: '분석 요청 실패: ' + (err && err.message ? err.message : String(err)) }) };
+    return json({ error: '분석 요청 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
   }
-};
+}
