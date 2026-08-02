@@ -258,10 +258,10 @@
       <label class="f" style="margin-top:6px">자료 종류 <span style="font-weight:400;color:var(--ink-mute)">· 이미지 추가 시 적용</span></label>
       <div class="chips" id="doc-kind"></div>
       <div class="thumbs" id="c-thumbs" style="margin-top:8px"></div>
-      <button class="btn ghost sm wide" id="tidy-btn" style="margin-top:10px" onclick="tidyCoverage()">AI로 정리·분석 (이미지 직접 읽기)</button>
+      <button class="btn ghost sm wide" id="tidy-btn" style="margin-top:10px" onclick="tidyCoverage()">AI로 정리·분석 (사진 글자 인식)</button>
       <div id="tidy-progress" class="note" style="display:none;"></div>
       <label class="f">보장 텍스트 <span style="font-weight:400;color:var(--ink-mute)">· AI 정리 결과 (수정 가능)</span></label>
-      <textarea class="t" id="c-coverage" style="min-height:130px" placeholder="이미지를 추가하고 위 버튼을 누르면, AI가 사진을 직접 읽어 여기에 정리해 줍니다."></textarea>
+      <textarea class="t" id="c-coverage" style="min-height:130px" placeholder="이미지를 추가하고 위 버튼을 누르면, 기기에서 사진 글자를 인식한 뒤 AI가 여기에 정리해 줍니다."></textarea>
     </div>
 
     <label class="f">메모</label>
@@ -570,16 +570,31 @@ async function tidyCoverage(){
   const imgs=editingCust.images||[];
   if(!imgs.length){alert('먼저 보장 자료 이미지를 추가하세요.'); return;}
   const btn=document.getElementById('tidy-btn'), prog=document.getElementById('tidy-progress');
-  btn.disabled=true; btn.style.opacity=.6; prog.style.display='block'; prog.textContent='AI가 사진을 직접 읽어 정리·분석 중입니다… (이미지가 많으면 시간이 걸려요)';
+  btn.disabled=true; btn.style.opacity=.6; prog.style.display='block';
   try{
-    const images=[];
-    for(const ref of imgs){
-      const rec=await idbGet('images',ref); if(!rec||!rec.blob) continue;
-      const base64=await blobToScaledBase64(rec.blob, 1600, 0.72);
-      images.push({kind:rec.kind||'보장급부', media_type:'image/jpeg', data:base64});
+    // 1) 기기 내 OCR로 사진에서 글자만 추출 (이미지는 서버로 보내지 않음)
+    prog.textContent='OCR 엔진 준비 중… (처음 한 번은 다운로드로 시간이 걸립니다)';
+    await ensureTesseract();
+    const n=imgs.length; const groups={'보장급부':[],'내보장자산':[],'기타':[]};
+    for(let i=0;i<n;i++){
+      const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
+      const url=URL.createObjectURL(rec.blob);
+      const r=await Tesseract.recognize(url,'kor+eng',{logger:m=>{
+        if(m.status==='recognizing text') prog.textContent='사진에서 글자 추출 중 '+(i+1)+'/'+n+' · '+Math.round((m.progress||0)*100)+'%';
+        else prog.textContent='사진 '+(i+1)+'/'+n+' 준비 중…';
+      }});
+      URL.revokeObjectURL(url);
+      const kind=(rec.kind && groups[rec.kind])?rec.kind:'기타';
+      const txt=(r.data.text||'').trim(); if(txt) groups[kind].push(txt);
     }
+    let blocks=[];
+    ['보장급부','내보장자산','기타'].forEach(k=>{ if(groups[k].length) blocks.push('['+k+']\n'+groups[k].join('\n')); });
+    const raw=blocks.join('\n\n').trim();
+    if(!raw){ prog.textContent='사진에서 글자를 추출하지 못했습니다. 더 선명한 사진을 쓰거나 보장 텍스트에 직접 입력해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
+    // 2) 추출한 텍스트만 서버로 전송 (무료 플랜 CPU 한도 회피)
+    prog.textContent='AI가 정리·분석 중입니다…';
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({mode:'tidy', images, custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
+      body:JSON.stringify({mode:'tidy', rawText:raw, custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
     const rawResp=await res.text();
     let data;
     try{ data=JSON.parse(rawResp); }
@@ -592,10 +607,11 @@ async function tidyCoverage(){
     addUsage(data._usage,'보장 정리');
     prog.textContent='정리·분석 완료. 숫자는 원본과 대조해 확인하세요.';
   }catch(err){
-    prog.textContent='정리 요청을 보내지 못했습니다. 배포 주소에서 열었는지 확인하세요. ('+(err.message||'')+')';
+    prog.textContent='정리 요청 실패: '+((err&&err.message)?err.message:'오류');
   }
   btn.disabled=false; btn.style.opacity=1;
 }
+
 let redState=null;
 function pickImage(){
   const inp=document.getElementById('img-input');
