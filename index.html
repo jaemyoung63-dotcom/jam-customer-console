@@ -575,8 +575,7 @@ async function tidyCoverage(){
     const images=[];
     for(const ref of imgs){
       const rec=await idbGet('images',ref); if(!rec||!rec.blob) continue;
-      const durl=await blobToDataURL(rec.blob);
-      const base64=(durl.split(',')[1])||'';
+      const base64=await blobToScaledBase64(rec.blob, 1600, 0.72);
       images.push({kind:rec.kind||'보장급부', media_type:'image/jpeg', data:base64});
     }
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
@@ -756,6 +755,26 @@ async function deleteCustomer(){
   closeSheet('ov-cust'); renderCustomers();
 }
 function blobToDataURL(blob){return new Promise(res=>{const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob);});}
+/* 전송 전 이미지 축소·재압축: 긴 변 maxDim, JPEG 품질 q. base64(헤더 제외) 반환 */
+function blobToScaledBase64(blob, maxDim, q){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        const scale=Math.min(1, maxDim/Math.max(w,h));
+        w=Math.max(1,Math.round(w*scale)); h=Math.max(1,Math.round(h*scale));
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        const durl=cv.toDataURL('image/jpeg', q||0.72);
+        URL.revokeObjectURL(img.src);
+        resolve((durl.split(',')[1])||'');
+      }catch(e){ reject(e); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(img.src); reject(new Error('이미지를 열 수 없습니다(HEIC 등은 JPG/PNG로).')); };
+    img.src=URL.createObjectURL(blob);
+  });
+}
 async function exportCustomers(){
   if(!customers.length){alert('백업할 고객이 없습니다.'); return;}
   const ids=new Set(); customers.forEach(c=>(c.images||[]).forEach(id=>ids.add(id)));
