@@ -201,6 +201,8 @@
     <div id="cost-meter" style="margin-bottom:14px"></div>
     <label class="f">분석할 고객</label>
     <select class="t" id="an-cust" onchange="renderAnalysis()"></select>
+    <label class="f" id="an-plan-label" style="display:none">가입설계서 <span style="font-weight:400;color:var(--ink-mute)">· 선택 시 부족 보장 충족(부족율) 분석</span></label>
+    <select class="t" id="an-plan" style="display:none"></select>
     <div id="an-body"></div>
   </div>
 </div>
@@ -211,6 +213,7 @@
 <input type="file" id="doc-input" accept=".docx,.txt" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="audio-input" accept="audio/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
+<input type="file" id="import-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importConsult(event)">
 <button class="fab" id="fab" onclick="onFab()">+</button>
 
 <nav class="tabs">
@@ -321,6 +324,10 @@
     <div id="p-audio-block">
       <label class="f">상담 음원 <span style="font-weight:400;color:var(--ink-mute)">· 녹음 파일 첨부</span></label>
       <div id="p-audio"></div>
+    </div>
+    <div id="p-images-block" style="display:none;">
+      <label class="f">가입설계서 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 사진 그대로 여러 장</span></label>
+      <div class="thumbs" id="p-thumbs" style="margin-top:8px"></div>
     </div>
     <div class="divider"></div>
     <button class="btn primary wide" onclick="savePool()">저장</button>
@@ -851,12 +858,12 @@ function renderPools(){
     html+='<div class="card tap" onclick="openPool(\''+p.id+'\')">'
       +'<div class="row" style="margin-bottom:4px;"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+'</div>'
       +'<div class="pill-tags">'+tags+'</div>'
-      +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+'</div></div>';
+      +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';
   });
   wrap.innerHTML=html;
 }
 function openPool(id){
-  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,product:[],situation:[],age:[],free:[],result:'',audio:null};
+  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,product:[],situation:[],age:[],free:[],result:'',audio:null,images:[]};
   editingPool=JSON.parse(JSON.stringify(p));
   document.getElementById('pool-title').textContent = id?'항목 편집':(poolType==='case'?'사례 등록':'설계서 등록');
   document.getElementById('p-delete').style.display=id?'flex':'none';
@@ -870,6 +877,8 @@ function openPool(id){
   chipGroup(document.getElementById('pool-age'),AGES,editingPool.age,true);
   document.getElementById('p-audio-block').style.display = (editingPool.poolType==='case')?'block':'none';
   renderPoolAudio();
+  document.getElementById('p-images-block').style.display = (editingPool.poolType==='plan')?'block':'none';
+  if(editingPool.poolType==='plan'){ editingPool.images=editingPool.images||[]; renderPoolThumbs(); }
   openSheet('ov-pool');
 }
 function renderPoolAudio(){
@@ -888,6 +897,55 @@ function renderPoolAudio(){
 function addAudioBtn(wrap){
   const add=document.createElement('button'); add.className='btn ghost sm wide';
   add.textContent='＋ 음원 추가'; add.onclick=pickPoolAudio; wrap.appendChild(add);
+}
+/* ---------- 가입설계서 이미지 ---------- */
+async function renderPoolThumbs(){
+  const wrap=document.getElementById('p-thumbs'); if(!wrap) return; wrap.innerHTML='';
+  for(const ref of (editingPool.images||[])){
+    const rec=await idbGet('images',ref);
+    const d=document.createElement('div'); d.className='thumb';
+    if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'"><span class="k">'+(rec.kind||'설계서')+'</span><button class="del" onclick="removePoolImage(event,\''+ref+'\')">×</button>'; }
+    else d.innerHTML='<span class="k">없음</span>';
+    wrap.appendChild(d);
+  }
+  const add=document.createElement('div'); add.className='add-thumb';
+  add.innerHTML='<span style="font-size:22px">＋</span>이미지 추가';
+  add.onclick=pickPoolImage;
+  wrap.appendChild(add);
+}
+function removePoolImage(e,ref){e.stopPropagation(); editingPool.images=(editingPool.images||[]).filter(x=>x!==ref); idbDel('images',ref); renderPoolThumbs();}
+function pickPoolImage(){
+  const inp=document.getElementById('img-input'); inp.value='';
+  inp.onchange=async e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null;
+    for(const f of fs){ await addPoolImageDirect(f); }
+  };
+  inp.click();
+}
+function addPoolImageDirect(file){
+  return new Promise(res=>{
+    const reader=new FileReader();
+    reader.onerror=()=>{alert('사진을 읽지 못했습니다.'); res();};
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>{alert('이미지를 열 수 없습니다. HEIC 등은 JPG로 저장해 올려주세요.'); res();};
+      img.onload=()=>{
+        try{
+          const MAX=1500; let w=img.width,h=img.height;
+          if(Math.max(w,h)>MAX){const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r);}
+          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          cv.toBlob(async(blob)=>{
+            const rid=uid();
+            await idbPut('images',{id:rid,kind:'설계서',blob,created:today()});
+            editingPool.images=editingPool.images||[]; editingPool.images.push(rid);
+            await renderPoolThumbs(); res();
+          },'image/jpeg',0.72);
+        }catch(err){ alert('이미지 처리 중 오류: '+(err&&err.message?err.message:err)); res(); }
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 function pickPoolText(){
   const inp=document.getElementById('txt-input'); inp.value='';
@@ -922,6 +980,7 @@ async function savePool(){
 async function deletePool(){
   if(!editingPool.id||!confirm('삭제할까요?')) return;
   if(editingPool.audio) await idbDel('images',editingPool.audio);
+  for(const ref of (editingPool.images||[])){ await idbDel('images',ref); }
   await idbDel('pools',editingPool.id); pools=await idbAll('pools');
   closeSheet('ov-pool'); renderPools();
 }
@@ -1023,6 +1082,15 @@ function renderAnalysis(){
   if(!id){body.innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>'; return;}
   const c=customers.find(x=>x.id===id);
   const imgN=(c.images||[]).length;
+  // 가입설계서 선택 채우기 (plan 풀이 있을 때만)
+  const plans=pools.filter(p=>p.poolType==='plan');
+  const planLabel=document.getElementById('an-plan-label'), planSel=document.getElementById('an-plan');
+  if(plans.length){
+    planLabel.style.display='block'; planSel.style.display='block';
+    const prev=planSel.value;
+    planSel.innerHTML='<option value="">— 사용 안 함 —</option>'+plans.map(p=>'<option value="'+p.id+'">'+esc(p.title||'(제목 없음)')+((p.images&&p.images.length)?' · 이미지 '+p.images.length:'')+'</option>').join('');
+    planSel.value=prev||'';
+  } else { planLabel.style.display='none'; planSel.style.display='none'; }
   // matched pool cases by shared product/situation tags
   const want=[...(c.product||[]),...(c.situation||[])];
   const matches=pools.filter(p=>p.poolType==='case').map(p=>{
@@ -1059,6 +1127,9 @@ function renderAnalysis(){
   }
   html+='<button class="btn primary wide" style="margin-top:12px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">'+(hasAnalysis?'다시 분석':'분석 실행')+'</button>';
   html+='<div id="an-result" style="margin-top:14px"></div>';
+  html+='<div class="divider"></div><div class="row">'
+    +'<button class="btn ghost sm grow" onclick="saveConsult(\''+c.id+'\')">상담 저장(파일)</button>'
+    +'<button class="btn ghost sm grow" onclick="document.getElementById(\'import-consult\').click()">상담 불러오기</button></div>';
   body.innerHTML=html;
   if(hasAnalysis){ renderResultWithHistory(c, 0); }
 }
@@ -1087,6 +1158,14 @@ async function runAnalysis(id){
   const c=customers.find(x=>x.id===id); if(!c) return;
   if(!(c.coverageText||'').trim()){alert('보장 텍스트가 비어 있어요. 고객 화면에서 OCR 또는 직접 입력으로 채운 뒤 분석하세요.'); return;}
   const box=document.getElementById('an-result'); box.innerHTML='<div class="stage-note">분석 중입니다… 잠시만 기다려 주세요.</div>';
+  // 가입설계서 텍스트 준비 (선택 시 기기 OCR)
+  let planText='', planTitle='';
+  const planSel=document.getElementById('an-plan');
+  const planId=planSel?planSel.value:'';
+  if(planId){
+    const plan=pools.find(p=>p.id===planId);
+    if(plan){ planTitle=plan.title||''; try{ planText=await getPlanText(plan, box); }catch(e){ planText=''; } }
+  }
   const want=[...(c.product||[]),...(c.situation||[])];
   const cases=pools.filter(p=>p.poolType==='case').map(p=>{
     const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
@@ -1094,11 +1173,11 @@ async function runAnalysis(id){
   }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases})});
+      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,planText})});
     const data=await res.json();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[];
-    c.analyses.unshift({date:today(), data});
+    c.analyses.unshift({date:today(), data, planTitle});
     if(c.analyses.length>50) c.analyses=c.analyses.slice(0,50);
     c.analysis=data; c.analysisDate=today();
     await idbPut('customers',c);
@@ -1107,6 +1186,68 @@ async function runAnalysis(id){
   }catch(err){
     box.innerHTML='<div class="stage-note">분석 요청을 보내지 못했습니다. 넷리파이에 배포된 주소에서 열었는지, 인터넷 연결을 확인하세요. (로컬 파일에서는 분석이 동작하지 않습니다)<br><span class="meta">'+esc(err.message||'')+'</span></div>';
   }
+}
+/* 가입설계서 텍스트 확보: 본문 + 이미지 OCR(캐시) */
+async function getPlanText(plan, box){
+  const bodyText=(plan.body||'').trim();
+  const imgs=plan.images||[];
+  if(plan.planText && plan.planTextImgN===imgs.length){
+    return [bodyText, plan.planText].filter(Boolean).join('\n\n');
+  }
+  if(!imgs.length) return bodyText;
+  await ensureTesseract();
+  const parts=[];
+  for(let i=0;i<imgs.length;i++){
+    const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
+    const url=URL.createObjectURL(rec.blob);
+    const r=await Tesseract.recognize(url,'kor+eng',{logger:m=>{
+      if(box){ if(m.status==='recognizing text') box.innerHTML='<div class="stage-note">가입설계서 글자 추출 중 '+(i+1)+'/'+imgs.length+' · '+Math.round((m.progress||0)*100)+'%</div>';
+        else box.innerHTML='<div class="stage-note">가입설계서 '+(i+1)+'/'+imgs.length+' 준비 중…</div>'; }
+    }});
+    URL.revokeObjectURL(url);
+    const t=(r.data.text||'').trim(); if(t) parts.push(t);
+  }
+  const ocr=parts.join('\n\n').trim();
+  plan.planText=ocr; plan.planTextImgN=imgs.length;
+  try{ await idbPut('pools',plan); }catch(e){}
+  return [bodyText, ocr].filter(Boolean).join('\n\n');
+}
+/* 매니저 상담 저장(파일) */
+function saveConsult(id){
+  const c=customers.find(x=>x.id===id); if(!c){alert('고객을 먼저 선택하세요.'); return;}
+  const list=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
+  if(!list.length){alert('저장할 분석 결과가 없습니다. 먼저 분석을 실행하세요.'); return;}
+  const pack={ type:'manager-consult', v:1, exported:today(),
+    customer:{id:c.id,name:c.name,age:c.age,region:c.region,product:c.product||[],situation:c.situation||[],source:c.source||'db',grade:c.grade||''},
+    coverageText:c.coverageText||'', analyses:list };
+  const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='매니저상담_'+(c.name||'고객')+'_'+today()+'.json'; a.click();
+}
+/* 매니저 상담 불러오기(파일) */
+async function importConsult(e){
+  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const pack=JSON.parse(await f.text());
+    if(!pack||pack.type!=='manager-consult'||!pack.customer){alert('올바른 상담 파일이 아닙니다.'); return;}
+    const cu=pack.customer;
+    let c=customers.find(x=>x.id===cu.id)||customers.find(x=>x.name===cu.name);
+    if(!c){
+      if(!confirm('이 고객이 목록에 없습니다. 새 고객으로 만들어 상담 내용을 불러올까요?')) return;
+      c={id:cu.id||uid(), name:cu.name||'(이름없음)', age:cu.age||'', region:cu.region||'', product:cu.product||[], situation:cu.situation||[], source:cu.source||'db', grade:cu.grade||'', seg:'상담', images:[], created:today()};
+    }
+    if(!(c.coverageText||'').trim()) c.coverageText=pack.coverageText||'';
+    const incoming=Array.isArray(pack.analyses)?pack.analyses:[];
+    c.analyses=(c.analyses||[]).concat(incoming);
+    c.analyses.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    if(c.analyses.length>50) c.analyses=c.analyses.slice(0,50);
+    if(c.analyses[0]){ c.analysis=c.analyses[0].data; c.analysisDate=c.analyses[0].date; }
+    await idbPut('customers',c);
+    customers=await idbAll('customers');
+    document.getElementById('an-cust').value=c.id;
+    renderAnalysis();
+    alert('상담 내용을 불러왔습니다.');
+  }catch(err){ alert('불러오기 실패: '+(err&&err.message?err.message:err)); }
 }
 function renderAnalysisResult(d, date){
   const box=document.getElementById('an-result'); let h='';
@@ -1130,6 +1271,18 @@ function renderAnalysisResult(d, date){
   if(d.detail){
     h+='<button class="btn ghost sm wide" onclick="toggleDetail()">자세히 보기 / 접기</button>'
      +'<div id="an-detail" class="card" style="display:none;white-space:pre-wrap;font-size:13.5px;line-height:1.65;color:var(--ink-soft)">'+esc(d.detail)+'</div>';
+  }
+  if(d.gapFill){
+    const g=d.gapFill;
+    const rate=Math.max(0,Math.min(100, Math.round(Number(g.shortfallRate)||0)));
+    const col=rate>=60?'var(--no)':(rate>=30?'var(--hold)':'var(--ok)');
+    h+='<label class="f">가입설계서 반영 · 부족 보장 충족 분석</label><div class="card">';
+    h+='<div class="row" style="align-items:center;margin-bottom:8px"><span style="font-size:14px">잔여 부족율</span><span class="spacer"></span><span style="font-size:24px;font-weight:700;color:'+col+'">'+rate+'%</span></div>';
+    h+='<div style="height:10px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+rate+'%;background:'+col+'"></div></div>';
+    if(g.comment) h+='<div style="font-size:13.5px;line-height:1.6;color:var(--ink-soft);margin-top:10px">'+esc(g.comment)+'</div>';
+    if(g.filled&&g.filled.length){ h+='<div style="margin-top:10px"><div class="meta" style="margin-bottom:4px">설계서가 채운 보장</div>'; g.filled.forEach(x=>{h+='<div class="row" style="padding:3px 0"><span class="badge b-ok" style="min-width:20px;text-align:center">✓</span><span style="font-size:13.5px;margin-left:8px">'+esc(x)+'</span></div>';}); h+='</div>'; }
+    if(g.stillMissing&&g.stillMissing.length){ h+='<div style="margin-top:8px"><div class="meta" style="margin-bottom:4px">아직 더 보장해야 할 항목</div>'; g.stillMissing.forEach(x=>{h+='<div class="row" style="padding:3px 0"><span class="badge b-no" style="min-width:20px;text-align:center">!</span><span style="font-size:13.5px;margin-left:8px">'+esc(x)+'</span></div>';}); h+='</div>'; }
+    h+='</div>';
   }
   h+='<button class="btn primary wide" style="margin-top:10px" onclick="ttsResult()">▶ 분석 결과 음원으로 듣기</button>';
   box.innerHTML=h;
