@@ -31,6 +31,7 @@ export async function onRequestPost(context) {
   const customer = payload.customer || {};
   const coverageText = (payload.coverageText || '').trim();
   const cases = payload.cases || [];
+  const planText = (payload.planText || '').trim();
 
   // 정리(tidy) 모드: OCR 원문을 보장급부·내보장자산으로 구분해 깔끔하게 정돈
   if (payload.mode === 'tidy') {
@@ -98,22 +99,34 @@ export async function onRequestPost(context) {
     ? cases.map((c, i) => '[사례 ' + (i + 1) + '] ' + (c.title || '') + ' (' + (c.result || '-') + ')\n' + (c.body || '').slice(0, 800)).join('\n\n')
     : '(없음)';
 
+  const hasPlan = planText.length > 0;
   const system = [
     '당신은 대한민국 보험 보장분석 전문가입니다. 재무설계사(FP)가 고객 상담을 준비하도록 돕습니다.',
     "주어진 '보장 텍스트'는 고객이 현재 가입한 보장 내용이며 OCR로 추출되어 숫자 오류가 있을 수 있습니다. 텍스트에 적힌 내용만 근거로 분석하세요.",
+    hasPlan ? "'가입설계서'는 이 고객에게 새로 제안하는 설계 내용입니다(OCR 추출). 현재 보장의 부족분을 이 설계서가 얼마나 채우는지 판단하세요." : '',
     '반드시 아래 JSON 형식 하나만 출력하세요. 마크다운, 코드블록, 설명 문장 없이 순수 JSON만 출력합니다.',
     '{',
     '  "summary": "종합 요약 2~3문장",',
     '  "areas": [{"name":"영역명","level":"충분|보통|취약","reason":"한 줄 근거"}],',
     '  "priorities": ["보강 제안 1","보강 제안 2","보강 제안 3"],',
-    '  "detail": "상세 분석. 문단으로 구분하고 최대한 구체적으로."',
+    '  "detail": "상세 분석. 문단으로 구분하고 최대한 구체적으로."' + (hasPlan ? ',' : ''),
+    ...(hasPlan ? [
+    '  "gapFill": {',
+    '    "shortfallRate": 40,',
+    '    "filled": ["가입설계서가 채운 부족 보장 항목"],',
+    '    "stillMissing": ["설계서로도 채워지지 않아 추가로 더 보장해야 할 항목"],',
+    '    "comment": "가입설계서가 현재 부족 보장을 얼마나 채웠는지 종합 설명 2~3문장"',
+    '  }'
+    ] : []),
     '}',
     '규칙:',
     '- 영역은 사망보장, 암·3대진단(암/뇌혈관/허혈성심장), 입원·수술, 실손의료, 간병·치매, 상해·재해 중 텍스트에서 확인되는 것을 다룹니다.',
     "- 텍스트에 관련 담보가 전혀 없으면 그 영역을 '취약'으로 판정하고 reason에 '해당 담보 없음'을 명시합니다.",
     '- 보험료, 해약환급금 등 텍스트에 없는 구체적인 숫자는 지어내지 마세요.',
-    '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.'
-  ].join('\n');
+    '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.',
+    hasPlan ? '- gapFill.shortfallRate는 0~100 사이 정수입니다. 현재 이 고객에게 필요한 전체 보장을 기준으로, 가입설계서를 반영한 뒤에도 여전히 비어 있는 보장의 비율(잔여 부족율)을 뜻합니다. 0이면 완전 충족, 값이 클수록 부족합니다.' : '',
+    hasPlan ? '- filled에는 설계서가 새로 채운 보장을, stillMissing에는 설계서를 반영해도 여전히 부족해 더 보완해야 할 보장을 구체적으로 적으세요. 근거 없는 항목은 넣지 마세요.' : ''
+  ].filter(Boolean).join('\n');
 
   const user = [
     '# 고객 정보',
@@ -124,6 +137,7 @@ export async function onRequestPost(context) {
     '# 보장 텍스트 (현재 가입 내용)',
     coverageText,
     '',
+    ...(hasPlan ? ['# 가입설계서 (새로 제안하는 설계 · OCR 추출)', planText, ''] : []),
     '# 참고할 과거 상담사례',
     caseText
   ].join('\n');
