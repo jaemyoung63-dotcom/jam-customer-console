@@ -364,7 +364,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 /* ---------- 상태 ---------- */
 let customers=[], pools=[], curScreen='customers';
 let lastAnalysis=null;
-const ANALYZE_URL='/.netlify/functions/analyze';
+const ANALYZE_URL='/api/analyze';
 let editingCust=null, editingPool=null, poolType='case';
 let custFilter={seg:'전체', src:'전체'};
 let poolFilter=[];
