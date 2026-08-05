@@ -105,6 +105,8 @@
   .result-box{border:1px solid var(--line); border-radius:14px; padding:14px; min-height:90px; max-height:210px; overflow:auto; white-space:pre-wrap; font-size:13.5px; line-height:1.65; color:var(--ink-soft); background:var(--paper); cursor:pointer;}
   .result-box:active{background:#EAF4FF;}
   .btn.result-ready{background:linear-gradient(150deg,#1E86F0,#0A55B8); color:#fff; font-weight:700; box-shadow:0 6px 16px rgba(14,114,224,.28);}
+  .btn-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
+  .btn-grid .btn{width:100%; margin-top:0;}
 
   .row{display:flex; gap:8px; align-items:center;}
   .grow{flex:1;}
@@ -237,6 +239,7 @@
 
   <!-- ===== 풀 관리 ===== -->
   <div class="screen" id="s-pools">
+    <div id="cost-meter" style="margin-bottom:14px"></div>
     <div class="seg-toggle">
       <button id="pt-case" class="on" onclick="setPoolType('case')">상담사례 풀</button>
     </div>
@@ -252,9 +255,8 @@
 
   <!-- ===== 분석 ===== -->
   <div class="screen" id="s-analysis">
-    <div id="cost-meter" style="margin-bottom:14px"></div>
     <label class="f">분석할 고객</label>
-    <select class="t" id="an-cust" onchange="renderAnalysis()"></select>
+    <select class="t" id="an-cust" onchange="onAnCust()"></select>
     <div id="an-body"></div>
   </div>
 
@@ -381,6 +383,18 @@
       <button class="btn ghost sm" onclick="applyCoveragePopup()">닫기</button></div>
     <textarea class="t" id="c-coverage-full" style="min-height:64vh;font-size:14px;line-height:1.7"></textarea>
     <button class="btn primary wide" style="margin-top:10px" onclick="applyCoveragePopup()">적용하고 닫기</button>
+  </div>
+</div>
+
+<!-- ===== 팝업: 분석 결과 서브페이지 ===== -->
+<div class="overlay" id="ov-subpage">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="row"><h2 id="subpage-title">결과</h2><span class="spacer"></span>
+      <button class="btn ghost sm" onclick="closeSheet('ov-subpage')">닫기</button></div>
+    <div id="subpage-body"></div>
+    <div class="divider"></div>
+    <button class="btn primary wide" onclick="closeSheet('ov-subpage')">닫기</button>
   </div>
 </div>
 
@@ -984,6 +998,7 @@ function setPoolType(t){
   renderPools();
 }
 function renderPools(){
+  renderCostMeter();
   header('참조 풀', poolType==='case'?'상담사례를 쌓아 분석에 활용':'가입설계서를 쌓아 제안에 활용');
   const items=pools.filter(p=>p.poolType===poolType);
   // filter chips = union of product tags
@@ -1223,6 +1238,9 @@ function fillAnalysisSelect(){
   customers.forEach(c=>{const o=document.createElement('option'); o.value=c.id; o.textContent=c.name+(c.region?' · '+c.region:''); sel.appendChild(o);});
   document.getElementById('an-body').innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>';
 }
+let anStep=1;
+function anStepGo(n){ anStep=n; renderAnalysis(); }
+function onAnCust(){ anStep=1; renderAnalysis(); }
 function renderAnalysis(){
   const id=document.getElementById('an-cust').value;
   const body=document.getElementById('an-body');
@@ -1235,56 +1253,52 @@ function renderAnalysis(){
     const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
     return {p,overlap};
   }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
-
-  let html='<div class="card"><div class="row" style="margin-bottom:8px;"><span class="name">'+esc(c.name)+'</span><span class="spacer"></span>'
-    +(c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>')+'</div>'
-    +'<div class="kv"><span class="k">연령 / 지역</span><span>'+(c.age||'-')+' · '+(esc(c.region)||'-')+'</span></div>'
-    +'<div class="kv"><span class="k">상품 관심</span><span>'+((c.product||[]).join(', ')||'-')+'</span></div>'
-    +'<div class="kv"><span class="k">상담 상황</span><span>'+((c.situation||[]).join(', ')||'-')+'</span></div>'
-    +'<div class="kv"><span class="k">보장 자료</span><span>'+(imgN?'이미지 '+imgN+'장':'없음')+'</span></div>'
-    +'</div>';
-
-  html+='<label class="f">유사 상담사례 매칭 ('+matches.length+')</label>';
-  if(matches.length){ matches.forEach(m=>{
-    const rc=RESULTS.find(r=>r[0]===m.p.result);
-    html+='<div class="card"><div class="row"><span class="name" style="font-size:14px">'+esc(m.p.title)+'</span><span class="spacer"></span>'
-      +(m.p.result?'<span class="badge b-'+(rc?rc[1]:'hold')+'">'+m.p.result+'</span>':'')+'</div>'
-      +'<div class="meta" style="margin-top:5px;">공통 태그 '+m.overlap+'개</div></div>';
-  });} else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조 풀에 사례를 쌓을수록 매칭이 정확해집니다.</div>'; }
-
-  // ① 보장 분석
-  html+='<div class="divider"></div><label class="f">① 보장 분석 <span style="font-weight:400;color:var(--ink-mute)">· 보장급부·내보장자산·기타 + 상담사례 (약 2000자)</span></label>';
-  const hasText=(c.coverageText||'').trim().length>0;
   const alist=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
   const hasAnalysis=alist.length>0;
-  if(!hasText){
-    html+='<div class="stage-note">보장 텍스트가 아직 없습니다. 고객 화면에서 이미지 OCR 또는 직접 입력으로 보장 내용을 채운 뒤 분석하세요.</div>';
-  } else if(hasAnalysis){
-    html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc(alist[0].date||'')+' · 총 '+alist.length+'회). 다시 실행하면 기록에 추가되고 비용이 한 번 더 듭니다.</div>';
-  } else {
-    html+='<div class="stage-note">보장 텍스트와 상담사례를 함께 분석해 약 2000자로 정리합니다. 이미지는 전송하지 않고 텍스트만 보냅니다.</div>';
-  }
-  html+='<button class="btn primary wide" style="margin-top:10px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">'+(hasAnalysis?'다시 보장 분석':'보장 분석 실행')+'</button>';
-  html+='<div id="an-result" style="margin-top:14px"></div>';
-
-  // ② 가입설계
-  html+='<div class="divider"></div><label class="f">② 가입설계 <span style="font-weight:400;color:var(--ink-mute)">· 부족 보장 보완·추가 제안 (약 2000자)</span></label>';
-  html+='<label class="f" style="font-weight:400;color:var(--ink-mute);margin-top:4px">가입설계서 이미지 · 여러 장 등록</label>';
-  html+='<div class="thumbs" id="an-plan-thumbs"></div>';
+  const hasText=(c.coverageText||'').trim().length>0;
   const palist=(c.planAnalyses&&c.planAnalyses.length)?c.planAnalyses:[];
-  const canPlan=hasAnalysis && (c.planImages&&c.planImages.length);
-  html+='<button class="btn primary wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'다시 가입설계 분석':'가입설계 실행')+'</button>';
-  if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">※ 먼저 ① 보장 분석을 실행하세요.</div>';
-  else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">※ 가입설계서 이미지를 먼저 등록하세요.</div>';
-  html+='<div id="an-plan-result" style="margin-top:14px"></div>';
 
-  html+='<div class="divider"></div><div class="row">'
-    +'<button class="btn ghost sm grow" onclick="saveConsult(\''+c.id+'\')">상담 저장(파일)</button>'
-    +'<button class="btn ghost sm grow" onclick="document.getElementById(\'import-consult\').click()">상담 불러오기</button></div>';
+  let html='<div class="stepbar">'
+    +'<span class="stepdot'+(anStep===1?' on':' done')+'">1</span><span class="stepline"></span>'
+    +'<span class="stepdot'+(anStep===2?' on':'')+'">2</span></div>'
+    +'<div class="meta" style="margin:-8px 0 12px 2px">'+(anStep===1?'① 상담사례 매칭 보장분석':'② 가입설계')+'</div>';
+
+  if(anStep===1){
+    html+='<div class="card"><div class="row" style="margin-bottom:8px;"><span class="name">'+esc(c.name)+'</span><span class="spacer"></span>'
+      +(c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>')+'</div>'
+      +'<div class="kv"><span class="k">연령 / 지역</span><span>'+(c.age||'-')+' · '+(esc(c.region)||'-')+'</span></div>'
+      +'<div class="kv"><span class="k">상품 관심</span><span>'+((c.product||[]).join(', ')||'-')+'</span></div>'
+      +'<div class="kv"><span class="k">상담 상황</span><span>'+((c.situation||[]).join(', ')||'-')+'</span></div>'
+      +'<div class="kv"><span class="k">보장 자료</span><span>'+(imgN?'이미지 '+imgN+'장':'없음')+'</span></div></div>';
+    html+='<label class="f">유사 상담사례 매칭 ('+matches.length+')</label>';
+    if(matches.length){ matches.forEach(m=>{
+      const rc=RESULTS.find(r=>r[0]===m.p.result);
+      html+='<div class="card"><div class="row"><span class="name" style="font-size:14px">'+esc(m.p.title)+'</span><span class="spacer"></span>'
+        +(m.p.result?'<span class="badge b-'+(rc?rc[1]:'hold')+'">'+m.p.result+'</span>':'')+'</div>'
+        +'<div class="meta" style="margin-top:5px;">공통 태그 '+m.overlap+'개</div></div>';
+    });} else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조 풀에 사례를 쌓을수록 매칭이 정확해집니다.</div>'; }
+    html+='<div class="divider"></div>';
+    if(!hasText) html+='<div class="stage-note">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
+    else if(hasAnalysis) html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc(alist[0].date||'')+' · 총 '+alist.length+'회). 다시 실행하면 비용이 한 번 더 듭니다.</div>';
+    else html+='<div class="stage-note">보장급부·내보장자산·기타 + 상담사례를 함께 분석해 약 2000자로 정리합니다.</div>';
+    html+='<button class="btn '+(hasAnalysis?'result-ready':'primary')+' wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">'+(hasAnalysis?'✓ 보장분석 완료 · 다시 분석':'상담사례 매칭 보장분석')+'</button>';
+    html+='<div id="an-result" style="margin-top:14px"></div>';
+    html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(2)">다음: 가입설계 ›</button>';
+    html+='<div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="saveConsult(\''+c.id+'\')">상담 저장(파일)</button><button class="btn ghost sm grow" onclick="document.getElementById(\'import-consult\').click()">상담 불러오기</button></div>';
+  } else {
+    html+='<button class="btn ghost sm" onclick="anStepGo(1)">‹ 이전 (보장분석)</button>';
+    html+='<label class="f" style="margin-top:12px">가입설계서 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 여러 장 등록</span></label>';
+    html+='<div class="thumbs" id="an-plan-thumbs"></div>';
+    const canPlan=hasAnalysis && (c.planImages&&c.planImages.length);
+    html+='<button class="btn '+(palist.length?'result-ready':'primary')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'✓ 가입설계 분석 완료 · 다시 분석':'가입설계 분석 실행')+'</button>';
+    if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">※ 먼저 ① 보장분석을 실행하세요.</div>';
+    else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">※ 가입설계서 이미지를 먼저 등록하세요.</div>';
+    html+='<div id="an-plan-result" style="margin-top:14px"></div>';
+  }
   body.innerHTML=html;
-  renderAnPlanThumbs(c);
-  if(hasAnalysis){ renderResultWithHistory(c, 0); }
-  if(palist.length){ renderPlanResult(palist[0].data, palist[0].date); }
+  if(anStep===2) renderAnPlanThumbs(c);
+  if(anStep===1 && hasAnalysis) renderResultWithHistory(c, 0);
+  if(anStep===2 && palist.length) renderPlanResult(palist[0].data, palist[0].date);
 }
 /* ---------- 가입설계서 이미지 (고객별) ---------- */
 async function renderAnPlanThumbs(c){
@@ -1405,7 +1419,7 @@ async function runPlanAnalysis(id){
     if(c.planAnalyses.length>50) c.planAnalyses=c.planAnalyses.slice(0,50);
     await idbPut('customers',c);
     const lc=addUsage(data._usage,'가입설계 분석');
-    renderPlanResult(data, today()); renderCostMeter(lc);
+    renderAnalysis(); renderCostMeter(lc);
   }catch(err){
     box.innerHTML='<div class="stage-note">가입설계 분석 요청 실패: <span class="meta">'+esc(err.message||'')+'</span></div>';
   }
@@ -1473,48 +1487,64 @@ async function importConsult(e){
   }catch(err){ alert('불러오기 실패: '+(err&&err.message?err.message:err)); }
 }
 function renderAnalysisResult(d, date){
-  const box=document.getElementById('an-result'); let h='';
+  const box=document.getElementById('an-result'); if(!box) return; lastAnalysis=d; let h='';
   if(date) h+='<div class="meta" style="margin:0 2px 8px">분석일 '+esc(date)+'</div>';
   if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.6;color:var(--ink-soft)">'+esc(d.summary)+'</div></div>';
-  if(d.areas&&d.areas.length){
-    h+='<label class="f">영역별 판정</label><div class="card" style="padding:0;overflow:hidden">';
-    d.areas.forEach((a,i)=>{
-      const lv=a.level||''; const cls=lv==='충분'?'ok':(lv==='보통'?'hold':'no'); const col=lv==='충분'?'var(--ok)':(lv==='보통'?'var(--hold)':'var(--no)');
-      h+='<div style="display:flex;gap:10px;padding:11px 13px;border-left:3px solid '+col+';'+(i<d.areas.length-1?'border-bottom:1px solid var(--line);':'')+'">'
-        +'<div style="flex:1"><div style="font-size:14px">'+esc(a.name||'')+'</div><div class="meta" style="margin-top:2px">'+esc(a.reason||'')+'</div></div>'
-        +'<span class="badge b-'+cls+'" style="align-self:flex-start">'+esc(lv)+'</span></div>';
-    });
-    h+='</div>';
-  }
-  if(d.priorities&&d.priorities.length){
-    h+='<label class="f">보강 우선순위</label><div class="card">';
-    d.priorities.forEach((p,i)=>{h+='<div class="row" style="padding:7px 0;'+(i<d.priorities.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:22px;text-align:center">'+(i+1)+'</span><span style="font-size:14px;margin-left:9px">'+esc(p)+'</span></div>';});
-    h+='</div>';
-  }
-  if(d.detail){
-    h+='<label class="f">상세 보장 분석</label>';
-    h+='<div class="card" style="white-space:pre-wrap;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">'+esc(d.detail)+'</div>';
-  }
-  h+='<button class="btn primary wide" style="margin-top:10px" onclick="ttsResult()">▶ 보장 분석 음원으로 듣기</button>';
+  h+='<div class="btn-grid">';
+  if(d.areas&&d.areas.length) h+='<button class="btn ghost" onclick="showAreas()">영역별 판정</button>';
+  if(d.priorities&&d.priorities.length) h+='<button class="btn ghost" onclick="showPriorities()">보강 우선순위</button>';
+  if(d.detail) h+='<button class="btn ghost" onclick="showDetail()">상세 보장분석</button>';
+  h+='<button class="btn primary" onclick="ttsResult()">▶ 음원으로 듣기</button>';
+  h+='</div>';
   box.innerHTML=h;
 }
+function showAreas(){
+  const d=lastAnalysis||{}; let h='';
+  (d.areas||[]).forEach((a,i,arr)=>{
+    const lv=a.level||''; const cls=lv==='충분'?'ok':(lv==='보통'?'hold':'no'); const col=lv==='충분'?'var(--ok)':(lv==='보통'?'var(--hold)':'var(--no)');
+    h+='<div style="display:flex;gap:10px;padding:12px 4px;border-left:3px solid '+col+';padding-left:12px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'">'
+      +'<div style="flex:1"><div style="font-size:15px">'+esc(a.name||'')+'</div><div class="meta" style="margin-top:3px">'+esc(a.reason||'')+'</div></div>'
+      +'<span class="badge b-'+cls+'" style="align-self:flex-start">'+esc(lv)+'</span></div>';
+  });
+  openSubPage('영역별 판정', h||'<div class="stage-note">내용이 없습니다.</div>');
+}
+function showPriorities(){
+  const d=lastAnalysis||{}; let h='';
+  (d.priorities||[]).forEach((p,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+esc(p)+'</span></div>';});
+  openSubPage('보강 우선순위', h||'<div class="stage-note">내용이 없습니다.</div>');
+}
+function showDetail(){
+  const d=lastAnalysis||{};
+  openSubPage('상세 보장분석', '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink-soft)">'+esc(d.detail||'')+'</div>');
+}
+function openSubPage(title, html){
+  document.getElementById('subpage-title').textContent=title;
+  document.getElementById('subpage-body').innerHTML=html;
+  openSheet('ov-subpage');
+  const sh=document.querySelector('#ov-subpage .sheet'); if(sh) sh.scrollTop=0;
+}
+let lastPlan=null;
 function renderPlanResult(d, date){
-  const box=document.getElementById('an-plan-result'); if(!box) return; let h='';
+  const box=document.getElementById('an-plan-result'); if(!box) return; lastPlan=d; let h='';
   if(date) h+='<div class="meta" style="margin:0 2px 8px">가입설계 분석일 '+esc(date)+'</div>';
   const rate=Math.max(0,Math.min(100, Math.round(Number(d.shortfallRate)||0)));
   const col=rate>=60?'var(--no)':(rate>=30?'var(--hold)':'var(--ok)');
-  h+='<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><span style="font-size:14px">잔여 부족율</span><span class="spacer"></span><span style="font-size:24px;font-weight:700;color:'+col+'">'+rate+'%</span></div>';
-  h+='<div style="height:10px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+rate+'%;background:'+col+'"></div></div></div>';
-  if(d.recommend&&d.recommend.length){
-    h+='<label class="f">보완·추가 제안</label><div class="card">';
-    d.recommend.forEach((x,i)=>{h+='<div class="row" style="padding:7px 0;'+(i<d.recommend.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:22px;text-align:center">'+(i+1)+'</span><span style="font-size:14px;margin-left:9px">'+esc(x)+'</span></div>';});
-    h+='</div>';
-  }
-  if(d.planDetail){
-    h+='<label class="f">가입설계 분석</label>';
-    h+='<div class="card" style="white-space:pre-wrap;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">'+esc(d.planDetail)+'</div>';
-  }
+  h+='<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><span style="font-size:14px">잔여 부족율</span><span class="spacer"></span><span style="font-size:26px;font-weight:700;color:'+col+'">'+rate+'%</span></div>';
+  h+='<div style="height:12px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+rate+'%;background:'+col+'"></div></div></div>';
+  h+='<div class="btn-grid">';
+  if(d.recommend&&d.recommend.length) h+='<button class="btn ghost" onclick="showRecommend()">보완·추가 제안</button>';
+  if(d.planDetail) h+='<button class="btn primary" onclick="showPlanDetail()">가입설계 분석</button>';
+  h+='</div>';
   box.innerHTML=h;
+}
+function showRecommend(){
+  const d=lastPlan||{}; let h='';
+  (d.recommend||[]).forEach((x,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+esc(x)+'</span></div>';});
+  openSubPage('보완·추가 제안', h||'<div class="stage-note">내용이 없습니다.</div>');
+}
+function showPlanDetail(){
+  const d=lastPlan||{};
+  openSubPage('가입설계 분석', '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink-soft)">'+esc(d.planDetail||'')+'</div>');
 }
 function toggleDetail(){const e=document.getElementById('an-detail'); if(e) e.style.display=e.style.display==='none'?'block':'none';}
 function ttsResult(){
