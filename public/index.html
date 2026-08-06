@@ -107,6 +107,7 @@
   .btn.result-ready{background:linear-gradient(150deg,#1E86F0,#0A55B8); color:#fff; font-weight:700; box-shadow:0 6px 16px rgba(14,114,224,.28);}
   .btn-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
   .btn-grid .btn{width:100%; margin-top:0;}
+  .thumbs.drag-over{outline:2px dashed var(--accent); outline-offset:3px; border-radius:12px; background:#EAF4FF;}
 
   .row{display:flex; gap:8px; align-items:center;}
   .grow{flex:1;}
@@ -242,6 +243,8 @@
     <div id="cost-meter" style="margin-bottom:14px"></div>
     <div class="seg-toggle">
       <button id="pt-case" class="on" onclick="setPoolType('case')">상담사례 풀</button>
+      <button id="pt-episode" onclick="setPoolType('episode')">에피소드 풀</button>
+      <button id="pt-catalog" onclick="setPoolType('catalog')">상품카달로그 풀</button>
     </div>
     <div class="chips" id="pool-filter" style="margin-bottom:14px;"></div>
     <div id="pool-list"></div>
@@ -443,7 +446,7 @@
       <div id="p-audio"></div>
     </div>
     <div id="p-images-block" style="display:none;">
-      <label class="f">가입설계서 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 사진 그대로 여러 장</span></label>
+      <label class="f">상품카달로그 자료 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 사진 그대로 여러 장 (드래그&드롭 가능)</span></label>
       <div class="thumbs" id="p-thumbs" style="margin-top:8px"></div>
     </div>
     <div class="divider"></div>
@@ -678,6 +681,16 @@ function onBirth6(){
   }
 }
 function toggleImageBlock(){ /* DB·지인 동일 포맷 — 이미지/보장 단계 항상 표시 */ }
+function enableDrop(el, onFile){
+  if(!el||el._dropReady) return; el._dropReady=true;
+  el.addEventListener('dragover',e=>{e.preventDefault(); el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',async e=>{
+    e.preventDefault(); el.classList.remove('drag-over');
+    const files=(e.dataTransfer&&e.dataTransfer.files)?Array.from(e.dataTransfer.files):[];
+    for(const f of files){ if(f.type&&f.type.indexOf('image')===0) await onFile(f); }
+  });
+}
 async function renderThumbs(){
   const wrap=document.getElementById('c-thumbs'); if(!wrap) return; wrap.innerHTML='';
   for(const ref of (editingCust.images||[])){
@@ -691,6 +704,7 @@ async function renderThumbs(){
   add.innerHTML='<span style="font-size:22px">＋</span>이미지 추가';
   add.onclick=pickImage;
   wrap.appendChild(add);
+  enableDrop(wrap, addImageDirect);
 }
 function removeImage(e,ref){e.stopPropagation(); editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}
 
@@ -994,14 +1008,16 @@ async function importCustomers(e){
 /* =========================================================
    참조 풀 (3단계 기반)
 ========================================================= */
+const POOL_LABEL={case:['상담사례','상담사례를 쌓아 분석에 활용','등록된 사례가 없어요'],episode:['에피소드','설득·공감 에피소드를 쌓아 제안에 활용','등록된 에피소드가 없어요'],catalog:['상품카달로그','상품 자료를 올려 보장·가입설계 분석에 참조','등록된 카달로그가 없어요']};
 function setPoolType(t){
-  poolType='case'; poolFilter=[];
-  const pc=document.getElementById('pt-case'); if(pc) pc.classList.add('on');
+  poolType=(t==='episode'||t==='catalog')?t:'case'; poolFilter=[];
+  ['case','episode','catalog'].forEach(k=>{const b=document.getElementById('pt-'+k); if(b) b.classList.toggle('on',k===poolType);});
   renderPools();
 }
 function renderPools(){
   renderCostMeter();
-  header('참조 풀', poolType==='case'?'상담사례를 쌓아 분석에 활용':'가입설계서를 쌓아 제안에 활용');
+  const L=POOL_LABEL[poolType]||POOL_LABEL.case;
+  header('참조 풀', L[1]);
   const items=pools.filter(p=>p.poolType===poolType);
   // filter chips = union of product tags
   const allTags=[...new Set(items.flatMap(p=>p.product||[]))];
@@ -1014,7 +1030,7 @@ function renderPools(){
   if(poolFilter.length) list=list.filter(p=>poolFilter.every(t=>(p.product||[]).includes(t)));
 
   const wrap=document.getElementById('pool-list');
-  if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+(poolType==='case'?'등록된 사례가 없어요':'등록된 설계서가 없어요')+'</div>+ 버튼으로 추가하세요.</div>'; return; }
+  if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>+ 버튼으로 추가하세요.</div>'; return; }
   let html='';
   list.forEach(p=>{
     let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
@@ -1029,7 +1045,8 @@ function renderPools(){
 function openPool(id){
   const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,product:[],situation:[],age:[],free:[],result:'',audio:null,images:[]};
   editingPool=JSON.parse(JSON.stringify(p));
-  document.getElementById('pool-title').textContent = id?'항목 편집':(poolType==='case'?'사례 등록':'설계서 등록');
+  const L=POOL_LABEL[poolType]||POOL_LABEL.case;
+  document.getElementById('pool-title').textContent = id?'항목 편집':(L[0]+' 등록');
   document.getElementById('p-delete').style.display=id?'flex':'none';
   document.getElementById('p-result-block').style.display = (editingPool.poolType==='case')?'block':'none';
   document.getElementById('p-title').value=p.title||'';
@@ -1041,8 +1058,8 @@ function openPool(id){
   chipGroup(document.getElementById('pool-age'),AGES,editingPool.age,true);
   document.getElementById('p-audio-block').style.display = (editingPool.poolType==='case')?'block':'none';
   renderPoolAudio();
-  document.getElementById('p-images-block').style.display = (editingPool.poolType==='plan')?'block':'none';
-  if(editingPool.poolType==='plan'){ editingPool.images=editingPool.images||[]; renderPoolThumbs(); }
+  document.getElementById('p-images-block').style.display = (editingPool.poolType==='catalog')?'block':'none';
+  if(editingPool.poolType==='catalog'){ editingPool.images=editingPool.images||[]; renderPoolThumbs(); }
   openSheet('ov-pool');
 }
 function renderPoolAudio(){
@@ -1076,6 +1093,7 @@ async function renderPoolThumbs(){
   add.innerHTML='<span style="font-size:22px">＋</span>이미지 추가';
   add.onclick=pickPoolImage;
   wrap.appendChild(add);
+  enableDrop(wrap, addPoolImageDirect);
 }
 function removePoolImage(e,ref){e.stopPropagation(); editingPool.images=(editingPool.images||[]).filter(x=>x!==ref); idbDel('images',ref); renderPoolThumbs();}
 function pickPoolImage(){
@@ -1240,6 +1258,20 @@ function fillAnalysisSelect(){
   customers.forEach(c=>{const o=document.createElement('option'); o.value=c.id; o.textContent=c.name+(c.region?' · '+c.region:''); sel.appendChild(o);});
   document.getElementById('an-body').innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>';
 }
+const ANALYSIS_AREAS=['실손','치매','간병','연금','종신','건강','암','정기'];
+async function toggleAnArea(id,kind,area){
+  const c=customers.find(x=>x.id===id); if(!c) return;
+  const key=kind==='focus'?'focusAreas':'excludeAreas';
+  c[key]=c[key]||[]; const i=c[key].indexOf(area);
+  if(i>=0){ c[key].splice(i,1); }
+  else { c[key].push(area); const other=kind==='focus'?'excludeAreas':'focusAreas'; c[other]=(c[other]||[]).filter(x=>x!==area); }
+  await idbPut('customers',c); renderAnalysis();
+}
+async function toggleCatalog(id){
+  const c=customers.find(x=>x.id===id); if(!c) return;
+  c.useCatalog = (c.useCatalog===false);
+  await idbPut('customers',c); renderAnalysis();
+}
 let anStep=1;
 function anStepGo(n){ anStep=n; renderAnalysis(); }
 function onAnCust(){ anStep=1; renderAnalysis(); }
@@ -1280,7 +1312,13 @@ function renderAnalysis(){
         +'<div class="meta" style="margin-top:5px;">공통 태그 '+m.overlap+'개</div></div>';
     });} else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조 풀에 사례를 쌓을수록 매칭이 정확해집니다.</div>'; }
     html+='<div class="divider"></div>';
-    if(!hasText) html+='<div class="stage-note">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
+    c.focusAreas=c.focusAreas||[]; c.excludeAreas=c.excludeAreas||[]; if(c.useCatalog===undefined) c.useCatalog=true;
+    html+='<label class="f">보장분석 옵션 <span style="font-weight:400;color:var(--ink-mute)">· 고객별</span></label>';
+    html+='<div class="meta" style="margin:2px 0 4px">집중 분석(포함)</div><div class="chips">'+ANALYSIS_AREAS.map(a=>'<span class="chip'+(c.focusAreas.includes(a)?' on':'')+'" onclick="toggleAnArea(\''+c.id+'\',\'focus\',\''+a+'\')">'+a+'</span>').join('')+'</div>';
+    html+='<div class="meta" style="margin:8px 0 4px">제외</div><div class="chips">'+ANALYSIS_AREAS.map(a=>'<span class="chip'+(c.excludeAreas.includes(a)?' on':'')+'" onclick="toggleAnArea(\''+c.id+'\',\'exclude\',\''+a+'\')">'+a+'</span>').join('')+'</div>';
+    const catN=pools.filter(p=>p.poolType==='catalog').length;
+    html+='<div class="row" style="margin-top:10px;align-items:center"><span style="font-size:13.5px">상품 카달로그 참조 '+(catN?'('+catN+'개)':'(등록 없음)')+'</span><span class="spacer"></span><button class="btn '+(c.useCatalog!==false?'primary':'ghost')+' sm" onclick="toggleCatalog(\''+c.id+'\')">'+(c.useCatalog!==false?'참조 ON':'참조 OFF')+'</button></div>';
+    if(!hasText) html+='<div class="stage-note" style="margin-top:10px">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
     else if(hasAnalysis) html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc(alist[0].date||'')+' · 총 '+alist.length+'회). 다시 실행하면 비용이 한 번 더 듭니다.</div>';
     else html+='<div class="stage-note">보장급부·내보장자산·기타 + 상담사례를 함께 분석해 약 2000자로 정리합니다.</div>';
     html+='<button class="btn '+(hasAnalysis?'result-ready':'primary')+' wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">'+(hasAnalysis?'✓ 보장분석 완료 · 다시 분석':'상담사례 매칭 보장분석')+'</button>';
@@ -1316,6 +1354,7 @@ async function renderAnPlanThumbs(c){
   const add=document.createElement('div'); add.className='add-thumb';
   add.innerHTML='<span style="font-size:22px">＋</span>이미지 추가'; add.onclick=()=>pickAnPlanImage(c.id);
   wrap.appendChild(add);
+  enableDrop(wrap, f=>addAnPlanImageDirect(c.id,f));
 }
 async function removeAnPlanImage(id,ref){
   const c=customers.find(x=>x.id===id); if(!c) return;
@@ -1387,9 +1426,11 @@ async function runAnalysis(id){
     const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
     return {overlap,title:p.title,result:p.result,body:p.body};
   }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
+  let catalogText=''; if(c.useCatalog!==false){ try{ catalogText=await getCatalogText(box); }catch(e){} }
+  box.innerHTML='<div class="stage-note">보장 분석 중입니다… 잠시만 기다려 주세요.</div>';
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases})});
+      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,catalogText,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[]})});
     const data=await res.json();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[]; c.analyses.unshift({date:today(), data});
@@ -1412,10 +1453,12 @@ async function runPlanAnalysis(id){
   let planText='';
   try{ planText=await getCustPlanText(c, box); }catch(e){ planText=''; }
   if(!planText.trim()){ box.innerHTML='<div class="stage-note">설계서 사진에서 글자를 추출하지 못했습니다. 더 선명한 사진을 등록해 주세요.</div>'; return; }
+  const episodesText=getEpisodesText(c);
+  let catalogText=''; if(c.useCatalog!==false){ try{ catalogText=await getCatalogText(box); }catch(e){} }
   box.innerHTML='<div class="stage-note">가입설계 분석 중입니다…</div>';
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planText})});
+      body:JSON.stringify({mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planText, episodesText, catalogText})});
     const data=await res.json();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({date:today(), data});
@@ -1446,6 +1489,44 @@ async function getCustPlanText(c, box){
   const ocr=parts.join('\n\n').trim();
   c.planText=ocr; c.planTextImgN=imgs.length; try{ await idbPut('customers',c); }catch(e){}
   return ocr;
+}
+/* 상품카달로그 참조 텍스트 (이미지 OCR, 풀에 캐시) */
+async function getCatalogText(box){
+  const cats=pools.filter(p=>p.poolType==='catalog');
+  if(!cats.length) return '';
+  const parts=[];
+  for(const cat of cats){
+    let t='['+(cat.title||'카달로그')+']'; if(cat.body) t+='\n'+cat.body;
+    const imgs=cat.images||[];
+    if(imgs.length){
+      if(!(cat.catText && cat.catTextImgN===imgs.length)){
+        await ensureTesseract();
+        const ps=[];
+        for(let i=0;i<imgs.length;i++){
+          const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
+          if(box) box.innerHTML='<div class="stage-note">상품 카달로그 글자 추출 중 '+esc(cat.title||'')+' '+(i+1)+'/'+imgs.length+'…</div>';
+          const url=URL.createObjectURL(rec.blob);
+          const r=await Tesseract.recognize(url,'kor+eng',{});
+          URL.revokeObjectURL(url);
+          const x=(r.data.text||'').trim(); if(x) ps.push(x);
+        }
+        cat.catText=ps.join('\n'); cat.catTextImgN=imgs.length; try{ await idbPut('pools',cat); }catch(e){}
+      }
+      if(cat.catText) t+='\n'+cat.catText;
+    }
+    parts.push(t);
+  }
+  return parts.join('\n\n---\n\n').slice(0,6000);
+}
+/* 에피소드 참조 텍스트 (고객 태그와 매칭 상위 4) */
+function getEpisodesText(c){
+  const want=[...(c.product||[]),...(c.situation||[])];
+  const eps=pools.filter(p=>p.poolType==='episode').map(p=>{
+    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
+    return {p,overlap};
+  }).sort((a,b)=>b.overlap-a.overlap).slice(0,4);
+  if(!eps.length) return '';
+  return eps.map(m=>'['+(m.p.title||'에피소드')+'] '+((m.p.body||'').slice(0,500))).join('\n\n');
 }
 /* 매니저 상담 저장(파일) */
 function saveConsult(id){
