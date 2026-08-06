@@ -1567,10 +1567,20 @@ function renderPlanResult(d, date){
   h+='<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><span style="font-size:14px">잔여 부족율</span><span class="spacer"></span><span style="font-size:26px;font-weight:700;color:'+col+'">'+rate+'%</span></div>';
   h+='<div style="height:12px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+rate+'%;background:'+col+'"></div></div></div>';
   h+='<div class="btn-grid">';
+  if(d.difference) h+='<button class="btn ghost" onclick="showDifference()">핵심 차이(전/후)</button>';
   if(d.recommend&&d.recommend.length) h+='<button class="btn ghost" onclick="showRecommend()">보완·추가 제안</button>';
+  if(d.afterPlanGaps) h+='<button class="btn ghost" onclick="showAfterGaps()">가입설계 이후 보완</button>';
   if(d.planDetail) h+='<button class="btn primary" onclick="showPlanDetail()">가입설계 분석</button>';
   h+='</div>';
   box.innerHTML=h;
+}
+function showDifference(){
+  const d=lastPlan||{};
+  openSubPage('보장분석 vs 가입설계 · 핵심 차이', '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink-soft)">'+esc(d.difference||'')+'</div>');
+}
+function showAfterGaps(){
+  const d=lastPlan||{};
+  openSubPage('가입설계 이후 추가 보완', '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink-soft)">'+esc(d.afterPlanGaps||'')+'</div>');
 }
 function showRecommend(){
   const d=lastPlan||{}; let h='';
