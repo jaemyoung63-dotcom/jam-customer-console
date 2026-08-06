@@ -32,6 +32,9 @@ export async function onRequestPost(context) {
   const coverageText = (payload.coverageText || '').trim();
   const cases = payload.cases || [];
   const planText = (payload.planText || '').trim();
+  const catalogText = (payload.catalogText || '').trim();
+  const focusAreas = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
+  const excludeAreas = Array.isArray(payload.excludeAreas) ? payload.excludeAreas : [];
 
   // 정리(tidy) 모드: OCR 원문을 보장급부·내보장자산으로 구분해 깔끔하게 정돈
   if (payload.mode === 'tidy') {
@@ -97,6 +100,7 @@ export async function onRequestPost(context) {
   if (payload.mode === 'plan') {
     const cov = (payload.coverageText || '').trim();
     const cov_an = payload.coverageAnalysis || {};
+    const episodesText = (payload.episodesText || '').trim();
     if (!planText) return json({ error: '가입설계서 텍스트가 비어 있습니다. 설계서 이미지를 등록하고 OCR한 뒤 실행하세요.' }, 400);
     const psys = [
       '당신은 대한민국 보험 가입설계 분석 전문가입니다. 재무설계사(FP)를 돕습니다.',
@@ -114,8 +118,10 @@ export async function onRequestPost(context) {
       '- recommend에는 설계서가 못 채운 부족 보장과, 노후·연금 등 이 고객에게 추가로 필요한 준비를 구체적으로 적습니다. 근거 없는 항목은 넣지 마세요.',
       '- planDetail은 개조식(각 줄 "- " 요점)으로 작성합니다. [현재 보장 부족점] / [설계서가 채운 부분] / [여전히 부족한 부분] / [연금 등 추가 제안] 네 소제목으로 구분해 항목을 충실히 나열합니다.',
       '- difference는 개조식으로, "보장분석만" 상태와 "가입설계 반영 후" 상태를 대비해 핵심 차이(어떤 보장이 얼마나 채워졌는지, 부족율/위험이 어떻게 달라지는지)만 요점으로 정리합니다.',
-      '- afterPlanGaps는 개조식으로, 이 가입설계를 반영한 뒤에도 여전히 비어 있거나 추가로 준비해야 할 보장(노후·연금·간병 등)을 구체적으로 나열합니다. difference·planDetail과 중복 서술을 피하고 "이후 보완"에만 집중합니다.'
-    ].join('\n');
+      '- afterPlanGaps는 개조식으로, 이 가입설계를 반영한 뒤에도 여전히 비어 있거나 추가로 준비해야 할 보장(노후·연금·간병 등)을 구체적으로 나열합니다. difference·planDetail과 중복 서술을 피하고 "이후 보완"에만 집중합니다.',
+      (episodesText ? '- 제공된 "설득 에피소드"는 recommend와 제안 표현의 톤·근거를 잡는 참고용입니다. 억지로 끼워넣지 말고 자연스럽게 활용하세요.' : ''),
+      (catalogText ? '- 제공된 "상품 카달로그"는 제안 상품의 담보·조건을 정확히 이해하는 참고용입니다. 카달로그에 없는 내용을 지어내지 마세요.' : '')
+    ].filter(Boolean).join('\n');
     const puser = [
       '# 고객 정보',
       '이름: ' + (customer.name || '-') + ' / 연령: ' + (customer.age || '-') + ' / 지역: ' + (customer.region || '-'),
@@ -127,7 +133,10 @@ export async function onRequestPost(context) {
       ((cov_an.summary || '') + '\n' + (cov_an.detail || '')).trim() || '(없음)',
       '',
       '# 가입설계서 (새로 제안 · OCR 추출)',
-      planText
+      planText,
+      '',
+      ...(episodesText ? ['# 설득 에피소드 (참고)', episodesText, ''] : []),
+      ...(catalogText ? ['# 상품 카달로그 (참고 · 상품 정보)', catalogText] : [])
     ].join('\n');
     try {
       const pr = await fetch('https://api.anthropic.com/v1/messages', {
@@ -170,8 +179,11 @@ export async function onRequestPost(context) {
     '- 보험료, 해약환급금 등 텍스트에 없는 구체적인 숫자는 지어내지 마세요.',
     '- detail은 개조식(요점 나열)으로 작성합니다. 문장을 길게 풀지 말고 각 줄을 "- "로 시작하는 항목으로, 영역별로 묶어 충실히 정리합니다.',
     '- 보장금액이 큰 핵심 담보(가입금액 3000만원 이상)는 각각 갱신형인지 비갱신형인지 반드시 판별해, detail 안에 "[핵심 담보(3000만원↑) 갱신형 여부]" 소제목으로 개조식 정리합니다. 갱신형은 향후 보험료 인상·만기 위험이 있어 상담에서 매우 중요하므로 빠짐없이 표시하고, 텍스트에서 갱신 여부가 불명확하면 "확인 필요"로 표기합니다.',
-    '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.'
-  ].join('\n');
+    '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.',
+    (focusAreas.length ? '- 다음 담보/영역을 특히 집중 분석하고 우선순위를 높입니다: ' + focusAreas.join(', ') : ''),
+    (excludeAreas.length ? '- 다음 담보/영역은 이번 분석에서 제외합니다(요약·영역·상세에서 다루지 마세요): ' + excludeAreas.join(', ') : ''),
+    (catalogText ? '- 제공된 "상품 카달로그"는 상품 담보·조건을 정확히 이해하는 참고용입니다. 없는 내용을 지어내지 마세요.' : '')
+  ].filter(Boolean).join('\n');
 
   const user = [
     '# 고객 정보',
@@ -183,7 +195,9 @@ export async function onRequestPost(context) {
     coverageText,
     '',
     '# 참고할 과거 상담사례',
-    caseText
+    caseText,
+    '',
+    ...(catalogText ? ['# 상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText] : [])
   ].join('\n');
 
   try {
