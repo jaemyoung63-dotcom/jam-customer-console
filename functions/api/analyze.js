@@ -106,12 +106,12 @@ export async function onRequestPost(context) {
     const src = (payload.text || '').trim();
     if (!src) return json({ error: '요약할 내용이 없습니다.' }, 400);
     const sModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
-    const ssys = '당신은 보험 상담 자료를 정리하는 조수입니다. 주어진 자료의 핵심을 한국어로 약 500자 이내로 요약하세요. 상품명·핵심 담보·조건·수치 등 중요한 정보를 우선 담고, 인사말·사족 없이 요약문 본문만 출력합니다.';
+    const ssys = '당신은 보험 상담 자료를 정리하는 조수입니다. 주어진 자료의 핵심을 한국어로 약 2000자 이내로 개조식(요점 나열)으로 정리하세요. 관련 소제목을 대괄호 "[소제목]" 형태로 나누고, 각 항목은 하이픈(-)으로 시작하는 줄로 작성합니다. 상품명·핵심 담보·가입금액·조건·수치 등 중요한 정보를 빠짐없이 담고, 인사말·사족 없이 정리 본문만 출력합니다.';
     try {
       const rr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: sModel, max_tokens: 700, system: ssys, messages: [{ role: 'user', content: src.slice(0, 12000) }] })
+        body: JSON.stringify({ model: sModel, max_tokens: 2600, system: ssys, messages: [{ role: 'user', content: src.slice(0, 16000) }] })
       });
       const rd = await rr.json();
       if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
@@ -133,18 +133,16 @@ export async function onRequestPost(context) {
       '반드시 아래 JSON 하나만 출력하세요. 마크다운·설명 없이 순수 JSON만.',
       '{',
       '  "shortfallRate": 40,',
-      '  "recommend": ["부족 보장 보완 또는 추가 제안(예: 연금 가입 등)"],',
-      '  "difference": ["보장분석만 했을 때 항목", "가입설계 반영 후 항목"],',
-      '  "afterPlanGaps": ["가입설계 이후 보완 항목1", "항목2"],',
-      '  "planDetail": ["[현재 보장 부족점]", "항목", "[설계서가 채운 부분]", "항목", "[여전히 부족한 부분]", "항목", "[연금 등 추가 제안]", "항목"]',
+      '  "summary": "이 가입설계가 무엇을 채우고 무엇이 남는지 2~3문장 한눈 요약",',
+      '  "planDetail": ["[현재 보장 부족점]", "항목", "[이 설계가 채운 부분]", "항목", "[남아있는 부족·추가 보완]", "항목", "[추가 제안(연금 등)]", "항목"]',
       '}',
       '규칙:',
       '- shortfallRate는 0~100 정수. 현재 필요한 전체 보장 대비, 가입설계서를 반영한 뒤에도 여전히 비어 있는 보장의 비율(잔여 부족율). 0이면 완전 충족, 값이 클수록 부족.',
-      '- recommend, difference, afterPlanGaps, planDetail은 모두 문자열 배열입니다. 각 원소는 한 항목(한 줄)이며 하이픈·번호 접두어 없이 내용만 담고, 원소 문자열 안에 줄바꿈(엔터)을 절대 넣지 마세요. 큰따옴표가 필요하면 반드시 이스케이프하세요.',
-      '- recommend에는 설계서가 못 채운 부족 보장과, 노후·연금 등 이 고객에게 추가로 필요한 준비를 구체적으로 적습니다. 근거 없는 항목은 넣지 마세요.',
-      '- planDetail은 소제목을 대괄호 원소 "[현재 보장 부족점]", "[설계서가 채운 부분]", "[여전히 부족한 부분]", "[연금 등 추가 제안]"로 넣어 네 부분으로 구분하고, 각 소제목 뒤에 해당 항목들을 이어서 나열합니다.',
-      '- difference는 보장분석만 했을 때와 가입설계 반영 후의 핵심 차이(어떤 보장이 얼마나 채워졌는지, 부족율/위험 변화)를 항목으로, afterPlanGaps는 설계 반영 이후에도 더 보완할 보장(노후·연금·간병 등)을 항목으로 나열합니다. 서로 중복을 피합니다.',
-      (episodesText ? '- 제공된 "설득 에피소드"는 recommend와 제안 표현의 톤·근거를 잡는 참고용입니다. 억지로 끼워넣지 말고 자연스럽게 활용하세요.' : ''),
+      '- summary는 부족율의 의미와, 이 설계로 채워진 부분·남은 부분을 2~3문장으로 압축한 한눈 요약입니다.',
+      '- planDetail은 문자열 배열입니다. 각 원소는 한 항목(한 줄)이며 하이픈·번호 접두어 없이 내용만 담고, 원소 문자열 안에 줄바꿈(엔터)을 넣지 마세요. 큰따옴표가 필요하면 반드시 이스케이프하세요.',
+      '- planDetail은 소제목을 대괄호 원소 "[현재 보장 부족점]" → "[이 설계가 채운 부분]" → "[남아있는 부족·추가 보완]" → "[추가 제안(연금 등)]" 순서로 넣어 하나의 흐름으로 이어지게 구성하고, 각 소제목 뒤에 해당 항목들을 나열합니다. 네 부분이 서로 중복되지 않게 명확히 구분하세요.',
+      '- [추가 제안(연금 등)]에는 설계서가 못 채운 부족 보장과 노후·연금 등 이 고객에게 추가로 필요한 준비를 구체적으로 적습니다. 근거 없는 항목은 넣지 마세요.',
+      (episodesText ? '- 제공된 "설득 에피소드"는 제안 표현의 톤·근거를 잡는 참고용입니다. 억지로 끼워넣지 말고 자연스럽게 활용하세요.' : ''),
       (catalogText ? '- 제공된 "상품 카달로그"는 제안 상품의 담보·조건을 정확히 이해하는 참고용입니다. 카달로그에 없는 내용을 지어내지 마세요.' : ''),
       (focusAreas.length ? '- 다음 담보/영역을 특히 집중해 제안·분석합니다: ' + focusAreas.join(', ') : ''),
       (excludeAreas.length ? '- 다음 담보/영역은 제외합니다(제안·분석에서 다루지 마세요): ' + excludeAreas.join(', ') : '')
