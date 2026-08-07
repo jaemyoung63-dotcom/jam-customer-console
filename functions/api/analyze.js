@@ -63,7 +63,7 @@ export async function onRequestPost(context) {
       '- 이 고객이 여러 보험사에 가입한 전체 보장을, 보험사별로 구분해 어떤 담보를 얼마나 보장하는지 자세히 정리하세요.',
       '',
       '## [종합분석]',
-      '- 위 [내보장자산](고객의 전체 보험)을 근거로 요점만 개조식으로 정리합니다. 각 줄을 "- "로 시작하세요.',
+      '- 위 [내보장자산](고객의 전체 보험)을 근거로 요점만 개조식으로 정리합니다. 각 줄을 하이픈(-)로 시작하세요.',
       '- 다음을 반드시 포함: 영역별 충분/취약 판정, 중복 가입된 영역, 비어 있는(부족한) 영역, 핵심 담보(가입금액 3000만원↑)의 갱신형 여부와 위험, 우선 보완 순위.',
       '',
       '## 규칙',
@@ -112,16 +112,16 @@ export async function onRequestPost(context) {
       '{',
       '  "shortfallRate": 40,',
       '  "recommend": ["부족 보장 보완 또는 추가 제안(예: 연금 가입 등)"],',
-      '  "difference": "보장분석만 했을 때와, 가입설계까지 반영했을 때의 핵심 차이를 개조식으로",',
-      '  "afterPlanGaps": "가입설계를 반영한 이후에도 추가로 보완해야 할 내용을 개조식으로",',
-      '  "planDetail": "가입설계 분석을 개조식으로. 각 줄을 "- "로 시작하는 요점 항목으로 작성."',
+      '  "difference": ["보장분석만 했을 때 항목", "가입설계 반영 후 항목"],',
+      '  "afterPlanGaps": ["가입설계 이후 보완 항목1", "항목2"],',
+      '  "planDetail": ["[현재 보장 부족점]", "항목", "[설계서가 채운 부분]", "항목", "[여전히 부족한 부분]", "항목", "[연금 등 추가 제안]", "항목"]',
       '}',
       '규칙:',
       '- shortfallRate는 0~100 정수. 현재 필요한 전체 보장 대비, 가입설계서를 반영한 뒤에도 여전히 비어 있는 보장의 비율(잔여 부족율). 0이면 완전 충족, 값이 클수록 부족.',
+      '- recommend, difference, afterPlanGaps, planDetail은 모두 문자열 배열입니다. 각 원소는 한 항목(한 줄)이며 하이픈·번호 접두어 없이 내용만 담고, 원소 문자열 안에 줄바꿈(엔터)을 절대 넣지 마세요. 큰따옴표가 필요하면 반드시 이스케이프하세요.',
       '- recommend에는 설계서가 못 채운 부족 보장과, 노후·연금 등 이 고객에게 추가로 필요한 준비를 구체적으로 적습니다. 근거 없는 항목은 넣지 마세요.',
-      '- planDetail은 개조식(각 줄 "- " 요점)으로 작성합니다. [현재 보장 부족점] / [설계서가 채운 부분] / [여전히 부족한 부분] / [연금 등 추가 제안] 네 소제목으로 구분해 항목을 충실히 나열합니다.',
-      '- difference는 개조식으로, "보장분석만" 상태와 "가입설계 반영 후" 상태를 대비해 핵심 차이(어떤 보장이 얼마나 채워졌는지, 부족율/위험이 어떻게 달라지는지)만 요점으로 정리합니다.',
-      '- afterPlanGaps는 개조식으로, 이 가입설계를 반영한 뒤에도 여전히 비어 있거나 추가로 준비해야 할 보장(노후·연금·간병 등)을 구체적으로 나열합니다. difference·planDetail과 중복 서술을 피하고 "이후 보완"에만 집중합니다.',
+      '- planDetail은 소제목을 대괄호 원소 "[현재 보장 부족점]", "[설계서가 채운 부분]", "[여전히 부족한 부분]", "[연금 등 추가 제안]"로 넣어 네 부분으로 구분하고, 각 소제목 뒤에 해당 항목들을 이어서 나열합니다.',
+      '- difference는 보장분석만 했을 때와 가입설계 반영 후의 핵심 차이(어떤 보장이 얼마나 채워졌는지, 부족율/위험 변화)를 항목으로, afterPlanGaps는 설계 반영 이후에도 더 보완할 보장(노후·연금·간병 등)을 항목으로 나열합니다. 서로 중복을 피합니다.',
       (episodesText ? '- 제공된 "설득 에피소드"는 recommend와 제안 표현의 톤·근거를 잡는 참고용입니다. 억지로 끼워넣지 말고 자연스럽게 활용하세요.' : ''),
       (catalogText ? '- 제공된 "상품 카달로그"는 제안 상품의 담보·조건을 정확히 이해하는 참고용입니다. 카달로그에 없는 내용을 지어내지 마세요.' : ''),
       (focusAreas.length ? '- 다음 담보/영역을 특히 집중해 제안·분석합니다: ' + focusAreas.join(', ') : ''),
@@ -151,10 +151,15 @@ export async function onRequestPost(context) {
       });
       const pd = await pr.json();
       if (!pr.ok) { const msg = (pd && pd.error && pd.error.message) ? pd.error.message : ('API 오류 (' + pr.status + ')'); return json({ error: msg }, pr.status); }
-      const ptext = (pd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      let ptext = (pd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      ptext = ptext.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
       let pparsed;
       try { pparsed = JSON.parse(ptext); }
-      catch (e) { const m = ptext.match(/\{[\s\S]*\}/); pparsed = m ? JSON.parse(m[0]) : { shortfallRate: 0, recommend: [], planDetail: ptext }; }
+      catch (e) {
+        try { const m = ptext.match(/\{[\s\S]*\}/); pparsed = m ? JSON.parse(m[0]) : null; }
+        catch (e2) { pparsed = null; }
+        if (!pparsed) pparsed = { shortfallRate: 0, recommend: [], planDetail: ptext };
+      }
       pparsed._usage = { input_tokens: (pd.usage && pd.usage.input_tokens) || 0, output_tokens: (pd.usage && pd.usage.output_tokens) || 0, model: pd.model || model };
       return json(pparsed);
     } catch (err) {
@@ -176,13 +181,13 @@ export async function onRequestPost(context) {
     '  "summary": "종합 요약 2~3문장",',
     '  "areas": [{"name":"영역명","level":"충분|보통|취약","reason":"한 줄 근거"}],',
     '  "priorities": ["보강 제안 1","보강 제안 2","보강 제안 3"],',
-    '  "detail": "상세 보장 분석을 개조식으로. 반드시 [영역별 상세] / [핵심 담보(3000만원↑) 갱신형 여부] / [종합 소견] 세 소제목으로 구분하고, 각 줄을 "- "로 시작해 구체적으로 작성."',
+    '  "detail": ["[영역별 상세]", "영역별 판정·근거 항목", "[핵심 담보(3000만원↑) 갱신형 여부]", "핵심 담보 갱신형 항목", "[종합 소견]", "종합 요점 항목"]',
     '}',
     '규칙:',
     '- 영역은 사망보장, 암·3대진단(암/뇌혈관/허혈성심장), 입원·수술, 실손의료, 간병·치매, 상해·재해 중 텍스트에서 확인되는 것을 다룹니다.',
     "- 텍스트에 관련 담보가 전혀 없으면 그 영역을 '취약'으로 판정하고 reason에 '해당 담보 없음'을 명시합니다.",
     '- 보험료, 해약환급금 등 텍스트에 없는 구체적인 숫자는 지어내지 마세요.',
-    '- detail은 개조식(요점 나열)으로 작성합니다. 문장을 길게 풀지 말고 각 줄을 "- "로 시작하는 항목으로, 위 세 소제목([영역별 상세]/[핵심 담보(3000만원↑) 갱신형 여부]/[종합 소견])으로 명확히 구분해 정리합니다.',
+    '- detail은 문자열 배열입니다. 각 원소는 한 항목(한 줄)이며 하이픈·번호 접두어 없이 내용만 담고, 원소 문자열 안에 줄바꿈을 넣지 마세요. 소제목은 대괄호 원소 "[영역별 상세]", "[핵심 담보(3000만원↑) 갱신형 여부]", "[종합 소견]"로 넣어 세 부분을 구분하고, 각 소제목 뒤에 항목들을 이어서 나열합니다. 큰따옴표가 필요하면 반드시 이스케이프하세요.',
     '- 보장금액이 큰 핵심 담보(가입금액 3000만원 이상)는 각각 갱신형인지 비갱신형인지 반드시 판별해, detail 안에 "[핵심 담보(3000만원↑) 갱신형 여부]" 소제목으로 개조식 정리합니다. 갱신형은 향후 보험료 인상·만기 위험이 있어 상담에서 매우 중요하므로 빠짐없이 표시하고, 텍스트에서 갱신 여부가 불명확하면 "확인 필요"로 표기합니다.',
     '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.',
     (focusAreas.length ? '- 다음 담보/영역을 특히 집중 분석하고 우선순위를 높입니다: ' + focusAreas.join(', ') : ''),
@@ -216,12 +221,14 @@ export async function onRequestPost(context) {
       const msg = (data && data.error && data.error.message) ? data.error.message : ('API 오류 (' + r.status + ')');
       return json({ error: msg }, r.status);
     }
-    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    let text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    text = text.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
     let parsed;
     try { parsed = JSON.parse(text); }
     catch (e) {
-      const m = text.match(/\{[\s\S]*\}/);
-      parsed = m ? JSON.parse(m[0]) : { summary: text, areas: [], priorities: [], detail: text };
+      try { const m = text.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+      catch (e2) { parsed = null; }
+      if (!parsed) parsed = { summary: '분석 결과를 형식대로 읽지 못해 원문을 그대로 표시합니다.', areas: [], priorities: [], detail: text };
     }
     parsed._usage = {
       input_tokens: (data.usage && data.usage.input_tokens) || 0,
