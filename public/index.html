@@ -363,6 +363,7 @@
       <div id="tidy-progress" class="note" style="display:none;"></div>
       <div id="result-hint" class="note" style="margin-top:8px;color:var(--ink-mute)">AI로 정리·분석을 실행하면 여기에 결과 버튼이 생깁니다.</div>
       <button class="btn result-ready wide" id="result-btn" style="display:none;margin-top:10px" onclick="showCoverageResult()">📄 분석결과입니다 ›</button>
+      <div id="tidy-questions"></div>
       <div id="tidy-history"></div>
 
       <div class="divider"></div>
@@ -706,6 +707,39 @@ function startProgress(cb){
   const id=setInterval(()=>{ p += Math.max(1, Math.round((92-p)*0.07)); if(p>92) p=92; try{ cb(p); }catch(e){} }, 350);
   return { done:(final)=>{ clearInterval(id); try{ cb(final==null?100:final); }catch(e){} } };
 }
+/* ===== 불명확 확인 질문 UI ===== */
+function qPanel(title, questions, onSubmitAttr){
+  let h='<div class="card" style="border:1.5px solid var(--hold);margin-top:12px"><div class="name" style="font-size:14px;margin-bottom:4px">❓ 확인이 필요한 항목 ('+questions.length+')</div>'
+    +'<div class="meta" style="margin-bottom:10px">AI가 사진만으로 확실하지 않아 추측하지 않은 항목입니다. 아는 대로 채운 뒤 재분석하세요. (모르면 비워도 됩니다)</div>';
+  questions.forEach(q=>{ h+='<div style="margin-bottom:9px"><div style="font-size:13px;margin-bottom:3px">'+esc(q)+'</div><input class="t q-answer" data-q="'+esc(q)+'" placeholder="답변 입력"></div>'; });
+  h+='<button class="btn primary wide" style="margin-top:4px" onclick="'+onSubmitAttr+'">✔ 확인 후 재분석</button></div>';
+  return h;
+}
+function collectAnswers(box){
+  const lines=[]; box.querySelectorAll('.q-answer').forEach(inp=>{ const a=inp.value.trim(); if(a) lines.push('- '+inp.getAttribute('data-q')+' → '+a); });
+  return lines;
+}
+function renderTidyQuestions(questions){
+  const box=document.getElementById('tidy-questions'); if(!box) return;
+  if(!questions||!questions.length){ box.innerHTML=''; return; }
+  box.innerHTML=qPanel('확인', questions, 'resubmitTidy()');
+}
+function resubmitTidy(){
+  const box=document.getElementById('tidy-questions'); const lines=collectAnswers(box);
+  if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
+  tidyCoverage(lines.join('\n'));
+}
+let planQCust=null;
+function renderPlanQuestions(custId, questions){
+  const box=document.getElementById('plan-questions'); if(!box) return; planQCust=custId;
+  if(!questions||!questions.length){ box.innerHTML=''; return; }
+  box.innerHTML=qPanel('확인', questions, 'resubmitPlan()');
+}
+function resubmitPlan(){
+  const box=document.getElementById('plan-questions'); const lines=collectAnswers(box);
+  if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
+  if(planQCust) runPlanAnalysis(planQCust, lines.join('\n'));
+}
 function enableDrop(el, onFile, filterFn){
   if(!el||el._dropReady) return; el._dropReady=true;
   const ok = filterFn || (f => (f.type&&f.type.indexOf('image')===0)||isPdfFile(f));
@@ -820,36 +854,27 @@ async function runOCR(){
   }catch(err){ prog.textContent=(err&&err.message)?err.message:'OCR 중 오류가 발생했습니다.'; }
   btn.disabled=false; btn.style.opacity=1;
 }
-async function tidyCoverage(){
+async function tidyCoverage(confirmations){
   const ta=document.getElementById('c-coverage');
   const imgs=editingCust.images||[];
   if(!imgs.length){alert('먼저 보장 자료 이미지를 추가하세요.'); return;}
+  const tq=document.getElementById('tidy-questions'); if(tq) tq.innerHTML='';
   const btn=document.getElementById('tidy-btn'), prog=document.getElementById('tidy-progress');
   btn.disabled=true; btn.style.opacity=.6; prog.style.display='block';
   try{
-    // 1) 기기 내 OCR로 사진에서 글자만 추출 (이미지는 서버로 보내지 않음)
-    prog.textContent='OCR 엔진 준비 중… (처음 한 번은 다운로드로 시간이 걸립니다)';
-    await ensureTesseract();
-    const n=imgs.length; const groups={'보장급부':[],'내보장자산':[],'기타':[]};
+    // 사진을 AI 비전이 직접 판독 (Tesseract 없이 정확도↑)
+    const n=Math.min(imgs.length, 12);
+    const items=[];
     for(let i=0;i<n;i++){
+      prog.textContent='사진 준비 중… '+(i+1)+'/'+n;
       const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
-      const url=URL.createObjectURL(rec.blob);
-      const r=await Tesseract.recognize(url,'kor+eng',{logger:m=>{
-        const pct=Math.min(99,Math.round(((i+(m.progress||0))/n)*100));
-        prog.textContent=(m.status==='recognizing text'?'사진에서 글자 추출 중… ':'사진 준비 중… ')+pct+'% ('+(i+1)+'/'+n+')';
-      }});
-      URL.revokeObjectURL(url);
-      const kind=(rec.kind && groups[rec.kind])?rec.kind:'기타';
-      const txt=(r.data.text||'').trim(); if(txt) groups[kind].push(txt);
+      let b64=''; try{ b64=await blobToScaledBase64(rec.blob, 1500, 0.72); }catch(e){}
+      if(b64) items.push({kind:(rec.kind||'기타'), media_type:'image/jpeg', data:b64});
     }
-    let blocks=[];
-    ['보장급부','내보장자산','기타'].forEach(k=>{ if(groups[k].length) blocks.push('['+k+']\n'+groups[k].join('\n')); });
-    const raw=blocks.join('\n\n').trim();
-    if(!raw){ prog.textContent='사진에서 글자를 추출하지 못했습니다. 더 선명한 사진을 쓰거나 보장 텍스트에 직접 입력해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
-    // 2) 추출한 텍스트만 서버로 전송 (무료 플랜 CPU 한도 회피)
-    const _pg=startProgress(p=>{ prog.textContent='OCR 완료 · AI가 정리·분석 중… '+p+'%'; });
+    if(!items.length){ prog.textContent='사진을 읽지 못했습니다. 다시 등록해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
+    const _pg=startProgress(p=>{ prog.textContent='AI가 사진을 직접 판독·정리 중… '+p+'%'+(imgs.length>12?' (앞 12장)':''); });
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({mode:'tidy', rawText:raw, custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
+      body:JSON.stringify({mode:'tidy', images:items, confirmations:confirmations||'', custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
     const rawResp=await res.text(); _pg.done();
     let data;
     try{ data=JSON.parse(rawResp); }
@@ -865,9 +890,10 @@ async function tidyCoverage(){
       editingCust.coverageText=data.text;
       if(editingCust.id){ try{ await idbPut('customers',editingCust); }catch(e){} }
     }
-    addUsage(data._usage,'보장 정리');
-    prog.textContent='정리·분석 완료. 아래 "분석결과입니다" 버튼을 누르세요. 숫자는 원본과 대조해 확인하세요.';
+    addUsage(data._usage,'보장 정리(비전)');
+    prog.textContent='정리·분석 완료. 아래 "분석결과입니다" 버튼을 누르세요. 숫자·회사명은 원본과 대조해 확인하세요.';
     refreshCoverageUI();
+    renderTidyQuestions(data.questions||[]);
   }catch(err){
     prog.textContent='정리 요청 실패: '+((err&&err.message)?err.message:'오류');
   }
@@ -1441,6 +1467,7 @@ function renderAnalysis(){
     if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">\u203b \uba3c\uc800 \u2461 \ubcf4\uc7a5\ubd84\uc11d\uc744 \uc2e4\ud589\ud558\uc138\uc694.</div>';
     else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">\u203b \uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0\ub97c \uba3c\uc800 \ub4f1\ub85d\ud558\uc138\uc694.</div>';
     html+='<div id="an-plan-result" style="margin-top:14px"></div>';
+    html+='<div id="plan-questions"></div>';
     html+='<div class="divider"></div><div class="row"><button class="btn ghost sm grow" onclick="savePlanConsult(\''+c.id+'\')">\uac00\uc785\uc124\uacc4 \uc800\uc7a5(\ud30c\uc77c)</button><button class="btn ghost sm grow" onclick="document.getElementById(\'import-plan-consult\').click()">\uac00\uc785\uc124\uacc4 \ubd88\ub7ec\uc624\uae30</button></div>';
     html+='<button class="btn ghost wide" style="margin-top:8px" onclick="anStepGo(2)">\u2039 \uc774\uc804 \ud654\uba74 (\ubcf4\uc7a5\ubd84\uc11d)</button>';
   }
@@ -1567,29 +1594,37 @@ async function runAnalysis(id){
   }
 }
 /* ② 가입설계 분석 */
-async function runPlanAnalysis(id){
+async function runPlanAnalysis(id, confirmations){
   const c=customers.find(x=>x.id===id); if(!c) return;
   const cov=(c.analyses&&c.analyses[0])?c.analyses[0].data:(c.analysis||null);
-  if(!cov){alert('먼저 ① 보장 분석을 실행하세요.'); return;}
+  if(!cov){alert('먼저 ② 보장 분석을 실행하세요.'); return;}
   if(!(c.planImages&&c.planImages.length)){alert('가입설계서 이미지를 먼저 등록하세요.'); return;}
   const box=document.getElementById('an-plan-result'); box.innerHTML='<div class="stage-note">가입설계 분석 준비 중…</div>';
-  let planText='';
-  try{ planText=await getCustPlanText(c, box); }catch(e){ planText=''; }
-  if(!planText.trim()){ box.innerHTML='<div class="stage-note">설계서 사진에서 글자를 추출하지 못했습니다. 더 선명한 사진을 등록해 주세요.</div>'; return; }
+  const pq=document.getElementById('plan-questions'); if(pq) pq.innerHTML='';
+  // 가입설계서 사진 → base64 (AI 비전 직접 판독)
+  const imgs=(c.planImages||[]).slice(0,12); const items=[];
+  for(let i=0;i<imgs.length;i++){
+    box.innerHTML='<div class="stage-note">설계서 사진 준비 중… '+(i+1)+'/'+imgs.length+'</div>';
+    const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
+    let b64=''; try{ b64=await blobToScaledBase64(rec.blob,1500,0.72); }catch(e){}
+    if(b64) items.push({media_type:'image/jpeg', data:b64});
+  }
+  if(!items.length){ box.innerHTML='<div class="stage-note">설계서 사진을 읽지 못했습니다. 다시 등록해 주세요.</div>'; return; }
   const episodesText=getPoolMatchText(c,'episode',4);
   const casesText=getPoolMatchText(c,'case',3);
   let catalogText=''; try{ catalogText=await getCatalogText(box); }catch(e){}
-  const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">가입설계 분석 중… '+p+'%</div>'; });
+  const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">AI가 설계서를 직접 판독·분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planText, episodesText, casesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, confirmations:confirmations||'', episodesText, casesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
     if(c.planAnalyses.length>50) c.planAnalyses=c.planAnalyses.slice(0,50);
     await idbPut('customers',c);
-    const lc=addUsage(data._usage,'가입설계 분석');
+    const lc=addUsage(data._usage,'가입설계 분석(비전)');
     renderAnalysis(); renderCostMeter(lc);
+    renderPlanQuestions(c.id, data.questions||[]);
   }catch(err){
     try{_pg.done();}catch(e){}
     box.innerHTML='<div class="stage-note">가입설계 분석 요청 실패: <span class="meta">'+esc(err.message||'')+'</span></div>';
