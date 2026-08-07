@@ -33,6 +33,8 @@ export async function onRequestPost(context) {
   const cases = payload.cases || [];
   const planText = (payload.planText || '').trim();
   const catalogText = (payload.catalogText || '').trim();
+  const episodesText = (payload.episodesText || '').trim();
+  const casesText = (payload.casesText || '').trim();
   const focusAreas = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
   const excludeAreas = Array.isArray(payload.excludeAreas) ? payload.excludeAreas : [];
 
@@ -99,11 +101,31 @@ export async function onRequestPost(context) {
     }
   }
 
+  // 요약 모드: 긴 원문을 약 500자로 요약 (풀 본문 표시용)
+  if (payload.mode === 'summarize') {
+    const src = (payload.text || '').trim();
+    if (!src) return json({ error: '요약할 내용이 없습니다.' }, 400);
+    const sModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const ssys = '당신은 보험 상담 자료를 정리하는 조수입니다. 주어진 자료의 핵심을 한국어로 약 500자 이내로 요약하세요. 상품명·핵심 담보·조건·수치 등 중요한 정보를 우선 담고, 인사말·사족 없이 요약문 본문만 출력합니다.';
+    try {
+      const rr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: sModel, max_tokens: 700, system: ssys, messages: [{ role: 'user', content: src.slice(0, 12000) }] })
+      });
+      const rd = await rr.json();
+      if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
+      const stext = (rd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      return json({ summary: stext, _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || sModel } });
+    } catch (err) {
+      return json({ error: '요약 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+    }
+  }
+
   // 가입설계 분석 모드: 보장 분석 결과 + 가입설계서(OCR)로 부족 보장·추가 제안(연금 등) 2000자 분석
   if (payload.mode === 'plan') {
     const cov = (payload.coverageText || '').trim();
     const cov_an = payload.coverageAnalysis || {};
-    const episodesText = (payload.episodesText || '').trim();
     if (!planText) return json({ error: '가입설계서 텍스트가 비어 있습니다. 설계서 이미지를 등록하고 OCR한 뒤 실행하세요.' }, 400);
     const psys = [
       '당신은 대한민국 보험 가입설계 분석 전문가입니다. 재무설계사(FP)를 돕습니다.',
@@ -140,6 +162,7 @@ export async function onRequestPost(context) {
       '# 가입설계서 (새로 제안 · OCR 추출)',
       planText,
       '',
+      ...(casesText ? ['# 참고할 과거 상담사례', casesText, ''] : []),
       ...(episodesText ? ['# 설득 에피소드 (참고)', episodesText, ''] : []),
       ...(catalogText ? ['# 상품 카달로그 (참고 · 상품 정보)', catalogText] : [])
     ].join('\n');
@@ -207,6 +230,7 @@ export async function onRequestPost(context) {
     '# 참고할 과거 상담사례',
     caseText,
     '',
+    ...(episodesText ? ['# 설득 에피소드 (참고)', episodesText, ''] : []),
     ...(catalogText ? ['# 상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText] : [])
   ].join('\n');
 
