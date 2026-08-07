@@ -109,6 +109,7 @@
   .btn-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
   .btn-grid .btn{width:100%; margin-top:0;}
   .thumbs.drag-over{outline:2px dashed var(--accent); outline-offset:3px; border-radius:12px; background:#EAF4FF;}
+  textarea.drag-over{outline:2px dashed var(--accent); background:#EAF4FF;}
 
   .row{display:flex; gap:8px; align-items:center;}
   .grow{flex:1;}
@@ -260,6 +261,9 @@
     <div class="chips" id="pool-filter" style="margin-bottom:14px;"></div>
     <div id="pool-list"></div>
     <div class="divider"></div>
+    <button class="btn primary wide" onclick="openPool(null)">＋ 추가</button>
+    <div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="exportPools()">JSON 백업</button><button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">JSON 불러오기</button></div>
+    <div class="divider"></div>
     <div class="row">
       <button class="btn ghost sm grow" onclick="exportPools()">JSON 백업</button>
       <button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">불러오기</button>
@@ -303,13 +307,12 @@
 
 <!-- headers rendered per screen -->
 <input type="file" id="img-input" accept="image/*,application/pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="txt-input" accept=".txt,text/plain" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="txt-input" accept=".txt,text/plain,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="doc-input" accept=".docx,.txt" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="audio-input" accept="audio/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
 <input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
 <input type="file" id="import-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importConsult(event)">
 <input type="file" id="import-plan-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importPlanConsult(event)">
-<button class="fab" id="fab" onclick="onFab()">+</button>
 
 <nav class="tabs">
   <button id="tab-customers" class="on" onclick="go('customers')"><span class="ic">◐</span>고객</button>
@@ -392,6 +395,18 @@
   </div>
 </div>
 
+<!-- ===== 팝업: 보장분석 결과 ===== -->
+<div class="overlay" id="ov-anresult">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="row"><h2>보장분석 결과</h2><span class="spacer"></span>
+      <button class="btn ghost sm" onclick="closeSheet('ov-anresult')">닫기</button></div>
+    <div id="anresult-body"></div>
+    <div class="divider"></div>
+    <button class="btn primary wide" onclick="closeSheet('ov-anresult')">닫기</button>
+  </div>
+</div>
+
 <!-- ===== 팝업: 분석 결과 서브페이지 ===== -->
 <div class="overlay" id="ov-subpage">
   <div class="sheet">
@@ -430,36 +445,21 @@
 <div class="overlay" id="ov-pool">
   <div class="sheet">
     <div class="handle"></div>
-    <div class="row"><h2 id="pool-title">사례 등록</h2><span class="spacer"></span>
+    <div class="row"><h2 id="pool-title">등록</h2><span class="spacer"></span>
       <button class="btn ghost sm" onclick="closeSheet('ov-pool')">닫기</button></div>
     <label class="f">제목</label>
-    <input class="t" id="p-title" placeholder="예: 연금 만기 앞둔 40대, 종신 전환 성공">
-    <div id="p-result-block">
-      <label class="f">상담 결과</label>
-      <div class="chips" id="pool-result"></div>
-    </div>
-    <label class="f">상품군</label>
-    <div class="chips tags" id="pool-product"></div>
-    <label class="f">상황</label>
-    <div class="chips tags" id="pool-situation"></div>
-    <label class="f">연령대</label>
-    <div class="chips tags" id="pool-age"></div>
+    <input class="t" id="p-title" placeholder="제목">
     <label class="f">자유 태그 <span style="font-weight:400;color:var(--ink-mute)">· 쉼표로 구분</span></label>
-    <input class="t" id="p-freetags" placeholder="예: 보험료부담, 배우자상의">
-    <label class="f">본문 <span style="font-weight:400;color:var(--ink-mute)">· 분석에 참고될 내용</span></label>
-    <button class="btn ghost sm wide" style="margin-bottom:8px;" onclick="pickPoolText()">텍스트 파일 불러오기 (.txt)</button>
-    <textarea class="t" id="p-body" style="min-height:130px" placeholder="상담 흐름, 핵심 반론과 대응, 결정적 멘트 등을 적어두세요."></textarea>
+    <input class="t" id="p-freetags" placeholder="예: 연금, 40대, 보험료부담">
+    <label class="f">본문 <span style="font-weight:400;color:var(--ink-mute)">· 텍스트·PDF 파일 드래그&드롭 가능</span></label>
+    <button class="btn ghost sm wide" style="margin-bottom:8px;" onclick="pickPoolText()">파일 불러오기 (.txt · .pdf)</button>
+    <textarea class="t" id="p-body" style="min-height:150px" placeholder="내용을 적거나, 텍스트·PDF 파일을 여기에 끌어다 놓으세요."></textarea>
     <div id="p-audio-block">
-      <label class="f">상담 음원 <span style="font-weight:400;color:var(--ink-mute)">· 녹음 파일 첨부</span></label>
+      <label class="f">음원 <span style="font-weight:400;color:var(--ink-mute)">· 녹음 파일 첨부</span></label>
       <div id="p-audio"></div>
     </div>
-    <div id="p-images-block" style="display:none;">
-      <label class="f">상품카달로그 자료 <span style="font-weight:400;color:var(--ink-mute)">· 사진·PDF 여러 장 (드래그&드롭)</span></label>
-      <div class="thumbs" id="p-thumbs" style="margin-top:8px"></div>
-    </div>
     <div class="divider"></div>
-    <button class="btn primary wide" onclick="savePool()">저장</button>
-    <button class="btn danger wide" id="p-delete" style="margin-top:8px;" onclick="deletePool()">삭제</button>
+    <div class="row"><button class="btn primary grow" onclick="savePool()">저장</button><button class="btn danger grow" id="p-delete" onclick="deletePool()">삭제</button></div>
   </div>
 </div>
 
@@ -529,7 +529,7 @@ function go(s){
   const tb=document.getElementById('tab-'+s); if(tb) tb.classList.add('on');
   const nav=document.querySelector('nav.tabs'); if(nav) nav.style.display='flex';
   const fab=document.getElementById('fab');
-  fab.style.display = (s==='analysis')?'none':'flex';
+  if(fab) fab.style.display = (s==='analysis')?'none':'flex';
   if(s==='customers') renderCustomers();
   if(s==='pools') renderPools();
   if(s==='analysis') fillAnalysisSelect();
@@ -704,14 +704,15 @@ function onBirth6(){
 }
 function toggleImageBlock(){ /* DB·지인 동일 포맷 — 이미지/보장 단계 항상 표시 */ }
 function openLightbox(src){ const lb=document.getElementById('lightbox'); const im=document.getElementById('lightbox-img'); if(im) im.src=src; if(lb) lb.classList.add('show'); }
-function enableDrop(el, onFile){
+function enableDrop(el, onFile, filterFn){
   if(!el||el._dropReady) return; el._dropReady=true;
+  const ok = filterFn || (f => (f.type&&f.type.indexOf('image')===0)||isPdfFile(f));
   el.addEventListener('dragover',e=>{e.preventDefault(); el.classList.add('drag-over');});
   el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
   el.addEventListener('drop',async e=>{
     e.preventDefault(); el.classList.remove('drag-over');
     const files=(e.dataTransfer&&e.dataTransfer.files)?Array.from(e.dataTransfer.files):[];
-    for(const f of files){ if((f.type&&f.type.indexOf('image')===0)||isPdfFile(f)) await onFile(f); }
+    for(const f of files){ if(ok(f)) await onFile(f); }
   });
 }
 async function renderThumbs(){
@@ -1118,23 +1119,16 @@ function renderPools(){
   wrap.innerHTML=html;
 }
 function openPool(id){
-  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,product:[],situation:[],age:[],free:[],result:'',audio:null,images:[]};
+  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,free:[],audio:null,body:''};
   editingPool=JSON.parse(JSON.stringify(p));
   const L=POOL_LABEL[poolType]||POOL_LABEL.case;
   document.getElementById('pool-title').textContent = id?'항목 편집':(L[0]+' 등록');
   document.getElementById('p-delete').style.display=id?'flex':'none';
-  document.getElementById('p-result-block').style.display = (editingPool.poolType==='case')?'block':'none';
   document.getElementById('p-title').value=p.title||'';
   document.getElementById('p-body').value=p.body||'';
   document.getElementById('p-freetags').value=(p.free||[]).join(', ');
-  chipGroup(document.getElementById('pool-result'),RESULTS,editingPool.result,false,v=>editingPool.result=v);
-  chipGroup(document.getElementById('pool-product'),PRODUCTS,editingPool.product,true);
-  chipGroup(document.getElementById('pool-situation'),SITUATIONS,editingPool.situation,true);
-  chipGroup(document.getElementById('pool-age'),AGES,editingPool.age,true);
-  document.getElementById('p-audio-block').style.display = (editingPool.poolType==='case')?'block':'none';
   renderPoolAudio();
-  document.getElementById('p-images-block').style.display = (editingPool.poolType==='catalog')?'block':'none';
-  if(editingPool.poolType==='catalog'){ editingPool.images=editingPool.images||[]; renderPoolThumbs(); }
+  const bodyEl=document.getElementById('p-body'); if(bodyEl) enableDrop(bodyEl, importFileToBody, f=>isPdfFile(f)||(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
   openSheet('ov-pool');
 }
 function renderPoolAudio(){
@@ -1207,11 +1201,33 @@ function addPoolImageDirect(file){
 }
 function pickPoolText(){
   const inp=document.getElementById('txt-input'); inp.value='';
-  inp.onchange=e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return;
-    const r=new FileReader(); r.onerror=()=>alert('텍스트 파일을 읽지 못했습니다.');
-    r.onload=()=>{const ta=document.getElementById('p-body'); ta.value = ta.value ? (ta.value+'\n\n'+r.result) : r.result;};
-    r.readAsText(f);};
+  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await importFileToBody(f);};
   inp.click();
+}
+async function importFileToBody(file){
+  const ta=document.getElementById('p-body'); if(!ta) return;
+  const append=t=>{ t=(t||'').trim(); if(!t){alert('파일에서 읽을 텍스트가 없습니다.'); return;} ta.value = ta.value ? (ta.value+'\n\n'+t) : t; };
+  try{
+    if(isPdfFile(file)){
+      toast('PDF 여는 중…');
+      const blobs=await pdfToImageBlobs(file,(n,N)=>toast('PDF 페이지 변환 중… '+n+'/'+N));
+      await ensureTesseract();
+      const parts=[];
+      for(let i=0;i<blobs.length;i++){
+        toast('PDF 글자 추출 중… '+Math.round((i/blobs.length)*100)+'%');
+        const url=URL.createObjectURL(blobs[i]);
+        const r=await Tesseract.recognize(url,'kor+eng',{});
+        URL.revokeObjectURL(url);
+        const x=(r.data.text||'').trim(); if(x) parts.push(x);
+      }
+      toastHide(); append(parts.join('\n\n'));
+    } else {
+      const r=new FileReader();
+      r.onerror=()=>alert('파일을 읽지 못했습니다.');
+      r.onload=()=>append(String(r.result||''));
+      r.readAsText(file);
+    }
+  }catch(err){ toastHide(); alert('파일 처리 실패: '+(err&&err.message?err.message:err)); }
 }
 function pickPoolAudio(){
   const inp=document.getElementById('audio-input'); inp.value='';
@@ -1355,7 +1371,7 @@ function renderAnalysis(){
   const imgN=(c.images||[]).length;
   const want=[...(c.product||[]),...(c.situation||[])];
   const matches=pools.filter(p=>p.poolType==='case').map(p=>{
-    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
+    const overlap=poolMatchScore(p,c);
     return {p,overlap};
   }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
   const alist=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
@@ -1398,6 +1414,7 @@ function renderAnalysis(){
     else html+='<div class="stage-note">\ubcf4\uc7a5\uae09\ubd80\u00b7\ub0b4\ubcf4\uc7a5\uc790\uc0b0\u00b7\uae30\ud0c0 + \uc0c1\ub2f4\uc0ac\ub840\ub97c \ud568\uaed8 \ubd84\uc11d\ud574 \uc57d 2000\uc790\ub85c \uc815\ub9ac\ud569\ub2c8\ub2e4.</div>';
     html+='<button class="btn '+(hasAnalysis?'result-ready':'primary')+' wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">'+(hasAnalysis?'\u2713 \ubcf4\uc7a5\ubd84\uc11d \uc644\ub8cc \u00b7 \ub2e4\uc2dc \ubd84\uc11d':'\uc0c1\ub2f4\uc0ac\ub840 \ub9e4\uce6d \ubcf4\uc7a5\ubd84\uc11d')+'</button>';
     html+='<div id="an-result" style="margin-top:14px"></div>';
+    if(hasAnalysis) html+='<button class="btn result-ready wide" style="margin-top:10px" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기 ›</button>';
     html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(3)">\ub2e4\uc74c: \uac00\uc785\uc124\uacc4 \u203a</button>';
   } else {
     html+='<button class="btn ghost sm" onclick="anStepGo(2)">\u2039 \uc774\uc804 (\ubcf4\uc7a5\ubd84\uc11d)</button>';
@@ -1413,7 +1430,6 @@ function renderAnalysis(){
   }
   body.innerHTML=html;
   if(anStep===3) renderAnPlanThumbs(c);
-  if(anStep===2 && hasAnalysis) renderResultWithHistory(c, 0);
   if(anStep===3 && palist.length) renderPlanWithHistory(c, 0);
 }
 /* ---------- 가입설계서 이미지 (고객별) ---------- */
@@ -1486,11 +1502,16 @@ function renderResultWithHistory(c, idx){
       +'<button class="btn ghost sm" style="margin-left:8px" onclick="showHistoryEntry(\''+c.id+'\','+i+')">보기</button>'
       +'<button class="btn danger sm" style="margin-left:6px" onclick="delAnalysisEntry(\''+c.id+'\','+i+')">삭제</button></div></div>';
   });
-  document.getElementById('an-result').insertAdjacentHTML('beforeend', hh);
+  document.getElementById('anresult-body').insertAdjacentHTML('beforeend', hh);
 }
 function showHistoryEntry(custId, idx){
   const c=customers.find(x=>x.id===custId); if(!c) return;
   renderResultWithHistory(c, idx);
+}
+function openAnResult(custId){
+  const c=customers.find(x=>x.id===custId); if(!c) return;
+  openSheet('ov-anresult');
+  renderResultWithHistory(c, 0);
 }
 async function delAnalysisEntry(custId, i){
   const c=customers.find(x=>x.id===custId); if(!c) return;
@@ -1505,7 +1526,7 @@ async function runAnalysis(id){
   const box=document.getElementById('an-result'); box.innerHTML='<div class="stage-note">보장 분석 중입니다… 잠시만 기다려 주세요.</div>';
   const want=[...(c.product||[]),...(c.situation||[])];
   const cases=pools.filter(p=>p.poolType==='case').map(p=>{
-    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
+    const overlap=poolMatchScore(p,c);
     return {overlap,title:p.title,result:p.result,body:p.body};
   }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
   let catalogText=''; try{ catalogText=await getCatalogText(box); }catch(e){}
@@ -1520,7 +1541,7 @@ async function runAnalysis(id){
     c.analysis=data; c.analysisDate=today();
     await idbPut('customers',c);
     const lc=addUsage(data._usage,'보장 분석');
-    lastAnalysis=data; renderAnalysis(); renderCostMeter(lc);
+    lastAnalysis=data; renderAnalysis(); renderCostMeter(lc); openAnResult(c.id);
   }catch(err){
     box.innerHTML='<div class="stage-note">분석 요청을 보내지 못했습니다. 배포된 주소에서 열었는지, 인터넷 연결을 확인하세요.<br><span class="meta">'+esc(err.message||'')+'</span></div>';
   }
@@ -1579,31 +1600,21 @@ async function getCatalogText(box){
   const parts=[];
   for(const cat of cats){
     let t='['+(cat.title||'카달로그')+']'; if(cat.body) t+='\n'+cat.body;
-    const imgs=cat.images||[];
-    if(imgs.length){
-      if(!(cat.catText && cat.catTextImgN===imgs.length)){
-        await ensureTesseract();
-        const ps=[];
-        for(let i=0;i<imgs.length;i++){
-          const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
-          const url=URL.createObjectURL(rec.blob);
-          const r=await Tesseract.recognize(url,'kor+eng',{logger:m=>{ if(box){ const pct=Math.min(99,Math.round(((i+(m.progress||0))/imgs.length)*100)); box.innerHTML='<div class="stage-note">상품 카달로그 글자 추출 중… '+pct+'% ('+esc(cat.title||'')+' '+(i+1)+'/'+imgs.length+')</div>'; } }});
-          URL.revokeObjectURL(url);
-          const x=(r.data.text||'').trim(); if(x) ps.push(x);
-        }
-        cat.catText=ps.join('\n'); cat.catTextImgN=imgs.length; try{ await idbPut('pools',cat); }catch(e){}
-      }
-      if(cat.catText) t+='\n'+cat.catText;
-    }
     parts.push(t);
   }
   return parts.join('\n\n---\n\n').slice(0,6000);
 }
 /* 에피소드 참조 텍스트 (고객 태그와 매칭 상위 4) */
+function poolMatchScore(p, c){
+  const want=[...(c.product||[]),...(c.situation||[]),(c.age||'')].filter(Boolean);
+  const tags=[...(p.free||[]),...(p.product||[]),...(p.situation||[]),...(p.age||[])];
+  let n=0; tags.forEach(t=>{ t=String(t); if(want.some(w=>w===t||w.includes(t)||t.includes(w))) n++; });
+  return n;
+}
 function getEpisodesText(c){
   const want=[...(c.product||[]),...(c.situation||[])];
   const eps=pools.filter(p=>p.poolType==='episode').map(p=>{
-    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
+    const overlap=poolMatchScore(p,c);
     return {p,overlap};
   }).sort((a,b)=>b.overlap-a.overlap).slice(0,4);
   if(!eps.length) return '';
@@ -1612,7 +1623,7 @@ function getEpisodesText(c){
 function matchedEpisodes(c){
   const want=[...(c.product||[]),...(c.situation||[])];
   return pools.filter(p=>p.poolType==='episode').map(p=>{
-    const overlap=[...(p.product||[]),...(p.situation||[]),...(p.age||[])].filter(t=>want.includes(t)||t===c.age).length;
+    const overlap=poolMatchScore(p,c);
     return {p,overlap};
   }).sort((a,b)=>b.overlap-a.overlap).slice(0,6);
 }
@@ -1716,7 +1727,7 @@ async function importPlanConsult(e){
   }catch(err){ alert('불러오기 실패: '+(err&&err.message?err.message:err)); }
 }
 function renderAnalysisResult(d, date){
-  const box=document.getElementById('an-result'); if(!box) return; lastAnalysis=d; let h='';
+  const box=document.getElementById('anresult-body'); if(!box) return; lastAnalysis=d; let h='';
   if(date) h+='<div class="meta" style="margin:0 2px 8px">분석일 '+esc(date)+'</div>';
   if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.6;color:var(--ink-soft)">'+esc(d.summary)+'</div></div>';
   h+='<div class="btn-grid">';
