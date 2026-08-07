@@ -1119,7 +1119,7 @@ function renderPools(){
   wrap.innerHTML=html;
 }
 function openPool(id){
-  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,free:[],audio:null,body:''};
+  const p = id ? pools.find(x=>x.id===id) : {id:null,poolType,free:[],audio:null,body:'',bodyFull:'',hasFull:false};
   editingPool=JSON.parse(JSON.stringify(p));
   const L=POOL_LABEL[poolType]||POOL_LABEL.case;
   document.getElementById('pool-title').textContent = id?'항목 편집':(L[0]+' 등록');
@@ -1204,10 +1204,17 @@ function pickPoolText(){
   inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await importFileToBody(f);};
   inp.click();
 }
+async function aiSummarize(text){
+  const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'summarize',text})});
+  const data=await res.json();
+  if(!res.ok) throw new Error(data.error||'요약 실패');
+  addUsage(data._usage,'요약');
+  return (data.summary||'').trim();
+}
 async function importFileToBody(file){
   const ta=document.getElementById('p-body'); if(!ta) return;
-  const append=t=>{ t=(t||'').trim(); if(!t){alert('파일에서 읽을 텍스트가 없습니다.'); return;} ta.value = ta.value ? (ta.value+'\n\n'+t) : t; };
   try{
+    let full='';
     if(isPdfFile(file)){
       toast('PDF 여는 중…');
       const blobs=await pdfToImageBlobs(file,(n,N)=>toast('PDF 페이지 변환 중… '+n+'/'+N));
@@ -1216,17 +1223,20 @@ async function importFileToBody(file){
       for(let i=0;i<blobs.length;i++){
         toast('PDF 글자 추출 중… '+Math.round((i/blobs.length)*100)+'%');
         const url=URL.createObjectURL(blobs[i]);
-        const r=await Tesseract.recognize(url,'kor+eng',{});
-        URL.revokeObjectURL(url);
+        const r=await Tesseract.recognize(url,'kor+eng',{}); URL.revokeObjectURL(url);
         const x=(r.data.text||'').trim(); if(x) parts.push(x);
       }
-      toastHide(); append(parts.join('\n\n'));
+      full=parts.join('\n\n').trim();
     } else {
-      const r=new FileReader();
-      r.onerror=()=>alert('파일을 읽지 못했습니다.');
-      r.onload=()=>append(String(r.result||''));
-      r.readAsText(file);
+      full=(await file.text()||'').trim();
     }
+    if(!full){ toastHide(); alert('파일에서 읽을 텍스트가 없습니다.'); return; }
+    editingPool.bodyFull = editingPool.bodyFull ? (editingPool.bodyFull+'\n\n'+full) : full;
+    editingPool.hasFull = true;
+    toast('AI 요약 중…');
+    let summary=''; try{ summary=await aiSummarize(editingPool.bodyFull); }catch(e){ summary=''; }
+    toastHide();
+    ta.value = (summary || full.slice(0,500));
   }catch(err){ toastHide(); alert('파일 처리 실패: '+(err&&err.message?err.message:err)); }
 }
 function pickPoolAudio(){
@@ -1244,6 +1254,7 @@ async function removePoolAudio(){
 async function savePool(){
   editingPool.title=document.getElementById('p-title').value.trim();
   editingPool.body=document.getElementById('p-body').value.trim();
+  editingPool.bodyFull = editingPool.hasFull ? (editingPool.bodyFull||editingPool.body) : editingPool.body;
   editingPool.free=document.getElementById('p-freetags').value.split(',').map(s=>s.trim()).filter(Boolean);
   if(!editingPool.title){alert('제목을 입력하세요.'); return;}
   if(!editingPool.id){editingPool.id=uid(); editingPool.created=today();}
@@ -1527,13 +1538,14 @@ async function runAnalysis(id){
   const want=[...(c.product||[]),...(c.situation||[])];
   const cases=pools.filter(p=>p.poolType==='case').map(p=>{
     const overlap=poolMatchScore(p,c);
-    return {overlap,title:p.title,result:p.result,body:p.body};
+    return {overlap,title:p.title,result:p.result,body:(p.bodyFull||p.body)};
   }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
+  const episodesText=getPoolMatchText(c,'episode',4);
   let catalogText=''; try{ catalogText=await getCatalogText(box); }catch(e){}
   box.innerHTML='<div class="stage-note">보장 분석 중입니다… 잠시만 기다려 주세요.</div>';
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,catalogText,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,episodesText,catalogText,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[]})});
     const data=await res.json();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[]; c.analyses.unshift({at:now(), date:today(), data});
@@ -1556,12 +1568,13 @@ async function runPlanAnalysis(id){
   let planText='';
   try{ planText=await getCustPlanText(c, box); }catch(e){ planText=''; }
   if(!planText.trim()){ box.innerHTML='<div class="stage-note">설계서 사진에서 글자를 추출하지 못했습니다. 더 선명한 사진을 등록해 주세요.</div>'; return; }
-  const episodesText=getEpisodesText(c);
+  const episodesText=getPoolMatchText(c,'episode',4);
+  const casesText=getPoolMatchText(c,'case',3);
   let catalogText=''; try{ catalogText=await getCatalogText(box); }catch(e){}
   box.innerHTML='<div class="stage-note">가입설계 분석 중입니다…</div>';
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planText, episodesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planText, episodesText, casesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
     const data=await res.json();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
@@ -1599,7 +1612,7 @@ async function getCatalogText(box){
   if(!cats.length) return '';
   const parts=[];
   for(const cat of cats){
-    let t='['+(cat.title||'카달로그')+']'; if(cat.body) t+='\n'+cat.body;
+    const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt;
     parts.push(t);
   }
   return parts.join('\n\n---\n\n').slice(0,6000);
@@ -1611,6 +1624,11 @@ function poolMatchScore(p, c){
   let n=0; tags.forEach(t=>{ t=String(t); if(want.some(w=>w===t||w.includes(t)||t.includes(w))) n++; });
   return n;
 }
+function getPoolMatchText(c, type, limit){
+  const items=pools.filter(p=>p.poolType===type).map(p=>({p,s:poolMatchScore(p,c)})).sort((a,b)=>b.s-a.s).slice(0,limit||4);
+  if(!items.length) return '';
+  return items.map(m=>'['+(m.p.title||'')+'] '+(((m.p.bodyFull||m.p.body)||'').slice(0,700))).join('\n\n');
+}
 function getEpisodesText(c){
   const want=[...(c.product||[]),...(c.situation||[])];
   const eps=pools.filter(p=>p.poolType==='episode').map(p=>{
@@ -1618,7 +1636,7 @@ function getEpisodesText(c){
     return {p,overlap};
   }).sort((a,b)=>b.overlap-a.overlap).slice(0,4);
   if(!eps.length) return '';
-  return eps.map(m=>'['+(m.p.title||'에피소드')+'] '+((m.p.body||'').slice(0,500))).join('\n\n');
+  return eps.map(m=>'['+(m.p.title||'에피소드')+'] '+(((m.p.bodyFull||m.p.body)||'').slice(0,700))).join('\n\n');
 }
 function matchedEpisodes(c){
   const want=[...(c.product||[]),...(c.situation||[])];
