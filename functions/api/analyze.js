@@ -14,6 +14,43 @@ function json(obj, status) {
   });
 }
 
+// ---- 모델 JSON 견고 파싱 ----
+// 모델이 코드펜스·설명문·문자열 내부 raw 개행·trailing comma 등으로
+// 살짝 깨진 JSON을 내보내도 최대한 복구해서 객체로 반환한다. 실패하면 null.
+function _tryParse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
+function _repairJson(s) {
+  // 문자열 리터럴 내부의 raw 제어문자(개행·탭)를 이스케이프하고 trailing comma 제거
+  let out = '', inStr = false, esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === '\\') { out += ch; esc = true; continue; }
+      if (ch === '"') { inStr = false; out += ch; continue; }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') { out += '\\r'; continue; }
+      if (ch === '\t') { out += '\\t'; continue; }
+      out += ch; continue;
+    }
+    if (ch === '"') { inStr = true; out += ch; continue; }
+    out += ch;
+  }
+  return out.replace(/,\s*([}\]])/g, '$1');
+}
+function parseModelJson(text) {
+  if (!text) return null;
+  let t = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  let p = _tryParse(t);
+  if (p) return p;
+  const first = t.indexOf('{'), last = t.lastIndexOf('}');
+  if (first >= 0 && last > first) {
+    const core = t.slice(first, last + 1);
+    p = _tryParse(core) || _tryParse(_repairJson(core));
+    if (p) return p;
+  }
+  return null;
+}
+
 export async function onRequestOptions() {
   return new Response('', { status: 200, headers: CORS });
 }
@@ -195,19 +232,17 @@ export async function onRequestPost(context) {
       const pr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: pModel, max_tokens: 4000, system: psys, messages: [{ role: 'user', content: pcontent }] })
+        body: JSON.stringify({ model: pModel, max_tokens: 5000, system: psys, messages: [{ role: 'user', content: pcontent }] })
       });
       const pd = await pr.json();
       if (!pr.ok) { const msg = (pd && pd.error && pd.error.message) ? pd.error.message : ('API 오류 (' + pr.status + ')'); return json({ error: msg }, pr.status); }
       let ptext = (pd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
       ptext = ptext.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
-      let pparsed;
-      try { pparsed = JSON.parse(ptext); }
-      catch (e) {
-        try { const m = ptext.match(/\{[\s\S]*\}/); pparsed = m ? JSON.parse(m[0]) : null; }
-        catch (e2) { pparsed = null; }
-        if (!pparsed) pparsed = { shortfallRate: 0, planDetail: [ptext], questions: [] };
+      let pparsed = parseModelJson(ptext);
+      if (!pparsed) {
+        pparsed = { shortfallRate: 0, summary: '설계 분석 결과를 형식대로 읽지 못했습니다. "원문 보기"로 확인하거나 다시 분석해 주세요.', planDetail: [], questions: [], _raw: ptext };
       }
+      if (!Array.isArray(pparsed.planDetail)) pparsed.planDetail = [];
       if (!Array.isArray(pparsed.questions)) pparsed.questions = [];
       pparsed._usage = { input_tokens: (pd.usage && pd.usage.input_tokens) || 0, output_tokens: (pd.usage && pd.usage.output_tokens) || 0, model: pd.model || pModel };
       return json(pparsed);
@@ -230,12 +265,14 @@ export async function onRequestPost(context) {
     '  "summary": "종합 요약 2~3문장",',
     '  "areas": [{"name":"영역명","level":"충분|보통|취약","reason":"한 줄 근거"}],',
     '  "priorities": ["보강 제안 1","보강 제안 2","보강 제안 3"],',
-    '  "detail": ["[영역별 상세]", "영역별 판정·근거 항목", "[핵심 담보(3000만원↑) 갱신형 여부]", "핵심 담보 갱신형 항목", "[종합 소견]", "종합 요점 항목"]',
+    '  "detail": ["[영역별 상세]", "영역별 판정·근거 항목", "[핵심 담보(3000만원↑) 갱신형 여부]", "핵심 담보 갱신형 항목", "[종합 소견]", "종합 요점 항목"],',
+    '  "questions": ["보장 텍스트만으로 확실하지 않아 사용자에게 확인할 짧고 구체적인 질문"]',
     '}',
     '규칙:',
     '- 영역은 사망보장, 암·3대진단(암/뇌혈관/허혈성심장), 입원·수술, 실손의료, 간병·치매, 상해·재해 중 텍스트에서 확인되는 것을 다룹니다.',
     "- 텍스트에 관련 담보가 전혀 없으면 그 영역을 '취약'으로 판정하고 reason에 '해당 담보 없음'을 명시합니다.",
     '- 보험료, 해약환급금 등 텍스트에 없는 구체적인 숫자는 지어내지 마세요.',
+    '- 가입금액·담보명·회사·갱신여부 등 텍스트(OCR)만으로 확실하지 않은 값은 절대 추측하지 말고, questions 배열에 사용자에게 물어볼 짧고 구체적인 질문으로 담으세요. 확실하지 않은 게 없으면 questions는 빈 배열 [].',
     '- detail은 문자열 배열입니다. 각 원소는 한 항목(한 줄)이며 하이픈·번호 접두어 없이 내용만 담고, 원소 문자열 안에 줄바꿈을 넣지 마세요. 소제목은 대괄호 원소 "[영역별 상세]", "[핵심 담보(3000만원↑) 갱신형 여부]", "[종합 소견]"로 넣어 세 부분을 구분하고, 각 소제목 뒤에 항목들을 이어서 나열합니다. 큰따옴표가 필요하면 반드시 이스케이프하세요.',
     '- 보장금액이 큰 핵심 담보(가입금액 3000만원 이상)는 각각 갱신형인지 비갱신형인지 반드시 판별해, detail 안에 "[핵심 담보(3000만원↑) 갱신형 여부]" 소제목으로 개조식 정리합니다. 갱신형은 향후 보험료 인상·만기 위험이 있어 상담에서 매우 중요하므로 빠짐없이 표시하고, 텍스트에서 갱신 여부가 불명확하면 "확인 필요"로 표기합니다.',
     '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.',
@@ -257,14 +294,15 @@ export async function onRequestPost(context) {
     caseText,
     '',
     ...(episodesText ? ['# 설득 에피소드 (참고)', episodesText, ''] : []),
-    ...(catalogText ? ['# 상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText] : [])
+    ...(catalogText ? ['# 상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText] : []),
+    ...(((payload.confirmations || '').trim()) ? ['', '# 사용자가 확인해준 확정 정보 (반드시 이 값으로 사용하고 이 항목은 questions에 다시 넣지 마세요)', (payload.confirmations || '').trim()] : [])
   ].join('\n');
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: model, max_tokens: 4000, system: system, messages: [{ role: 'user', content: user }] })
+      body: JSON.stringify({ model: model, max_tokens: 5000, system: system, messages: [{ role: 'user', content: user }] })
     });
     const data = await r.json();
     if (!r.ok) {
@@ -273,13 +311,14 @@ export async function onRequestPost(context) {
     }
     let text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
     text = text.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
-    let parsed;
-    try { parsed = JSON.parse(text); }
-    catch (e) {
-      try { const m = text.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
-      catch (e2) { parsed = null; }
-      if (!parsed) parsed = { summary: '분석 결과를 형식대로 읽지 못해 원문을 그대로 표시합니다.', areas: [], priorities: [], detail: text };
+    let parsed = parseModelJson(text);
+    if (!parsed) {
+      // 최종 실패: 원문을 _raw로만 보관(프런트에서 2차 복구 시도). detail에 원문 덤프하지 않음.
+      parsed = { summary: '분석 결과를 형식대로 읽지 못했습니다. "원문 보기"로 확인하거나 다시 분석해 주세요.', areas: [], priorities: [], detail: [], _raw: text };
     }
+    if (!Array.isArray(parsed.areas)) parsed.areas = [];
+    if (!Array.isArray(parsed.priorities)) parsed.priorities = [];
+    if (!Array.isArray(parsed.questions)) parsed.questions = [];
     parsed._usage = {
       input_tokens: (data.usage && data.usage.input_tokens) || 0,
       output_tokens: (data.usage && data.usage.output_tokens) || 0,
