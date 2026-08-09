@@ -37,6 +37,20 @@ function _repairJson(s) {
   }
   return out.replace(/,\s*([}\]])/g, '$1');
 }
+// 잘린(truncation) JSON 복구: 미완성 문자열·괄호를 닫아 유효 JSON으로
+function _closeJson(s) {
+  let inStr = false, esc = false; const st = [];
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) { if (esc) { esc = false; } else if (ch === '\\') { esc = true; } else if (ch === '"') { inStr = false; } continue; }
+    if (ch === '"') { inStr = true; } else if (ch === '{' || ch === '[') { st.push(ch); } else if (ch === '}' || ch === ']') { st.pop(); }
+  }
+  let out = s;
+  if (inStr) out += '"';
+  out = out.replace(/[,:]\s*$/, '');
+  for (let i = st.length - 1; i >= 0; i--) out += (st[i] === '{' ? '}' : ']');
+  return out;
+}
 function parseModelJson(text) {
   if (!text) return null;
   let t = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
@@ -46,6 +60,12 @@ function parseModelJson(text) {
   if (first >= 0 && last > first) {
     const core = t.slice(first, last + 1);
     p = _tryParse(core) || _tryParse(_repairJson(core));
+    if (p) return p;
+  }
+  // 잘림 복구: 여는 중괄호부터 끝까지 잡아 닫아준다
+  if (first >= 0) {
+    const tail = t.slice(first);
+    p = _tryParse(_closeJson(_repairJson(tail)));
     if (p) return p;
   }
   return null;
@@ -232,7 +252,7 @@ export async function onRequestPost(context) {
       const pr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: pModel, max_tokens: 5000, system: psys, messages: [{ role: 'user', content: pcontent }] })
+        body: JSON.stringify({ model: pModel, max_tokens: 8000, system: psys, messages: [{ role: 'user', content: pcontent }] })
       });
       const pd = await pr.json();
       if (!pr.ok) { const msg = (pd && pd.error && pd.error.message) ? pd.error.message : ('API 오류 (' + pr.status + ')'); return json({ error: msg }, pr.status); }
@@ -302,7 +322,7 @@ export async function onRequestPost(context) {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: model, max_tokens: 5000, system: system, messages: [{ role: 'user', content: user }] })
+      body: JSON.stringify({ model: model, max_tokens: 8000, system: system, messages: [{ role: 'user', content: user }] })
     });
     const data = await r.json();
     if (!r.ok) {
