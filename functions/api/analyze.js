@@ -183,6 +183,41 @@ export async function onRequestPost(context) {
   }
 
   // 요약 모드: 긴 원문을 약 500자로 요약 (풀 본문 표시용)
+  if (payload.mode === 'ap') {
+    const stage = (payload.stage || '상담').toString().slice(0, 60);
+    const material = (payload.material || '').toString().slice(0, 12000);
+    const cust = payload.customer || {};
+    const apModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const apSys = [
+      '당신은 한국 생명보험 재무설계사(FP)의 대면 상담 코치입니다.',
+      '설계사가 고객을 직접 만나 이야기할 때 "그대로 말하면 되는" 자연스러운 한국어 멘트를 만들어 주세요.',
+      '지금 단계: ' + stage + '.',
+      '고객: 이름 ' + (cust.name || '(미상)') + ', 나이 ' + (cust.age || '(미상)') + ', 지역 ' + (cust.region || '(미상)') + '.',
+      '',
+      '## 작성 규칙',
+      '- 설계사가 읽고 그대로 말할 수 있는 실제 대화체 멘트 위주로. 존댓말, 따뜻하고 자신감 있는 어조.',
+      '- 팔려고 밀어붙이지 말고, 공감과 사실 중심으로. 고객이 스스로 필요를 느끼게.',
+      '- 아래 [참고 자료]의 내용을 근거로 하되, 없는 사실을 지어내지 마세요.',
+      '- 분량은 간결하게(600자 이내). 인사말·사족·메타설명 없이 멘트 본문만.',
+      '- 필요하면 "이렇게 열어보세요 / 이렇게 이어가세요" 같은 짧은 안내 한 줄은 가능하나 최소화.',
+      '- 설계사에게 용기를 주되, 멘트 자체는 고객에게 하는 말로 작성.'
+    ].join('\n');
+    const apUser = '[참고 자료]\n' + (material || '(등록된 자료가 적습니다. 이 단계의 일반적인 모범 멘트를 만들어 주세요.)');
+    try {
+      const rr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: apModel, max_tokens: 1500, system: apSys, messages: [{ role: 'user', content: apUser }] })
+      });
+      const rd = await rr.json();
+      if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
+      const atext = (rd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      return json({ text: atext, _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || apModel } });
+    } catch (err) {
+      return json({ error: 'AP 멘트 생성 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+    }
+  }
+
   if (payload.mode === 'summarize') {
     const src = (payload.text || '').trim();
     if (!src) return json({ error: '요약할 내용이 없습니다.' }, 400);
