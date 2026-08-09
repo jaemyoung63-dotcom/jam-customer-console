@@ -250,6 +250,7 @@
   <!-- ===== 고객 목록 ===== -->
   <div class="screen active" id="s-customers">
     <div id="cust-list"></div>
+    <button class="btn ghost sm wide" style="margin-top:14px" onclick="exportAllCustomers()">💾 전체 고객 저장 (보장분석·가입설계 기록 포함)</button>
   </div>
 
   <!-- ===== 풀 관리 ===== -->
@@ -270,8 +271,7 @@
         <button class="btn ghost grow" onclick="openWorkingCust()">고객상세</button>
         <button class="btn ghost grow" onclick="poolToAnalysis()">분석 화면으로 →</button>
       </div>
-      <div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="exportPools()">JSON 백업</button><button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">JSON 불러오기</button></div>
-      <button class="btn ghost sm wide" style="margin-top:8px" onclick="pickPcFolder()">📁 PC 저장 폴더 지정</button>
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="exportPools()">참조 전체 저장</button><button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">JSON 불러오기</button></div>
     </div>
     <input type="file" id="import-pools" accept="application/json" style="display:none" onchange="importPools(event)">
   </div>
@@ -291,7 +291,7 @@
     <div class="home-hero">
       <img class="mascot-img hm" src="data:image/png;base64,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" alt="캐릭터">
       <h1>고객상담 매니저</h1>
-      <div class="sub">푸본현대생명 · FP 현장 도우미 <span style="opacity:.7">· v10 (2026-08-09)</span></div>
+      <div class="sub">푸본현대생명 · FP 현장 도우미 <span style="opacity:.7">· v12 (2026-08-09)</span></div>
     </div>
     <div class="home-menu">
       <div class="home-card" onclick="go('customers')">
@@ -384,8 +384,6 @@
       <div id="tidy-history"></div>
 
       <div class="divider"></div>
-      <label class="f">저장 폴더 <span style="font-weight:400;color:var(--ink-mute)">· 앱 분류 + PC 폴더 공통</span></label>
-      <select class="t folder-select" id="cust-folder" onchange="onFolderPick(this)"></select>
       <div class="row" style="margin-top:8px">
         <button class="btn primary grow" onclick="saveCustomer()">저장</button>
         <button class="btn ghost grow" onclick="saveCustomerThenPool()">참조풀에서 자료 선택 →</button>
@@ -427,8 +425,6 @@
     <textarea class="t" id="c-coverage" style="min-height:40vh;font-size:14px;line-height:1.7" oninput="resetCovSave()"></textarea>
     <label class="f">메모</label>
     <textarea class="t" id="c-memo" placeholder="상담 메모, 특이사항" oninput="resetCovSave()"></textarea>
-    <label class="f" style="margin-top:8px">저장 폴더</label>
-    <select class="t folder-select" id="cov-folder" onchange="onFolderPick(this)"></select>
     <button class="btn primary wide" id="cov-save-btn" style="margin-top:8px" onclick="saveCoverageResult(this)">저장</button>
     <button class="btn ghost wide" style="margin-top:8px" onclick="closeSheet('ov-coverage')">닫기 (고객상세로)</button>
   </div>
@@ -444,7 +440,8 @@
       <button class="btn ghost sm" onclick="closeSheet('ov-anresult')">닫기</button></div>
     <div id="anresult-body"></div>
     <div class="divider"></div>
-    <button class="btn primary wide" onclick="closeSheet('ov-anresult')">닫기</button>
+    <button class="btn ghost sm wide" onclick="saveCoverageFile()">💾 보장분석 결과 저장 (폴더 선택)</button>
+    <button class="btn primary wide" style="margin-top:8px" onclick="closeSheet('ov-anresult')">닫기</button>
   </div>
 </div>
 
@@ -509,8 +506,6 @@
       <div id="p-audio"></div>
     </div>
     <div class="divider"></div>
-    <label class="f">저장 폴더</label>
-    <select class="t folder-select" id="pool-folder" onchange="onFolderPick(this)"></select>
     <div class="row"><button class="btn primary grow" onclick="savePool()">저장</button><button class="btn danger grow" id="p-delete" onclick="deletePool()">삭제</button></div>
   </div>
 </div>
@@ -570,49 +565,21 @@ function folderFrom(selId){ const sel=document.getElementById(selId); const v=se
 
 /* ---- A: PC 폴더 자동 저장 ---- */
 let _dirHandle=null;
-async function _permOK(h, doRequest){
-  try{ if(!h||!h.queryPermission) return true; const opt={mode:'readwrite'};
-    let p=await h.queryPermission(opt); if(p==='granted') return true;
-    if(doRequest){ p=await h.requestPermission(opt); return p==='granted'; }
-    return false;
-  }catch(e){ return false; }
-}
-/* 저장용: 이미 지정된 폴더 핸들만 반환 (절대 picker 안 띄움) */
-async function getDirHandle(){
-  if(_dirHandle && await _permOK(_dirHandle,false)) return _dirHandle;
-  try{ const rec=await idbGet('meta','dirHandle'); if(rec&&rec.handle){ _dirHandle=rec.handle; if(await _permOK(_dirHandle,false)) return _dirHandle; } }catch(e){}
-  return null;
-}
-/* PC 폴더에 파일 저장 (best-effort, picker 없음) */
-async function exportToPc(folder, filename, text){
+/* 저장 시마다 폴더창을 띄운다(마지막 폴더에서 시작). subfolder가 있으면 그 하위폴더에 저장.
+   반드시 저장 핸들러의 '첫 await'로 호출할 것 — 그래야 크롬 사용자 제스처가 유지되어 폴더창이 뜬다. */
+async function pcSave(subfolder, filename, obj){
+  if(!window.showDirectoryPicker){ toast('크롬/엣지에서만 PC 폴더 저장이 됩니다.'); setTimeout(toastHide,2200); return false; }
+  let root;
+  try{ root=await window.showDirectoryPicker({mode:'readwrite', startIn:(_dirHandle||undefined)}); }
+  catch(e){ if(e&&e.name==='AbortError'){ toast('저장 폴더 선택 취소 — 앱에는 저장됨'); setTimeout(toastHide,1800); } return false; }
+  _dirHandle=root; try{ await idbPut('meta',{key:'dirHandle',handle:root}); }catch(e){}
   try{
-    const root=await getDirHandle(); if(!root) return false;
-    const sub=await root.getDirectoryHandle(sanitizeName(folder||'기본'), {create:true});
-    const fh=await sub.getFileHandle(sanitizeName(filename), {create:true});
-    const w=await fh.createWritable(); await w.write(text); await w.close();
+    const dir = subfolder ? await root.getDirectoryHandle(sanitizeName(subfolder), {create:true}) : root;
+    const fh=await dir.getFileHandle(sanitizeName(filename), {create:true});
+    const w=await fh.createWritable(); await w.write(JSON.stringify(obj,null,2)); await w.close();
+    toast('✓ 저장: '+(root.name||'')+'/'+(subfolder?sanitizeName(subfolder)+'/':'')+filename); setTimeout(toastHide,2600);
     return true;
-  }catch(e){ return false; }
-}
-/* 저장 공통 후처리: 레코드에 folder 태그 + PC 폴더로 파일 내보내기 + 결과 안내 */
-async function saveToFolder(record, folder, filename){
-  if(record) record.folder=folder;
-  if(!window.showDirectoryPicker) return false;
-  const ok=await exportToPc(folder, filename, JSON.stringify(record||{}, null, 2));
-  if(ok){ toast('✓ PC 폴더에도 저장: '+folder+' / '+filename); setTimeout(toastHide,2000); }
-  else { toast('앱에 저장됨 · PC 폴더 미지정 — 참조풀 하단 "📁 PC 저장 폴더 지정"을 먼저 눌러주세요.'); setTimeout(toastHide,2600); }
-  return ok;
-}
-/* 폴더 지정 버튼: 클릭 직후 곧바로 picker 호출 (앞에 await 두지 않음 = 사용자 제스처 유지) */
-async function pickPcFolder(){
-  if(!window.showDirectoryPicker){ toast('이 브라우저는 PC 폴더 저장을 지원하지 않습니다. 크롬/엣지를 사용하세요.'); setTimeout(toastHide,2400); return; }
-  let h=null;
-  try{ h=await window.showDirectoryPicker({mode:'readwrite'}); }
-  catch(e){ if(e&&e.name==='AbortError'){ toast('폴더 지정을 취소했습니다.'); } else { toast('폴더 지정 실패: '+((e&&e.message)||e)); } setTimeout(toastHide,2200); return; }
-  _dirHandle=h;
-  try{ await _permOK(h,true); }catch(e){}
-  try{ await idbPut('meta',{key:'dirHandle', handle:h}); }catch(e){}
-  toast('✓ PC 저장 폴더 지정됨: '+(h.name||'')+' — 이제 저장할 때마다 이 폴더에 파일이 쌓입니다.');
-  setTimeout(toastHide,2800);
+  }catch(e){ toast('PC 저장 실패: '+((e&&e.message)||e)); setTimeout(toastHide,2200); return false; }
 }
 function idbDel(store,id){return new Promise(r=>{const q=tx(store,'readwrite').delete(id); q.onsuccess=()=>r();});}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -782,7 +749,6 @@ function custStep(n){
     const cx=document.getElementById('cust-ctx2');
     if(cx) cx.innerHTML = nm ? ('<div style="background:var(--accent);color:#fff;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:15px;font-weight:700">◉ '+esc(nm)+' 고객'+(rg?' <span style="font-weight:400;opacity:.85;font-size:13px">· '+esc(rg)+'</span>':'')+'</div>') : '';
     refreshCoverageUI();
-    fillFolderSelect('cust-folder', editingCust&&editingCust.folder);
   }
   const sheet=document.querySelector('#ov-cust .sheet'); if(sheet) sheet.scrollTop=0;
 }
@@ -799,7 +765,6 @@ function showCoverageResult(){
   if(ta && editingCust && editingCust.coverageText && !(ta.value||'').trim()) ta.value=editingCust.coverageText;
   if(mm && editingCust && editingCust.memo!=null && !(mm.value||'').trim()) mm.value=editingCust.memo;
   resetCovSave();
-  fillFolderSelect('cov-folder', editingCust&&editingCust.folder);
   openSheet('ov-coverage');
 }
 /* 기록 목록: 최대 3개만 표시, 나머지는 '이전기록' 버튼으로 펼침 */
@@ -1266,10 +1231,11 @@ async function saveCustomerCore(){
   if(!editingCust.name){alert('이름을 입력하세요.'); return null;}
   if(!editingCust.id){editingCust.id=uid(); editingCust.created=today();}
   editingCust.updated=new Date().toISOString();
-  editingCust.folder=folderFrom('cust-folder');
+  editingCust.folder=editingCust.name;
+  // PC 저장 먼저(첫 await=폴더창) → 고객이름 하위폴더에
+  await pcSave(editingCust.name, sanitizeName(editingCust.name)+'_고객_'+today()+'.json', editingCust);
   await idbPut('customers',editingCust);
   customers=await idbAll('customers');
-  saveToFolder(editingCust, editingCust.folder, sanitizeName(editingCust.name)+'_고객_'+today()+'.json');
   return editingCust.id;
 }
 async function saveCustomer(){
@@ -1438,6 +1404,20 @@ async function togglePin(ev,id){
   toast(p.pinned?'분석에 강제 포함으로 선택됨':'선택 해제'); setTimeout(toastHide,1200);
 }
 function pinnedCount(){ return pools.filter(p=>p.pinned).length; }
+/* 보장분석 결과를 PC 폴더에 저장 (고객이름 하위폴더) */
+async function saveCoverageFile(){
+  const id=document.getElementById('an-cust').value; const c=customers.find(x=>x.id===id);
+  if(!c){ toast('고객을 먼저 선택하세요'); setTimeout(toastHide,1500); return; }
+  const e=(c.analyses&&c.analyses[0]); if(!e){ toast('저장할 보장분석 결과가 없습니다'); setTimeout(toastHide,1600); return; }
+  await pcSave(c.name, sanitizeName(c.name)+'_보장분석_'+String(e.at||today()).replace(/[: ]/g,'-')+'.json', {customer:c.name, at:e.at, result:e.data});
+}
+/* 가입설계 결과를 PC 폴더에 저장 */
+async function savePlanFile(){
+  const id=document.getElementById('an-cust').value; const c=customers.find(x=>x.id===id);
+  if(!c){ toast('고객을 먼저 선택하세요'); setTimeout(toastHide,1500); return; }
+  const e=(c.planAnalyses&&c.planAnalyses[0]); if(!e){ toast('저장할 가입설계 결과가 없습니다'); setTimeout(toastHide,1600); return; }
+  await pcSave(c.name, sanitizeName(c.name)+'_가입설계_'+String(e.at||today()).replace(/[: ]/g,'-')+'.json', {customer:c.name, at:e.at, result:e.data});
+}
 /* 참조풀 상단: 지금 이어서 작업 중인 고객 배너 (선택→분석 연결) */
 function renderPoolCtx(){
   const box=document.getElementById('pool-ctx'); if(!box) return;
@@ -1475,7 +1455,6 @@ function openPool(id){
   chipGroup(document.getElementById('pool-age'),AGES,editingPool.age,true);
   renderPoolBrief();
   renderPoolAudio();
-  fillFolderSelect('pool-folder', editingPool&&editingPool.folder);
   const dropEl=document.getElementById('p-drop'); if(dropEl) enableDrop(dropEl, importFileToBody, f=>isPdfFile(f)||(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
   openSheet('ov-pool');
 }
@@ -1637,10 +1616,12 @@ async function savePool(){
   editingPool.product=editingPool.product||[]; editingPool.situation=editingPool.situation||[]; editingPool.age=editingPool.age||[];
   if(!editingPool.title){alert('제목을 입력하세요.'); return;}
   if(!editingPool.id){editingPool.id=uid(); editingPool.created=today();}
-  editingPool.folder=folderFrom('pool-folder');
+  const _wc=currentCustId?customers.find(x=>x.id===currentCustId):null;   // 작업 고객이면 그 폴더
+  const _sub=_wc?_wc.name:'참조풀';
+  editingPool.folder=_sub;
+  await pcSave(_sub, sanitizeName(editingPool.title)+'_'+(editingPool.poolType||'풀')+'_'+today()+'.json', editingPool);
   await idbPut('pools',editingPool);
   pools=await idbAll('pools');
-  saveToFolder(editingPool, editingPool.folder, sanitizeName(editingPool.title)+'_'+(editingPool.poolType||'풀')+'_'+today()+'.json');
   closeSheet('ov-pool'); renderPools();
 }
 async function deletePool(){
@@ -1650,12 +1631,16 @@ async function deletePool(){
   await idbDel('pools',editingPool.id); pools=await idbAll('pools');
   closeSheet('ov-pool'); renderPools();
 }
-function exportPools(){
-  const data=JSON.stringify(pools,null,2);
-  const blob=new Blob([data],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='참조풀_백업_'+today()+'.json'; a.click();
-  exportToPc(currentFolder(), '참조풀_백업_'+today()+'.json', data).then(ok=>{ if(ok){ toast('✓ PC 폴더에도 백업됨'); setTimeout(toastHide,1800); } });
+async function exportPools(){
+  const ok=await pcSave('_전체백업', '참조풀전체_'+today()+'.json', pools);
+  if(!ok){ const data=JSON.stringify(pools,null,2); const blob=new Blob([data],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='참조풀전체_'+today()+'.json'; a.click(); }
+}
+/* 하단 고객 목록 화면: 전체 고객 저장 (보장분석·가입설계 기록 포함) */
+async function exportAllCustomers(){
+  const ok=await pcSave('_전체백업', '고객전체_'+today()+'.json', customers);
+  if(!ok){ const data=JSON.stringify(customers,null,2); const blob=new Blob([data],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='고객전체_'+today()+'.json'; a.click(); }
 }
 async function importPools(e){
   const f=e.target.files[0]; if(!f) return;
@@ -1788,7 +1773,7 @@ function renderAnalysis(){
     html+='<label class="f">유사 상담사례 매칭 ('+caseList.length+') <span style="font-weight:400;color:var(--ink-mute)">· 선택+자동 · 눌러서 전체</span></label>';
     if(caseList.length){ caseList.forEach(m=>{ html+=poolTwoLineBtn(m.p, m.tag); });
     } else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조풀에서 선택(☑)하거나 태그가 겹치는 사례를 쌓으면 매칭됩니다.</div>'; }
-    html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(2)">\ub2e4\uc74c \u203a</button>';
+    html+='<div class="divider"></div><button class="btn ghost sm wide" onclick="go(\'pools\')">참조풀에서 자료 선택 →</button><button class="btn primary wide" style="margin-top:8px" onclick="anStepGo(2)">\ub2e4\uc74c \u203a</button>';
   } else if(anStep===2){
     html+='<button class="btn ghost sm" onclick="anStepGo(1)">\u2039 \uc0c1\ub2f4\uc0ac\ub840(1\ub2e8\uacc4)</button>';
     html+='<div class="divider"></div>';
@@ -1799,10 +1784,10 @@ function renderAnalysis(){
     const catN=pools.filter(p=>p.poolType==='catalog').length;
     if(catN) html+='<div class="meta" style="margin-top:10px">\u203b \uc0c1\ud488 \uce74\ub2ec\ub85c\uadf8 '+catN+'\uac1c\ub97c \ubcf4\uc7a5\ubd84\uc11d\u00b7\uac00\uc785\uc124\uacc4\uc5d0 \uc790\ub3d9 \ucc38\uc870\ud569\ub2c8\ub2e4.</div>';
     if(pinnedCount()>0) html+='<div class="meta" style="margin-top:4px;color:var(--accent)">\u2713 \ucc38\uc870\ud480\uc5d0\uc11c \uc120\ud0dd(\uccb4\ud06c)\ud55c '+pinnedCount()+'\uac1c \ud56d\ubaa9\uc744 \ubd84\uc11d\uc5d0 \uac15\uc81c \ucc38\uc870\ud569\ub2c8\ub2e4. (\ud574\ub2f9 \uc885\ub958\ub294 \uc790\ub3d9\ub9e4\uce6d \ub300\uc2e0 \uc120\ud0dd\ud56d\ubaa9 \uc0ac\uc6a9)</div>';
-    { const pinned=pools.filter(p=>p.pinned);
-      html+='<label class="f" style="margin-top:10px">선택한 참조자료 ('+pinned.length+')</label>';
-      if(pinned.length){ pinned.forEach(p=>{ html+=poolTwoLineBtn(p, (POOL_LABEL[p.poolType]||['자료'])[0]); }); }
-      else html+='<div class="meta">아직 선택한 항목이 없습니다. 아래 버튼으로 참조풀에서 선택하세요. (선택 없으면 태그 자동매칭)</div>';
+    { const rel=relevantPool(c,'case').concat(relevantPool(c,'episode')).concat(relevantPool(c,'catalog'));
+      html+='<label class="f" style="margin-top:10px">참조 자료 ('+rel.length+') <span style="font-weight:400;color:var(--ink-mute)">· 선택+자동 · 눌러서 전체</span></label>';
+      if(rel.length){ rel.forEach(m=>{ html+=poolTwoLineBtn(m.p, m.tag); }); }
+      else html+='<div class="meta">관련 참조자료가 없습니다. 아래에서 선택하거나 태그가 겹치는 자료를 쌓으세요.</div>';
     }
     html+='<button class="btn ghost sm wide" style="margin-top:6px" onclick="go(\'pools\')">참조풀에서 자료 선택/변경 →</button>';
     if(!hasText) html+='<div class="stage-note" style="margin-top:10px">\ubcf4\uc7a5 \ud14d\uc2a4\ud2b8\uac00 \uc544\uc9c1 \uc5c6\uc2b5\ub2c8\ub2e4. \uace0\uac1d \ud654\uba74\uc5d0\uc11c \ucc44\uc6b4 \ub4a4 \ubd84\uc11d\ud558\uc138\uc694.</div>';
@@ -1810,6 +1795,7 @@ function renderAnalysis(){
     else html+='<div class="stage-note">\ubcf4\uc7a5\uae09\ubd80\u00b7\ub0b4\ubcf4\uc7a5\uc790\uc0b0\u00b7\uae30\ud0c0 + \uc0c1\ub2f4\uc0ac\ub840\ub97c \ud568\uaed8 \ubd84\uc11d\ud574 \uc57d 2000\uc790\ub85c \uc815\ub9ac\ud569\ub2c8\ub2e4.</div>';
     if(hasAnalysis){
       html+='<button class="btn result-ready wide" style="margin-top:8px" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기 ›</button>';
+      html+='<button class="btn ghost sm wide" style="margin-top:8px" onclick="saveCoverageFile()">💾 보장분석 결과 저장 (폴더 선택)</button>';
     } else {
       html+='<button class="btn primary wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">상담사례 매칭 보장분석</button>';
     }
@@ -1823,6 +1809,7 @@ function renderAnalysis(){
     html+='<button class="btn '+(palist.length?'result-ready':'primary')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'\u2713 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc644\ub8cc \u00b7 \ub2e4\uc2dc \ubd84\uc11d':'\uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc2e4\ud589')+'</button>';
     if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">\u203b \uba3c\uc800 \u2461 \ubcf4\uc7a5\ubd84\uc11d\uc744 \uc2e4\ud589\ud558\uc138\uc694.</div>';
     else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">\u203b \uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0\ub97c \uba3c\uc800 \ub4f1\ub85d\ud558\uc138\uc694.</div>';
+    if(palist.length) html+='<button class="btn ghost sm wide" style="margin-top:8px" onclick="savePlanFile()">💾 가입설계 결과 저장 (폴더 선택)</button>';
     html+='<div id="an-plan-result" style="margin-top:14px"></div>';
     html+='<div id="plan-questions"></div>';
     html+='<div class="divider"></div><div class="row"><button class="btn ghost sm grow" onclick="savePlanConsult(\''+c.id+'\')">\uac00\uc785\uc124\uacc4 \uc800\uc7a5(\ud30c\uc77c)</button><button class="btn ghost sm grow" onclick="document.getElementById(\'import-plan-consult\').click()">\uac00\uc785\uc124\uacc4 \ubd88\ub7ec\uc624\uae30</button></div>';
@@ -1948,8 +1935,6 @@ async function runAnalysis(id, confirmations){
     if(c.analyses.length>50) c.analyses=c.analyses.slice(0,50);
     c.analysis=data; c.analysisDate=today();
     await idbPut('customers',c);
-    { const fld=c.folder||currentFolder(); const stamp=now().replace(/[: ]/g,'-');
-      exportToPc(fld, sanitizeName(c.name)+'_보장분석_'+stamp+'.json', JSON.stringify({customer:c.name, at:now(), result:data}, null, 2)); }
     const lc=addUsage(data._usage,'보장 분석');
     lastAnalysis=data; renderAnalysis(); renderCostMeter(lc); openAnResult(c.id);
   }catch(err){
@@ -1986,8 +1971,6 @@ async function runPlanAnalysis(id, confirmations){
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
     if(c.planAnalyses.length>50) c.planAnalyses=c.planAnalyses.slice(0,50);
     await idbPut('customers',c);
-    { const fld=c.folder||currentFolder(); const stamp=now().replace(/[: ]/g,'-');
-      exportToPc(fld, sanitizeName(c.name)+'_가입설계_'+stamp+'.json', JSON.stringify({customer:c.name, at:now(), result:data}, null, 2)); }
     const lc=addUsage(data._usage,'가입설계 분석(비전)');
     renderAnalysis(); renderCostMeter(lc);
     renderPlanQuestions(c.id, data.questions||[]);
