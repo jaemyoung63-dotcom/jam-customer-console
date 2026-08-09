@@ -106,6 +106,53 @@
   .uw-connected{background:linear-gradient(165deg,#E6F8F0,#C9F0DF);} .uw-connected .uw-badge{background:#10A87F;} .uw-connected .uw-go{color:#0B7A5C;} .uw-connected .ui{background:linear-gradient(150deg,#34C79E,#0E9070);} .uw-connected .ar{color:#10A87F;} .uw-connected .uw-words span{color:#0B6E53;}
   .uw-separate{background:linear-gradient(165deg,#E9F7FE,#CDEEFB);} .uw-separate .uw-badge{background:#0FA0DC;} .uw-separate .uw-go{color:#0C82B4;} .uw-separate .ui{background:linear-gradient(150deg,#46C4F2,#0E8FCB);} .uw-separate .uw-words span{color:#0A6E9E;}
   .home-card-sm{padding:12px 16px !important; box-shadow:none !important;}
+  .home-row2{display:flex; gap:10px;}
+  .home-row2 .hc2{flex:1; min-width:0;}
+  /* AP 대면 화면 */
+  .ap-hero{border-radius:16px; padding:15px 16px; color:#fff; background:linear-gradient(115deg,#37C2EF,#1FC1B4 52%,#18B778); margin-bottom:12px; text-align:center;}
+  .ap-hero .ah-t{font-size:16px; font-weight:800;}
+  .ap-hero .ah-s{font-size:12px; opacity:.95; margin-top:3px; line-height:1.5;}
+  .ap-tabs{display:flex; gap:6px; margin-bottom:12px; position:sticky; top:0; z-index:5; background:var(--paper); padding:2px 0;}
+  .ap-tab{flex:1; border:1.5px solid var(--line); background:var(--card); border-radius:12px; padding:8px 3px; text-align:center; cursor:pointer; font-size:11px; font-weight:700; color:var(--ink-mute); line-height:1.3;}
+  .ap-tab .at-i{font-size:17px; display:block; margin-bottom:2px;}
+  .ap-tab.on{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .ap-frame{background:#E8F7F1; border:1px solid #B9E6D5; border-radius:12px; padding:11px 13px; font-size:13px; color:#0B6E53; line-height:1.6; margin-bottom:12px; display:flex; gap:9px; align-items:flex-start;}
+  .ap-frame .af-ic{font-size:20px; flex-shrink:0;}
+  .ap-h{font-size:13px; font-weight:800; color:var(--ink); margin:12px 0 5px;}
+  .ap-sum{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; font-size:14px; line-height:1.65; color:var(--ink-soft);}
+  .ap-li{font-size:13.5px; line-height:1.7; padding:3px 2px; color:var(--ink-soft);} .ap-li b{color:var(--ink);}
+  .ap-card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-bottom:8px;}
+  .ap-card-t{font-size:14px; font-weight:800; color:var(--accent); margin-bottom:4px;}
+  .ap-card-b{font-size:13px; line-height:1.6; color:var(--ink-soft); white-space:pre-wrap;}
+  .ap-script{background:linear-gradient(160deg,#FFFDF5,#FFF7E6); border:1px solid #F0DFB0; border-radius:12px; padding:13px; font-size:13.5px; line-height:1.75; color:#5A4A20; white-space:pre-wrap; margin-top:8px;}
+  .ap-script-h{font-size:12px; font-weight:800; color:#B45309; margin-bottom:6px;}
+  .ap-gen-box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px;}
+  .ap-ck{display:flex; align-items:center; gap:9px; padding:9px 4px; font-size:14px; font-weight:600; border-bottom:1px solid var(--line); cursor:pointer;}
+  .ap-ck:last-of-type{border-bottom:none;}
+  .ap-ck input{width:18px; height:18px; accent-color:var(--accent);}
+  .su-hero{border-radius:16px; padding:16px; color:#fff; background:linear-gradient(115deg,#37C2EF,#1FC1B4 52%,#18B778); margin-bottom:14px;}
+  .su-hero h3{margin:0 0 4px; font-size:17px;}
+  .su-hero p{margin:0; font-size:12.5px; opacity:.95; line-height:1.5;}
+  .su-flow{display:flex; align-items:stretch; gap:5px; margin-top:12px;}
+  .su-flow .fb{flex:1; background:rgba(255,255,255,.18); border-radius:10px; padding:8px 4px; text-align:center; font-size:10.5px; font-weight:700; line-height:1.3;}
+  .su-flow .fb .fi{font-size:17px; display:block; margin-bottom:3px;}
+  .su-flow .fa{align-self:center; font-size:12px; opacity:.85;}
+  .su-step{border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:14px; padding:14px 15px; margin-bottom:12px; background:var(--card);}
+  .su-step.blue{border-left-color:#0FA0DC;} .su-step.green{border-left-color:#10A87F;} .su-step.gray{border-left-color:#8AA;}
+  .su-step .su-n{display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-weight:800; font-size:13px; margin-right:8px; vertical-align:middle;}
+  .su-step.blue .su-n{background:#0FA0DC;} .su-step.green .su-n{background:#10A87F;} .su-step.gray .su-n{background:#7C93A0;}
+  .su-step .su-t{font-size:15.5px; font-weight:800; vertical-align:middle;}
+  .su-step .su-d{font-size:13px; color:var(--ink-soft); line-height:1.7; margin-top:9px;}
+  .su-step .su-d b{color:var(--ink);}
+  .su-step ol,.su-step ul{margin:8px 0 0; padding-left:20px;} .su-step li{font-size:13px; line-height:1.75; margin-bottom:3px;}
+  .su-key{background:#F0F4F8; border-radius:8px; padding:2px 7px; font-family:monospace; font-size:12px; color:#0A55B8;}
+  .su-warn{background:#FFF4E5; border:1px solid #F6D9A8; border-radius:10px; padding:10px 12px; font-size:12.5px; color:#8A5A00; line-height:1.6; margin-top:10px;}
+  .su-warn b{color:#B45309;}
+  .su-tip{background:#E8F7F1; border:1px solid #B9E6D5; border-radius:10px; padding:10px 12px; font-size:12.5px; color:#0B6E53; line-height:1.6; margin-top:10px;}
+  .su-link{display:inline-flex; align-items:center; gap:6px; margin-top:11px; background:var(--accent); color:#fff; font-weight:700; font-size:13px; padding:9px 15px; border-radius:11px; text-decoration:none;}
+  .su-link.blue{background:#0FA0DC;} .su-link.green{background:#10A87F;} .su-link.dark{background:#24292F;}
+  .su-cost{width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px;}
+  .su-cost td{border:1px solid var(--line); padding:7px 9px;} .su-cost td:first-child{font-weight:700; background:#F7F9FB; white-space:nowrap;}
   /* 모드별 배경색: 자료준비=웜톤, 상담·분석=블루 — 헤더·탭까지 이어져 '지금 어느 방식인지' 유지 */
   body[data-mode="connected"]{background:#E9F8F2;}
   body[data-mode="separate"]{background:#EAF7FE;}
@@ -186,6 +233,10 @@
   }
   button.btn.primary:active{ transform:translateY(3px); box-shadow:0 1px 0 #4A90DC, 0 2px 6px rgba(74,144,220,.26); }
   button.btn.ghost{background:transparent; border-color:var(--line);}
+  button.btn.btn-blue{background:linear-gradient(180deg,#5FC7F0,#2FA9E0); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #1888C0, 0 6px 14px rgba(24,136,192,.28);}
+  button.btn.btn-blue:active{ transform:translateY(3px); box-shadow:0 1px 0 #1888C0, 0 2px 6px rgba(24,136,192,.24); }
+  button.btn.btn-green{background:linear-gradient(180deg,#4FD0A8,#20B98C); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #0E9070, 0 6px 14px rgba(16,168,127,.28);}
+  button.btn.btn-green:active{ transform:translateY(3px); box-shadow:0 1px 0 #0E9070, 0 2px 6px rgba(16,168,127,.24); }
   button.btn.danger{color:var(--no); border-color:var(--no-soft);}
   button.btn.wide{width:100%;}
   button.btn.sm{padding:7px 11px; font-size:12.5px;}
@@ -287,6 +338,7 @@
     <div id="cost-meter" style="margin-bottom:14px"></div>
     <div id="pool-ctx"></div>
     <div class="seg-toggle">
+      <button id="pt-icebreak" onclick="setPoolType('icebreak')">아이스브레이크</button>
       <button id="pt-case" class="on" onclick="setPoolType('case')">상담사례 풀</button>
       <button id="pt-episode" onclick="setPoolType('episode')">에피소드 풀</button>
       <button id="pt-catalog" onclick="setPoolType('catalog')">상품카달로그 풀</button>
@@ -316,7 +368,7 @@
     <div class="home-hero">
       <img class="mascot-img hm" src="data:image/png;base64,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" alt="캐릭터">
       <h1>고객상담 매니저</h1>
-      <div class="sub">푸본현대생명 · FP 현장 도우미 <span style="opacity:.7">· v24 (2026-08-09)</span></div>
+      <div class="sub">푸본현대생명 · FP 현장 도우미 <span style="opacity:.7">· v28 (2026-08-09)</span></div>
     </div>
     <div class="home-menu">
       <div class="usage-title">시작할 방식을 골라주세요</div>
@@ -336,10 +388,15 @@
           <div class="uw-sub">등록된 자료로 정리·분석하는 곳</div>
         </div>
       </div>
-      <div class="home-card home-card-sm" onclick="openStorage()">
-        <div class="hc-ic" style="width:44px;height:44px;font-size:20px">▦</div>
-        <div><div class="hc-t" style="font-size:15px">저장소 관리</div><div class="hc-d">사용량 확인 · 이미지 정리</div></div>
-        <div class="hc-go">›</div>
+      <div class="home-row2">
+        <div class="home-card home-card-sm hc2" onclick="openStorage()">
+          <div class="hc-ic" style="width:40px;height:40px;font-size:18px">▦</div>
+          <div><div class="hc-t" style="font-size:14px">저장소 관리</div><div class="hc-d" style="font-size:11px">사용량·이미지 정리</div></div>
+        </div>
+        <div class="home-card home-card-sm hc2" onclick="openSetup()">
+          <div class="hc-ic" style="width:40px;height:40px;font-size:18px;background:linear-gradient(150deg,#34C79E,#0E9070)">⚙</div>
+          <div><div class="hc-t" style="font-size:14px">시스템 셋업</div><div class="hc-d" style="font-size:11px">처음 설치·API 키 가이드</div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -419,8 +476,8 @@
 
       <div class="divider"></div>
       <div class="row" style="margin-top:8px">
-        <button class="btn primary grow" onclick="saveCustomer()">저장</button>
-        <button class="btn ghost grow flow-btn" onclick="goToPoolFromCust()">참조풀에서 자료 선택 →</button>
+        <button class="btn grow btn-green" onclick="saveCustomer()">저장</button>
+        <button class="btn grow flow-btn btn-blue" onclick="goToPoolFromCust()">참조풀에서 자료 선택 →</button>
       </div>
       <div class="row" style="margin-top:8px">
         <button class="btn ghost grow" onclick="custStep(1)">‹ 이전</button>
@@ -428,6 +485,27 @@
         <button class="btn ghost grow" onclick="closeSheet('ov-cust')">닫기</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ===== 팝업: AP (고객 대면 상담) ===== -->
+<div class="overlay" id="ov-ap">
+  <div class="sheet" id="ap-sheet">
+    <div class="handle"></div>
+    <div class="row"><h2 style="color:var(--accent)">AP · 고객 대면</h2><span class="spacer"></span>
+      <button class="btn ghost sm" onclick="saveAP()">저장</button>
+      <button class="btn ghost sm" onclick="closeSheet('ov-ap')">닫기</button></div>
+    <div id="ap-body"></div>
+  </div>
+</div>
+
+<!-- ===== 팝업: 시스템 셋업 가이드 ===== -->
+<div class="overlay" id="ov-setup">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="row"><h2>시스템 셋업 가이드</h2><span class="spacer"></span>
+      <button class="btn ghost sm" onclick="closeSheet('ov-setup')">닫기</button></div>
+    <div id="setup-body"></div>
   </div>
 </div>
 
@@ -754,8 +832,9 @@ function renderCustomers(){
       const grade = c.grade?'<span class="badge b-grade">'+c.grade+'</span>':'';
       const imgN = (c.images||[]).length;
       const tags=[...(c.product||[]),...(c.situation||[])].slice(0,4).map(t=>'<span class="pt">'+t+'</span>').join('');
+      const apBtn = c.apSaved ? '<button class="btn primary sm" style="margin-left:8px;flex-shrink:0" onclick="event.stopPropagation();openAP(\''+c.id+'\')">AP</button>' : '';
       html+='<div class="card tap" onclick="openCustomer(\''+c.id+'\')">'
-        +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+src+'</div>'
+        +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+src+apBtn+'</div>'
         +'<div class="meta">'+(c.age?c.age+' · ':'')+(c.region?esc(c.region):'지역 미입력')
         +(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')+'</div>'
         +(tags?'<div class="pill-tags">'+tags+'</div>':'')
@@ -1409,6 +1488,77 @@ async function computeStorage(){
   let orphanBytes=0; orphans.forEach(r=>orphanBytes+=(r.blob&&r.blob.size)||0);
   return {quota,usage,imgs,totalBytes,orphans,orphanBytes,ref};
 }
+function openSetup(){
+  openSheet('ov-setup');
+  const b=document.getElementById('setup-body'); if(!b) return;
+  b.innerHTML =
+  '<div class="su-hero"><h3>처음이라도 괜찮아요 👋</h3>'
+  +'<p>이 앱은 <b>세 가지</b>가 연결돼 돌아갑니다. 아래 순서대로 따라 하면 됩니다. 중학생도 할 수 있어요.</p>'
+  +'<div class="su-flow">'
+    +'<div class="fb"><span class="fi">📁</span>GitHub<br>코드 보관</div>'
+    +'<div class="fa">→</div>'
+    +'<div class="fb"><span class="fi">☁️</span>Cloudflare<br>자동 배포</div>'
+    +'<div class="fa">→</div>'
+    +'<div class="fb"><span class="fi">🔑</span>API 키<br>AI 분석</div>'
+  +'</div></div>'
+
+  +'<div class="su-step green"><span class="su-n">1</span><span class="su-t">AI 분석용 열쇠(API 키) 만들기</span>'
+    +'<div class="su-d">사진을 읽고 분석하는 건 <b>Anthropic(클로드)</b>의 AI가 합니다. 이걸 쓰려면 <b>API 키</b>(=프로그램 전용 열쇠)가 필요해요. <span class="su-key">platform.claude.com</span> 에서 발급합니다.</div>'
+    +'<ol>'
+      +'<li><b>platform.claude.com</b> 접속 → 회원가입 (구글 계정으로 바로 가입 가능). <b>이건 claude.ai 채팅과 다른, 개발자용 계정</b>이에요.</li>'
+      +'<li>왼쪽 <b>Settings(설정) → API keys</b> 이동.</li>'
+      +'<li><b>Create Key</b> 클릭 → 이름 입력(예: <span class="su-key">jam-console</span>) → 생성.</li>'
+      +'<li>키가 <b>sk-ant-…</b> 로 나옵니다. <b>이 화면에서 딱 한 번만 보여줘요.</b> 바로 복사해서 안전한 곳(메모 앱 등)에 저장!</li>'
+    +'</ol>'
+    +'<div class="su-warn">⚠️ <b>API 키는 비밀번호와 같습니다.</b> 남에게 보여주거나, GitHub 같은 공개된 곳에 절대 올리지 마세요. 잃어버리면 다시 못 보니 새로 만들어야 합니다.</div>'
+    +'<a class="su-link green" href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">🔑 API 키 발급 페이지 열기</a>'
+  +'</div>'
+
+  +'<div class="su-step green"><span class="su-n">2</span><span class="su-t">크레딧(사용 금액) 충전하기</span>'
+    +'<div class="su-d">AI 분석은 <b>쓴 만큼 돈이 나가는 방식(선불 충전)</b>입니다. 무료로 무한정 쓸 수는 없고, <b>미리 크레딧을 충전</b>해 둬야 분석이 됩니다.</div>'
+    +'<ol>'
+      +'<li>같은 사이트에서 <b>Billing(결제)</b> 메뉴로 이동.</li>'
+      +'<li><b>신용카드 등록</b> 후 크레딧 충전. 처음엔 <b>$5~$10</b>이면 충분히 테스트됩니다.</li>'
+      +'<li><b>월 사용 한도(Spend limit)</b>를 꼭 설정하세요. 예상치 못한 과금을 막아줍니다. (예: 월 $20)</li>'
+    +'</ol>'
+    +'<div class="su-tip">💡 이 앱은 정리에 <b>저렴한 모델(Haiku)</b>, 깊은 분석에 <b>Sonnet</b>을 쓰도록 만들어 비용을 아낍니다. 보통 사진 한 세트 분석에 몇십 원~몇백 원 수준이에요. 홈 화면 분석에서 <b>잔액이 줄어드는 것</b>도 보입니다.</div>'
+    +'<a class="su-link green" href="https://platform.claude.com/settings/billing" target="_blank" rel="noopener">💳 크레딧 충전 페이지 열기</a>'
+  +'</div>'
+
+  +'<div class="su-step blue"><span class="su-n">3</span><span class="su-t">Cloudflare에 API 키 넣기</span>'
+    +'<div class="su-d">앱은 <b>Cloudflare</b>라는 곳에서 돌아갑니다. AI에 요청할 때 Cloudflare가 <b>대신</b> 열쇠(API 키)를 써서 안전하게 처리해요. 그래서 <b>키를 Cloudflare에 등록</b>해야 합니다.</div>'
+    +'<ol>'
+      +'<li>Cloudflare 대시보드 → <b>Workers & Pages</b> → 이 프로젝트(<span class="su-key">jam-customer-console</span>) 선택.</li>'
+      +'<li><b>Settings → Variables and Secrets(환경 변수)</b> 이동.</li>'
+      +'<li><b>변수 추가</b>: 이름 <span class="su-key">ANTHROPIC_API_KEY</span>, 값에는 1단계에서 복사한 <span class="su-key">sk-ant-…</span> 키를 붙여넣기. (Secret로 저장 권장)</li>'
+      +'<li>저장 후 <b>다시 배포(Retry deployment)</b> 하면 적용됩니다.</li>'
+    +'</ol>'
+    +'<div class="su-warn">⚠️ 변수 이름은 <b>정확히 ANTHROPIC_API_KEY</b> 여야 합니다. 오타가 있으면 분석이 안 돼요.</div>'
+    +'<a class="su-link blue" href="https://dash.cloudflare.com" target="_blank" rel="noopener">☁️ Cloudflare 대시보드 열기</a>'
+  +'</div>'
+
+  +'<div class="su-step gray"><span class="su-n">4</span><span class="su-t">(처음 만드는 경우) GitHub + Cloudflare 연결</span>'
+    +'<div class="su-d">이미 배포돼 있다면 이 단계는 건너뛰어도 됩니다. <b>처음부터</b> 만든다면:</div>'
+    +'<ul>'
+      +'<li><b>GitHub</b>: 코드를 보관하는 창고. 계정 만들고 <b>저장소(Repository)</b>를 하나 만든 뒤 <span class="su-key">index.html</span>과 <span class="su-key">analyze.js</span>를 올립니다.</li>'
+      +'<li><b>Cloudflare Pages</b>: 그 GitHub 저장소를 <b>연결</b>하면, 이후엔 코드를 커밋할 때마다 <b>몇 초 뒤 자동으로 배포</b>됩니다.</li>'
+    +'</ul>'
+    +'<div class="su-tip">💡 두 파일 <b>index.html</b>과 <b>analyze.js</b>는 <b>항상 같이 커밋</b>하세요. 하나만 올리면 화면과 분석 버전이 어긋나 오류가 납니다.</div>'
+    +'<a class="su-link dark" href="https://github.com" target="_blank" rel="noopener">📁 GitHub 열기</a> &nbsp; '
+    +'<a class="su-link blue" href="https://dash.cloudflare.com" target="_blank" rel="noopener">☁️ Cloudflare 열기</a>'
+  +'</div>'
+
+  +'<div class="su-step gray"><span class="su-n">5</span><span class="su-t">잘 됐는지 확인하는 법</span>'
+    +'<ul>'
+      +'<li><b>버전 확인</b>: 홈 화면 아래 <b>v숫자</b>가 올라갔으면 배포 성공.</li>'
+      +'<li><b>분석 테스트</b>: 고객에 보장 사진을 넣고 "AI로 정리·분석"을 눌러 결과가 나오면 API 키·크레딧까지 정상.</li>'
+      +'<li>분석이 안 되면 → ① 크레딧 잔액 확인 ② Cloudflare 변수 이름 확인 ③ 두 파일 같이 커밋했는지 확인.</li>'
+    +'</ul>'
+    +'<div class="su-warn">💰 <b>크레딧이 0이 되면 분석이 멈춥니다.</b> 가끔 잔액을 확인하고 충전하세요.</div>'
+  +'</div>'
+
+  +'<div style="text-align:center;color:var(--ink-mute);font-size:12px;margin:6px 0 4px">막히면 각 단계의 파란/초록 버튼을 눌러 해당 사이트로 바로 이동하세요.</div>';
+}
 async function openStorage(){
   openSheet('ov-storage');
   const body=document.getElementById('storage-body'); if(!body) return;
@@ -1511,10 +1661,10 @@ async function importCustomers(e){
 /* =========================================================
    참조 풀 (3단계 기반)
 ========================================================= */
-const POOL_LABEL={case:['상담사례','상담사례를 쌓아 분석에 활용','등록된 사례가 없어요'],episode:['에피소드','설득·공감 에피소드를 쌓아 제안에 활용','등록된 에피소드가 없어요'],catalog:['상품카달로그','상품 자료를 올려 보장·가입설계 분석에 참조','등록된 카달로그가 없어요']};
+const POOL_LABEL={icebreak:['아이스브레이크','첫 만남 대화 소재를 쌓아 라포(친밀감) 형성','등록된 아이스브레이크가 없어요'],case:['상담사례','상담사례를 쌓아 분석에 활용','등록된 사례가 없어요'],episode:['에피소드','설득·공감 에피소드를 쌓아 제안에 활용','등록된 에피소드가 없어요'],catalog:['상품카달로그','상품 자료를 올려 보장·가입설계 분석에 참조','등록된 카달로그가 없어요']};
 function setPoolType(t){
-  poolType=(t==='episode'||t==='catalog')?t:'case'; poolFilter=[];
-  ['case','episode','catalog'].forEach(k=>{const b=document.getElementById('pt-'+k); if(b) b.classList.toggle('on',k===poolType);});
+  poolType=(t==='episode'||t==='catalog'||t==='icebreak')?t:'case'; poolFilter=[];
+  ['icebreak','case','episode','catalog'].forEach(k=>{const b=document.getElementById('pt-'+k); if(b) b.classList.toggle('on',k===poolType);});
   renderPools();
 }
 function renderPools(){
@@ -1976,6 +2126,7 @@ function renderAnalysis(){
     if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">\u203b \uba3c\uc800 \u2461 \ubcf4\uc7a5\ubd84\uc11d\uc744 \uc2e4\ud589\ud558\uc138\uc694.</div>';
     else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">\u203b \uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0\ub97c \uba3c\uc800 \ub4f1\ub85d\ud558\uc138\uc694.</div>';
     if(palist.length) html+='<button class="btn ghost sm wide" style="margin-top:8px" onclick="savePlanFile()">💾 가입설계 결과 저장 (폴더 선택)</button>';
+    html+='<button class="btn primary wide" style="margin-top:10px" onclick="openAP(\''+c.id+'\')">▶ AP 화면 (고객 대면 상담) 열기</button>';
     html+='<div id="an-plan-result" style="margin-top:14px"></div>';
     html+='<div id="plan-questions"></div>';
     html+='<div class="divider"></div><div class="row"><button class="btn ghost sm grow" onclick="savePlanConsult(\''+c.id+'\')">\uac00\uc785\uc124\uacc4 \uc800\uc7a5(\ud30c\uc77c)</button><button class="btn ghost sm grow" onclick="document.getElementById(\'import-plan-consult\').click()">\uac00\uc785\uc124\uacc4 \ubd88\ub7ec\uc624\uae30</button></div>';
@@ -2463,6 +2614,122 @@ function openSubPage(title, html){
   document.getElementById('subpage-body').innerHTML=html;
   openSheet('ov-subpage');
   const sh=document.querySelector('#ov-subpage .sheet'); if(sh) sh.scrollTop=0;
+}
+
+/* ===================== AP · 고객 대면 화면 ===================== */
+let apCustId=null, apStage=1;
+const AP_STAGES=[
+  {n:1,key:'ice', icon:'🤝', t:'아이스<br>브레이크', frame:'먼저 편안하게. 웃으며 라포(친밀감)를 만드세요. 급할 필요 없습니다 — 오늘의 첫 3분이 오늘 전체를 좌우합니다.'},
+  {n:2,key:'cov', icon:'🛡️', t:'보장<br>분석', frame:'고객의 현재 보장을 차분히 짚어드리세요. 팔지 말고, 사실만 보여주세요. 사실이 신뢰를 만듭니다.'},
+  {n:3,key:'epi', icon:'💬', t:'에피소드<br>·정보', frame:'공감 이야기로 마음을 여세요. 설득이 아니라 공감입니다. 고객이 스스로 필요를 느끼게 하세요.'},
+  {n:4,key:'plan',icon:'📝', t:'가입<br>설계', frame:'자연스럽게 제안으로. 당신은 파는 게 아니라, 고객에게 꼭 필요한 것을 권하는 것입니다. 당당하게.'}
+];
+function openAP(id){
+  apCustId=id; apStage=1;
+  const c=customers.find(x=>x.id===id); if(!c){ alert('고객을 찾을 수 없습니다.'); return; }
+  currentCustId=id; ensurePinsForCustomer(id);
+  openSheet('ov-ap'); renderAP();
+}
+function apGo(n){ apStage=n; renderAP(); const sh=document.getElementById('ap-sheet'); if(sh) sh.scrollTop=0; }
+function apResultBlock(d){
+  if(!d) return '<div class="stage-note">저장된 결과가 없습니다. 매니저 상담에서 먼저 분석을 실행하세요.</div>';
+  d=rescueResult(d); let h='';
+  if(typeof d.shortfallRate!=='undefined' && d.shortfallRate!==null){ const rate=Math.max(0,Math.min(100,Math.round(Number(d.shortfallRate)||0))); h+='<div class="meta" style="margin:0 2px 8px">잔여 부족율 '+rate+'%</div>'; }
+  if(d.summary) h+='<div class="ap-sum">'+esc(d.summary)+'</div>';
+  if(d.areas&&d.areas.length){ h+='<div class="ap-h">영역별 판정</div>'; d.areas.forEach(a=>{ h+='<div class="ap-li"><b>'+esc(a.name||'')+'</b> — '+esc(a.level||'')+(a.reason?(' · '+esc(a.reason)):'')+'</div>'; }); }
+  if(d.priorities&&d.priorities.length){ h+='<div class="ap-h">보강 우선순위</div>'; d.priorities.forEach((p,i)=>{ h+='<div class="ap-li">'+(i+1)+'. '+esc(p)+'</div>'; }); }
+  if(hasLines(d.detail)) h+='<div class="ap-h">상세</div>'+linesBlock(d.detail);
+  if(hasLines(d.planDetail)) h+='<div class="ap-h">상세</div>'+linesBlock(d.planDetail);
+  return h||'<div class="stage-note">내용이 없습니다.</div>';
+}
+function apPoolBlock(c, type){
+  const items=relevantPool(c,type);
+  if(!items.length) return '<div class="stage-note">등록된 '+(type==='icebreak'?'아이스브레이크':'에피소드')+' 자료가 없어요. 참조풀에 추가하면 여기에 뜹니다.</div>';
+  let h=''; items.slice(0,6).forEach(m=>{ const p=m.p; const body=(p.bodyFull||p.body||''); h+='<div class="ap-card"><div class="ap-card-t">'+(m.tag==='☑ 선택'?'☑ ':'')+esc(p.title||'')+'</div>'+(body?('<div class="ap-card-b">'+esc(body.length>500?body.slice(0,500)+'…':body)+'</div>'):'')+'</div>'; });
+  if(items.length>6) h+='<div class="meta">외 '+(items.length-6)+'개 더 (참조풀에서 확인)</div>';
+  return h;
+}
+function apMaterialText(c, stageKey){
+  if(stageKey==='ice'){ return relevantPool(c,'icebreak').slice(0,6).map(m=>'- '+(m.p.title||'')+': '+(m.p.bodyFull||m.p.body||'')).join('\n'); }
+  if(stageKey==='epi'){ return relevantPool(c,'episode').slice(0,6).map(m=>'- '+(m.p.title||'')+': '+(m.p.bodyFull||m.p.body||'')).join('\n'); }
+  if(stageKey==='cov'){ const e=(c.analyses&&c.analyses[0]); const d=e&&rescueResult(e.data); if(!d) return ''; return [d.summary||'', (d.areas||[]).map(a=>a.name+' '+a.level+' '+(a.reason||'')).join('; '), (d.priorities||[]).join('; '), Array.isArray(d.detail)?d.detail.join('\n'):(d.detail||'')].filter(Boolean).join('\n'); }
+  if(stageKey==='plan'){ const e=(c.planAnalyses&&c.planAnalyses[0]); const d=e&&rescueResult(e.data); if(!d) return ''; return [d.summary||'', (typeof d.shortfallRate!=='undefined'?('잔여 부족율 '+d.shortfallRate+'%'):''), Array.isArray(d.planDetail)?d.planDetail.join('\n'):(d.planDetail||'')].filter(Boolean).join('\n'); }
+  return '';
+}
+function renderAP(){
+  const c=customers.find(x=>x.id===apCustId); const box=document.getElementById('ap-body'); if(!c||!box) return;
+  const st=AP_STAGES[apStage-1];
+  let h='';
+  // 히어로(용기)
+  h+='<div class="ap-hero"><div class="ah-t">🌟 '+esc(c.name)+' 님과의 상담, 준비됐습니다</div><div class="ah-s">당신은 이 고객에게 필요한 사람입니다. 순서대로 편안하게 — 아이스브레이크 → 보장분석 → 에피소드 → 가입설계.</div></div>';
+  // 단계 탭
+  h+='<div class="ap-tabs">';
+  AP_STAGES.forEach(s=>{ h+='<div class="ap-tab'+(s.n===apStage?' on':'')+'" onclick="apGo('+s.n+')"><span class="at-i">'+s.icon+'</span>'+s.t+'</div>'; });
+  h+='</div>';
+  // 프레이밍
+  h+='<div class="ap-frame"><span class="af-ic">'+st.icon+'</span><div><b>'+st.n+'단계 · '+st.t.replace('<br>','')+'</b><br>'+st.frame+'</div></div>';
+  // 자료
+  if(st.key==='ice') h+=apPoolBlock(c,'icebreak');
+  else if(st.key==='epi') h+=apPoolBlock(c,'episode');
+  else if(st.key==='cov') h+=apResultBlock((c.analyses&&c.analyses[0])?c.analyses[0].data:null);
+  else if(st.key==='plan') h+=apResultBlock((c.planAnalyses&&c.planAnalyses[0])?c.planAnalyses[0].data:null);
+  // AI 대면 멘트 (마지막 단계에서 일괄 생성 · 여기선 생성된 것만 표시)
+  const script=(c.ap&&c.ap.scripts&&c.ap.scripts[st.key])||'';
+  if(script){ h+='<div class="ap-h">🤖 AI 대면 멘트 (설계사 참조용)</div><div class="ap-script"><div class="ap-script-h">이렇게 말해보세요</div>'+esc(script)+'</div>'; }
+  else if(st.key!=='plan'){ h+='<div class="stage-note" style="margin-top:10px">이 단계의 AI 멘트는 마지막 <b>④ 가입설계</b> 단계에서 한 번에 만들 수 있어요.</div>'; }
+  // 마지막 단계: 원하는 단계 체크 → 한 번에 AI 멘트 생성
+  if(st.key==='plan'){
+    h+='<div class="divider"></div><div class="ap-h">🤖 AI 대면 멘트 만들기</div>';
+    h+='<div class="ap-gen-box">';
+    h+='<div class="meta" style="margin-bottom:8px">멘트가 필요한 단계를 체크한 뒤 생성하세요. 생성된 멘트는 각 단계 화면에서 보입니다.</div>';
+    [['ice','① 아이스브레이크'],['cov','② 보장분석'],['epi','③ 에피소드'],['plan','④ 가입설계']].forEach(([k,label])=>{
+      const has=(c.ap&&c.ap.scripts&&c.ap.scripts[k])?' <span style="color:var(--ok);font-weight:700">✓ 생성됨</span>':'';
+      h+='<label class="ap-ck"><input type="checkbox" class="ap-genck" value="'+k+'"'+(has?'':' checked')+'> '+label+has+'</label>';
+    });
+    h+='<div class="su-warn" style="margin-top:10px">💰 <b>AI 멘트 생성은 유료입니다.</b> 체크한 단계 수만큼 AI(클로드)를 호출하며, 호출할 때마다 <b>API 크레딧이 조금씩 차감</b>됩니다(보통 단계당 수십~수백 원). 필요한 단계만 체크하세요.</div>';
+    h+='<button class="btn primary wide" style="margin-top:10px" id="ap-genbtn" onclick="genApScripts()">🤖 체크한 단계 대면 멘트 생성 (유료)</button>';
+    h+='</div>';
+  }
+  // 하단 네비
+  h+='<div class="divider"></div><div class="row">';
+  if(apStage>1) h+='<button class="btn ghost grow" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
+  if(apStage<4) h+='<button class="btn primary grow" onclick="apGo('+(apStage+1)+')">다음 ›</button>';
+  else h+='<button class="btn primary grow" onclick="saveAP()">✓ AP 저장하고 닫기</button>';
+  h+='</div>';
+  h+='<div id="ap-prog" class="stage-note" style="margin-top:8px;display:none"></div>';
+  box.innerHTML=h;
+}
+async function genApScripts(){
+  const c=customers.find(x=>x.id===apCustId); if(!c) return;
+  const cks=Array.from(document.querySelectorAll('.ap-genck:checked')).map(x=>x.value);
+  if(!cks.length){ alert('멘트를 만들 단계를 하나 이상 체크하세요.'); return; }
+  const prog=document.getElementById('ap-prog'); const btn=document.getElementById('ap-genbtn');
+  const stageName={ice:'아이스브레이크(첫 만남 라포 형성)',cov:'보장분석 설명',epi:'공감 에피소드 전달',plan:'가입설계 제안'};
+  if(btn){ btn.disabled=true; }
+  c.ap=c.ap||{scripts:{}}; c.ap.scripts=c.ap.scripts||{};
+  let done=0, fail=0;
+  for(let i=0;i<cks.length;i++){
+    const k=cks[i];
+    if(prog){ prog.style.display='block'; prog.textContent='AI 대면 멘트 생성 중… ('+(i+1)+'/'+cks.length+' · '+stageName[k]+')'; }
+    try{
+      const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region}, material:apMaterialText(c,k)})});
+      const data=await res.json();
+      if(!res.ok){ throw new Error(data.error||('HTTP '+res.status)); }
+      const txt=(data.text||'').trim();
+      if(txt){ c.ap.scripts[k]=txt; if(data._usage) addUsage(data._usage,'AP 멘트'); done++; } else { fail++; }
+    }catch(err){ fail++; }
+  }
+  await idbPut('customers',c); customers=await idbAll('customers');
+  if(prog){ prog.textContent='완료 · 생성 '+done+'개'+(fail?(' · 실패 '+fail+'개'):'')+'. 각 단계 탭에서 확인하세요.'; }
+  renderAP();
+}
+async function saveAP(){
+  const c=customers.find(x=>x.id===apCustId); if(!c){ closeSheet('ov-ap'); return; }
+  c.ap=c.ap||{scripts:{}}; c.ap.savedAt=now(); c.apSaved=true;
+  await idbPut('customers',c); customers=await idbAll('customers');
+  toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); setTimeout(toastHide,2200);
+  closeSheet('ov-ap'); renderCustomers();
 }
 let lastPlan=null;
 function renderPlanResult(d, date){
