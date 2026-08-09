@@ -207,6 +207,8 @@
     position:fixed; inset:0; z-index:100; background:rgba(20,24,29,.55);
     display:none; align-items:flex-end; justify-content:center;
   }
+  #ov-subpage{ z-index:200; }
+  #p-drop.drag-over{ outline:2px dashed var(--accent); outline-offset:3px; border-radius:12px; background:rgba(46,125,50,.04); }
   .overlay.show{display:flex;}
   .sheet{
     background:var(--card); width:100%; max-width:520px; max-height:92vh; overflow:auto;
@@ -263,18 +265,24 @@
     <div id="pool-list"></div>
     <div class="divider"></div>
     <button class="btn primary wide" onclick="openPool(null)">＋ 추가</button>
-    <div class="row" style="margin-top:8px">
-      <button class="btn ghost grow" onclick="openWorkingCust()">고객상세</button>
-      <button class="btn ghost grow" onclick="poolToAnalysis()">분석 화면으로 →</button>
+    <div id="pool-actions">
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost grow" onclick="openWorkingCust()">고객상세</button>
+        <button class="btn ghost grow" onclick="poolToAnalysis()">분석 화면으로 →</button>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="exportPools()">JSON 백업</button><button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">JSON 불러오기</button></div>
+      <button class="btn ghost sm wide" style="margin-top:8px" onclick="pickPcFolder()">📁 PC 저장 폴더 지정</button>
     </div>
-    <div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="exportPools()">JSON 백업</button><button class="btn ghost sm grow" onclick="document.getElementById('import-pools').click()">JSON 불러오기</button></div>
     <input type="file" id="import-pools" accept="application/json" style="display:none" onchange="importPools(event)">
   </div>
 
   <!-- ===== 분석 ===== -->
   <div class="screen" id="s-analysis">
-    <div class="row" style="margin-bottom:6px"><label class="f" style="margin:0">분석할 고객</label><span class="spacer"></span><button class="btn ghost sm" onclick="showAnalysisHelp()">❓ 도움말</button></div>
-    <select class="t" id="an-cust" onchange="onAnCust()"></select>
+    <div class="row" style="margin-bottom:6px"><span class="spacer"></span><button class="btn ghost sm" onclick="showAnalysisHelp()">❓ 도움말</button></div>
+    <div id="an-picker">
+      <label class="f" style="margin:0 0 4px">분석할 고객</label>
+      <select class="t" id="an-cust" onchange="onAnCust()"></select>
+    </div>
     <div id="an-body"></div>
   </div>
 
@@ -376,7 +384,9 @@
       <div id="tidy-history"></div>
 
       <div class="divider"></div>
-      <div class="row">
+      <label class="f">저장 폴더 <span style="font-weight:400;color:var(--ink-mute)">· 앱 분류 + PC 폴더 공통</span></label>
+      <select class="t folder-select" id="cust-folder" onchange="onFolderPick(this)"></select>
+      <div class="row" style="margin-top:8px">
         <button class="btn primary grow" onclick="saveCustomer()">저장</button>
         <button class="btn ghost grow" onclick="saveCustomerThenPool()">참조풀에서 자료 선택 →</button>
       </div>
@@ -417,7 +427,9 @@
     <textarea class="t" id="c-coverage" style="min-height:40vh;font-size:14px;line-height:1.7" oninput="resetCovSave()"></textarea>
     <label class="f">메모</label>
     <textarea class="t" id="c-memo" placeholder="상담 메모, 특이사항" oninput="resetCovSave()"></textarea>
-    <button class="btn primary wide" id="cov-save-btn" style="margin-top:10px" onclick="saveCoverageResult(this)">저장</button>
+    <label class="f" style="margin-top:8px">저장 폴더</label>
+    <select class="t folder-select" id="cov-folder" onchange="onFolderPick(this)"></select>
+    <button class="btn primary wide" id="cov-save-btn" style="margin-top:8px" onclick="saveCoverageResult(this)">저장</button>
     <button class="btn ghost wide" style="margin-top:8px" onclick="closeSheet('ov-coverage')">닫기 (고객상세로)</button>
   </div>
 </div>
@@ -487,14 +499,18 @@
     <label class="f">연령대</label>
     <div class="chips tags" id="pool-age"></div>
     <label class="f">본문 <span style="font-weight:400;color:var(--ink-mute)">· 텍스트·PDF 파일 드래그&드롭 가능</span></label>
-    <button class="btn ghost sm wide" style="margin-bottom:8px;" onclick="pickPoolText()">파일 불러오기 (.txt · .pdf)</button>
-    <div id="p-brief"></div>
-    <textarea class="t" id="p-body" style="min-height:150px" placeholder="내용을 적거나, 텍스트·PDF 파일을 여기에 끌어다 놓으세요."></textarea>
+    <div id="p-drop">
+      <button class="btn ghost sm wide" style="margin-bottom:8px;" onclick="pickPoolText()">파일 불러오기 (.txt · .pdf) · 드래그&드롭</button>
+      <div id="p-brief"></div>
+      <textarea class="t" id="p-body" style="min-height:150px" placeholder="내용을 적거나, 텍스트·PDF 파일을 여기에 끌어다 놓으세요."></textarea>
+    </div>
     <div id="p-audio-block">
       <label class="f">음원 <span style="font-weight:400;color:var(--ink-mute)">· 녹음 파일 첨부</span></label>
       <div id="p-audio"></div>
     </div>
     <div class="divider"></div>
+    <label class="f">저장 폴더</label>
+    <select class="t folder-select" id="pool-folder" onchange="onFolderPick(this)"></select>
     <div class="row"><button class="btn primary grow" onclick="savePool()">저장</button><button class="btn danger grow" id="p-delete" onclick="deletePool()">삭제</button></div>
   </div>
 </div>
@@ -513,12 +529,13 @@ const IMG_KINDS=['보장급부','내보장자산','기타'];
 let db;
 function openDB(){
   return new Promise((res,rej)=>{
-    const r=indexedDB.open('cust-consult',1);
+    const r=indexedDB.open('cust-consult',2);
     r.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains('customers')) d.createObjectStore('customers',{keyPath:'id'});
       if(!d.objectStoreNames.contains('pools')) d.createObjectStore('pools',{keyPath:'id'});
       if(!d.objectStoreNames.contains('images')) d.createObjectStore('images',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('meta')) d.createObjectStore('meta',{keyPath:'key'});
     };
     r.onsuccess=e=>{db=e.target.result; res();};
     r.onerror=e=>rej(e);
@@ -528,6 +545,69 @@ function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
 function idbAll(store){return new Promise(r=>{const q=tx(store,'readonly').getAll(); q.onsuccess=()=>r(q.result||[]);});}
 function idbGet(store,id){return new Promise(r=>{const q=tx(store,'readonly').get(id); q.onsuccess=()=>r(q.result);});}
 function idbPut(store,v){return new Promise(r=>{const q=tx(store,'readwrite').put(v); q.onsuccess=()=>r();});}
+
+/* ===================== 폴더 저장 시스템 =====================
+   B: 앱 내부 폴더(그룹) — 각 레코드에 folder 필드, 현재 폴더 sticky
+   A: PC 실제 폴더 자동 저장 — File System Access API (Chrome) */
+function loadFolders(){ try{ return JSON.parse(localStorage.getItem('appFolders'))||['기본']; }catch(e){ return ['기본']; } }
+function saveFolders(a){ try{ localStorage.setItem('appFolders', JSON.stringify(a)); }catch(e){} }
+function currentFolder(){ const f=localStorage.getItem('currentFolder'); const list=loadFolders(); return (f&&list.includes(f))?f:(list[0]||'기본'); }
+function setCurrentFolder(f){ f=(f||'').trim()||'기본'; localStorage.setItem('currentFolder', f); const a=loadFolders(); if(!a.includes(f)){ a.push(f); saveFolders(a); } }
+function sanitizeName(s){ return String(s||'').replace(/[\/\\:*?"<>|]+/g,'_').replace(/\s+/g,' ').trim().slice(0,80)||'무제'; }
+
+/* 저장 버튼 옆 폴더 선택 드롭다운 */
+function fillFolderSelect(selId, preferred){
+  const sel=document.getElementById(selId); if(!sel) return;
+  const list=loadFolders(); const cur=(preferred&&list.includes(preferred))?preferred:currentFolder();
+  sel.innerHTML=list.map(f=>'<option'+(f===cur?' selected':'')+'>'+esc(f)+'</option>').join('')+'<option value="__new__">＋ 새 폴더…</option>';
+}
+function onFolderPick(sel){
+  if(sel.value==='__new__'){ const n=prompt('새 폴더 이름'); if(n&&n.trim()){ setCurrentFolder(n.trim()); } refreshFolderSelects(); }
+  else { setCurrentFolder(sel.value); refreshFolderSelects(); }
+}
+function refreshFolderSelects(){ document.querySelectorAll('select.folder-select').forEach(s=>fillFolderSelect(s.id, s.value==='__new__'?null:s.value)); }
+function folderFrom(selId){ const sel=document.getElementById(selId); const v=sel&&sel.value&&sel.value!=='__new__'?sel.value:currentFolder(); setCurrentFolder(v); return v; }
+
+/* ---- A: PC 폴더 자동 저장 ---- */
+let _dirHandle=null;
+async function _verifyPerm(h, doRequest){
+  try{ if(!h||!h.queryPermission) return true; const opt={mode:'readwrite'};
+    let p=await h.queryPermission(opt); if(p==='granted') return true;
+    if(doRequest){ p=await h.requestPermission(opt); return p==='granted'; }
+    return false;
+  }catch(e){ return false; }
+}
+async function getDirHandle(interactive){
+  if(_dirHandle && await _verifyPerm(_dirHandle, interactive)) return _dirHandle;
+  try{ const rec=await idbGet('meta','dirHandle'); if(rec&&rec.handle){ _dirHandle=rec.handle; if(await _verifyPerm(_dirHandle, interactive)) return _dirHandle; } }catch(e){}
+  if(interactive && window.showDirectoryPicker){
+    try{ _dirHandle=await window.showDirectoryPicker({mode:'readwrite'}); await idbPut('meta',{key:'dirHandle', handle:_dirHandle}); await _verifyPerm(_dirHandle, true); return _dirHandle; }catch(e){ return null; }
+  }
+  return null;
+}
+/* PC 폴더에 파일 저장 (best-effort). interactive=true면 폴더 없을 때 선택창 표시 */
+async function exportToPc(folder, filename, text, interactive){
+  try{
+    if(!window.showDirectoryPicker) return false;
+    const root=await getDirHandle(interactive); if(!root) return false;
+    const sub=await root.getDirectoryHandle(sanitizeName(folder||'기본'), {create:true});
+    const fh=await sub.getFileHandle(sanitizeName(filename), {create:true});
+    const w=await fh.createWritable(); await w.write(text); await w.close();
+    return true;
+  }catch(e){ return false; }
+}
+/* 저장 공통 후처리: 레코드에 folder 태그 + PC 폴더로 파일 내보내기 */
+async function saveToFolder(record, folder, filename, interactive){
+  if(record) record.folder=folder;
+  const ok=await exportToPc(folder, filename, JSON.stringify(record||{}, null, 2), interactive);
+  return ok;
+}
+async function pickPcFolder(){
+  const h=await getDirHandle(true);
+  if(h) { toast('PC 저장 폴더 지정됨: '+(h.name||'')); }
+  else toast('PC 폴더 지정 취소 또는 미지원 브라우저');
+  setTimeout(toastHide,1600);
+}
 function idbDel(store,id){return new Promise(r=>{const q=tx(store,'readwrite').delete(id); q.onsuccess=()=>r();});}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const today=()=>new Date().toISOString().slice(0,10);
@@ -538,6 +618,16 @@ const oneLine=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length
 let customers=[], pools=[], curScreen='customers';
 let lastAnalysis=null;
 let currentCustId=null;   // 고객상세→참조풀→분석으로 이어지는 '작업 고객'
+let pinnedOwner=null;     // 현재 선택(pinned)이 어느 고객의 것인지
+/* 작업 고객이 바뀌면 참조풀 선택(체크)을 초기화 — 이전 고객 선택이 남지 않도록 */
+function ensurePinsForCustomer(custId){
+  const owner=custId||null;
+  if(owner===pinnedOwner) return;
+  const changed=pools.filter(p=>p.pinned);
+  changed.forEach(p=>{ p.pinned=false; });
+  pinnedOwner=owner;
+  if(changed.length){ (async()=>{ for(const p of changed){ try{ await idbPut('pools',p); }catch(e){} } })(); }
+}
 const ANALYZE_URL='/api/analyze';
 let editingCust=null, editingPool=null, poolType='case';
 let custFilter={seg:'전체', src:'전체'};
@@ -572,6 +662,7 @@ function go(s){
   if(s==='analysis'){
     fillAnalysisSelect();
     if(currentCustId && customers.some(c=>c.id===currentCustId)){
+      ensurePinsForCustomer(currentCustId);
       const sel=document.getElementById('an-cust'); if(sel){ sel.value=currentCustId; anStep=1; renderAnalysis(); }
     }
   }
@@ -684,17 +775,24 @@ function custStep(n){
     const cx=document.getElementById('cust-ctx2');
     if(cx) cx.innerHTML = nm ? ('<div style="background:var(--accent);color:#fff;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:15px;font-weight:700">◉ '+esc(nm)+' 고객'+(rg?' <span style="font-weight:400;opacity:.85;font-size:13px">· '+esc(rg)+'</span>':'')+'</div>') : '';
     refreshCoverageUI();
+    fillFolderSelect('cust-folder', editingCust&&editingCust.folder);
   }
   const sheet=document.querySelector('#ov-cust .sheet'); if(sheet) sheet.scrollTop=0;
 }
 function refreshCoverageUI(){
   const txt=(document.getElementById('c-coverage').value||'').trim();
+  const hasHist=!!(editingCust&&editingCust.coverageHistory&&editingCust.coverageHistory.length);
   const rb=document.getElementById('result-btn'), hint=document.getElementById('result-hint');
-  if(txt){ if(hint) hint.style.display='none'; if(rb) rb.style.display='block'; }
+  if(txt||hasHist){ if(hint) hint.style.display='none'; if(rb) rb.style.display='block'; }
   else { if(hint) hint.style.display='block'; if(rb) rb.style.display='none'; }
   renderTidyHistory();
 }
 function showCoverageResult(){
+  const ta=document.getElementById('c-coverage'); const mm=document.getElementById('c-memo');
+  if(ta && editingCust && editingCust.coverageText && !(ta.value||'').trim()) ta.value=editingCust.coverageText;
+  if(mm && editingCust && editingCust.memo!=null && !(mm.value||'').trim()) mm.value=editingCust.memo;
+  resetCovSave();
+  fillFolderSelect('cov-folder', editingCust&&editingCust.folder);
   openSheet('ov-coverage');
 }
 /* 기록 목록: 최대 3개만 표시, 나머지는 '이전기록' 버튼으로 펼침 */
@@ -970,19 +1068,28 @@ async function tidyCoverage(confirmations){
       btn.disabled=false; btn.style.opacity=1; return;
     }
     if(!res.ok){prog.textContent='정리 실패: '+(data.error||'오류')+' (HTTP '+res.status+')'; btn.disabled=false; btn.style.opacity=1; return;}
-    if(data.text){ ta.value=data.text;
+    const txt=(data.text||'').trim();
+    const qn=(data.questions&&data.questions.length)||0;
+    if(txt){ ta.value=data.text;
       editingCust.coverageHistory=editingCust.coverageHistory||[];
       editingCust.coverageHistory.unshift({at:now(), text:data.text});
       if(editingCust.coverageHistory.length>30) editingCust.coverageHistory=editingCust.coverageHistory.slice(0,30);
       editingCust.coverageText=data.text;
       if(editingCust.id){ try{ await idbPut('customers',editingCust); }catch(e){} }
     }
-    addUsage(data._usage,'보장 정리(비전)');
-    prog.textContent='정리·분석 완료. 아래 "분석결과입니다" 버튼을 누르세요. 숫자·회사명은 원본과 대조해 확인하세요.';
-    refreshCoverageUI();
-    renderTidyQuestions(data.questions||[]);
+    // 응답이 정상(200)이면 결과 버튼을 '무조건' 노출 — 후처리 오류와 무관하게
+    { const rb=document.getElementById('result-btn'), hint=document.getElementById('result-hint');
+      if(rb) rb.style.display='block'; if(hint) hint.style.display='none'; }
+    // 부가 처리는 각각 격리 — 여기서 오류가 나도 버튼/결과 표시에 영향 없음
+    try{ addUsage(data._usage,'보장 정리(비전)'); }catch(e){}
+    try{ refreshCoverageUI(); }catch(e){}
+    try{ renderTidyQuestions(data.questions||[]); }catch(e){}
+    prog.textContent = txt
+      ? ('정리·분석 완료 (본문 '+txt.length+'자'+(qn?(' · 확인질문 '+qn+'개'):'')+'). 아래 "📄 분석결과입니다" 버튼을 누르세요. 숫자·회사명은 원본과 대조하세요.')
+      : ('응답은 받았으나 정리 본문이 비어 있습니다 (HTTP '+res.status+' · 질문 '+qn+'개). "📄 분석결과입니다"로 확인하거나 다시 시도하세요.');
   }catch(err){
-    prog.textContent='정리 요청 실패: '+((err&&err.message)?err.message:'오류');
+    prog.textContent='정리 요청 실패: '+((err&&err.message)?err.message:String(err));
+    try{ if((((document.getElementById('c-coverage')||{}).value)||'').trim()){ const rb=document.getElementById('result-btn'); if(rb) rb.style.display='block'; } }catch(e){}
   }
   btn.disabled=false; btn.style.opacity=1;
 }
@@ -1152,8 +1259,10 @@ async function saveCustomerCore(){
   if(!editingCust.name){alert('이름을 입력하세요.'); return null;}
   if(!editingCust.id){editingCust.id=uid(); editingCust.created=today();}
   editingCust.updated=new Date().toISOString();
+  editingCust.folder=folderFrom('cust-folder');
   await idbPut('customers',editingCust);
   customers=await idbAll('customers');
+  saveToFolder(editingCust, editingCust.folder, sanitizeName(editingCust.name)+'_고객_'+today()+'.json', true);
   return editingCust.id;
 }
 async function saveCustomer(){
@@ -1285,6 +1394,7 @@ function setPoolType(t){
 }
 function renderPools(){
   renderCostMeter();
+  ensurePinsForCustomer(currentCustId);
   renderPoolCtx();
   const L=POOL_LABEL[poolType]||POOL_LABEL.case;
   header('참조 풀', L[1]);
@@ -1324,7 +1434,9 @@ function pinnedCount(){ return pools.filter(p=>p.pinned).length; }
 /* 참조풀 상단: 지금 이어서 작업 중인 고객 배너 (선택→분석 연결) */
 function renderPoolCtx(){
   const box=document.getElementById('pool-ctx'); if(!box) return;
+  const acts=document.getElementById('pool-actions');
   const c=currentCustId?customers.find(x=>x.id===currentCustId):null;
+  if(acts) acts.style.display = c ? 'none' : 'block';   // 물고가기 모드: 하단 버튼 숨김
   if(!c){ box.innerHTML=''; return; }
   const pn=pinnedCount();
   box.innerHTML='<div style="border:1px solid var(--accent);border-radius:12px;padding:11px 13px;margin-bottom:14px;background:rgba(46,125,50,0.06)">'
@@ -1356,7 +1468,8 @@ function openPool(id){
   chipGroup(document.getElementById('pool-age'),AGES,editingPool.age,true);
   renderPoolBrief();
   renderPoolAudio();
-  const bodyEl=document.getElementById('p-body'); if(bodyEl) enableDrop(bodyEl, importFileToBody, f=>isPdfFile(f)||(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
+  fillFolderSelect('pool-folder', editingPool&&editingPool.folder);
+  const dropEl=document.getElementById('p-drop'); if(dropEl) enableDrop(dropEl, importFileToBody, f=>isPdfFile(f)||(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
   openSheet('ov-pool');
 }
 function renderPoolAudio(){
@@ -1473,25 +1586,28 @@ async function importFileToBody(file){
     let summary=''; try{ summary=await aiSummarize(editingPool.bodyFull); }catch(e){ summary=''; }
     _pg.done(); toastHide();
     editingPool.summaryFull = summary || full.slice(0,2000);
-    editingPool.brief = oneLine(summary || full, 28);
-    ta.value = editingPool.brief;   // 간단요약(20~30자)을 본문으로 — 전체는 요약박스 클릭
+    editingPool.brief = oneLine(summary || full, 60);
+    editingPool.body = editingPool.brief;   // 리스트·검색용 짧은 본문 (전체는 bodyFull)
+    ta.value = '';                           // 큰 텍스트영역엔 덤프하지 않음 (요약창으로 대체)
     renderPoolBrief();
   }catch(err){ toastHide(); alert('파일 처리 실패: '+(err&&err.message?err.message:err)); }
 }
-/* 참조풀: 불러온 자료의 간단요약 박스 (클릭 시 전체창) */
+/* 참조풀: 불러온 자료 요약창(5~6줄) — 누르면 전체화면. 요약이 있으면 텍스트영역은 숨김 */
 function renderPoolBrief(){
   const box=document.getElementById('p-brief'); if(!box) return;
-  const brief=editingPool&&editingPool.brief;
-  if(!brief){ box.innerHTML=''; return; }
-  box.innerHTML='<div onclick="showPoolFull()" style="cursor:pointer;border:1px solid var(--accent);border-radius:10px;padding:9px 11px;margin-bottom:8px;background:rgba(46,125,50,0.05)">'
-    +'<div class="meta" style="color:var(--accent);font-weight:600">📄 불러온 자료 요약 · 눌러서 전체 보기 ›</div>'
-    +'<div style="font-size:13.5px;margin-top:3px">'+esc(brief)+'</div></div>';
+  const ta=document.getElementById('p-body');
+  const sum=(editingPool&&(editingPool.summaryFull||editingPool.brief))||'';
+  if(!sum){ box.innerHTML=''; if(ta) ta.style.display=''; return; }
+  if(ta) ta.style.display='none';   // 요약이 있으면 큰 텍스트영역 숨김
+  box.innerHTML='<div onclick="showPoolFull()" style="cursor:pointer;border:1px solid var(--accent);border-radius:10px;padding:11px 13px;background:rgba(46,125,50,0.05)">'
+    +'<div class="meta" style="color:var(--accent);font-weight:600;margin-bottom:5px">📄 불러온 자료 요약 · 눌러서 전체 보기 ›</div>'
+    +'<div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden">'+esc(sum)+'</div></div>';
 }
 function showPoolFull(){
   const sumF=(editingPool&&editingPool.summaryFull)||''; const full=(editingPool&&(editingPool.bodyFull||editingPool.body))||'';
   let h='';
-  if(sumF) h+='<div style="font-weight:700;margin-bottom:4px">AI 요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(sumF)+'</div>';
-  h+='<div style="font-weight:700;margin-bottom:4px">불러온 원문 전체</div><div style="white-space:pre-wrap;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">'+esc(full||'(원문 없음)')+'</div>';
+  if(sumF) h+='<div style="font-weight:700;margin-bottom:4px">간단 요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(sumF)+'</div>';
+  h+='<div style="font-weight:700;margin-bottom:4px">전체 내용</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(full||'(원문 없음)')+'</div>';
   openSubPage('불러온 자료', h);
 }
 function pickPoolAudio(){
@@ -1508,14 +1624,16 @@ async function removePoolAudio(){
 }
 async function savePool(){
   editingPool.title=document.getElementById('p-title').value.trim();
-  editingPool.body=document.getElementById('p-body').value.trim();
+  { const taEl=document.getElementById('p-body'); if(taEl && taEl.style.display!=='none'){ editingPool.body=taEl.value.trim(); } }
   editingPool.bodyFull = editingPool.hasFull ? (editingPool.bodyFull||editingPool.body) : editingPool.body;
   editingPool.free=document.getElementById('p-freetags').value.split(',').map(s=>s.trim()).filter(Boolean);
   editingPool.product=editingPool.product||[]; editingPool.situation=editingPool.situation||[]; editingPool.age=editingPool.age||[];
   if(!editingPool.title){alert('제목을 입력하세요.'); return;}
   if(!editingPool.id){editingPool.id=uid(); editingPool.created=today();}
+  editingPool.folder=folderFrom('pool-folder');
   await idbPut('pools',editingPool);
   pools=await idbAll('pools');
+  saveToFolder(editingPool, editingPool.folder, sanitizeName(editingPool.title)+'_'+(editingPool.poolType||'풀')+'_'+today()+'.json', true);
   closeSheet('ov-pool'); renderPools();
 }
 async function deletePool(){
@@ -1628,10 +1746,11 @@ async function toggleAnArea(id,kind,area){
 }
 let anStep=1;
 function anStepGo(n){ anStep=n; renderAnalysis(); }
-function onAnCust(){ currentCustId=document.getElementById('an-cust').value||null; anStep=1; renderAnalysis(); renderPoolCtx(); }
+function onAnCust(){ currentCustId=document.getElementById('an-cust').value||null; ensurePinsForCustomer(currentCustId); anStep=1; renderAnalysis(); renderPoolCtx(); }
 function renderAnalysis(){
   const id=document.getElementById('an-cust').value;
   const body=document.getElementById('an-body');
+  const pick=document.getElementById('an-picker'); if(pick) pick.style.display=id?'none':'block';
   if(!id){body.innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>'; return;}
   const c=customers.find(x=>x.id===id);
   c.planImages=c.planImages||[];
@@ -1671,6 +1790,11 @@ function renderAnalysis(){
     const catN=pools.filter(p=>p.poolType==='catalog').length;
     if(catN) html+='<div class="meta" style="margin-top:10px">\u203b \uc0c1\ud488 \uce74\ub2ec\ub85c\uadf8 '+catN+'\uac1c\ub97c \ubcf4\uc7a5\ubd84\uc11d\u00b7\uac00\uc785\uc124\uacc4\uc5d0 \uc790\ub3d9 \ucc38\uc870\ud569\ub2c8\ub2e4.</div>';
     if(pinnedCount()>0) html+='<div class="meta" style="margin-top:4px;color:var(--accent)">\u2713 \ucc38\uc870\ud480\uc5d0\uc11c \uc120\ud0dd(\uccb4\ud06c)\ud55c '+pinnedCount()+'\uac1c \ud56d\ubaa9\uc744 \ubd84\uc11d\uc5d0 \uac15\uc81c \ucc38\uc870\ud569\ub2c8\ub2e4. (\ud574\ub2f9 \uc885\ub958\ub294 \uc790\ub3d9\ub9e4\uce6d \ub300\uc2e0 \uc120\ud0dd\ud56d\ubaa9 \uc0ac\uc6a9)</div>';
+    { const pinned=pools.filter(p=>p.pinned);
+      html+='<label class="f" style="margin-top:10px">선택한 참조자료 ('+pinned.length+')</label>';
+      if(pinned.length){ pinned.forEach(p=>{ html+=poolTwoLineBtn(p, (POOL_LABEL[p.poolType]||['자료'])[0]); }); }
+      else html+='<div class="meta">아직 선택한 항목이 없습니다. 아래 버튼으로 참조풀에서 선택하세요. (선택 없으면 태그 자동매칭)</div>';
+    }
     html+='<button class="btn ghost sm wide" style="margin-top:6px" onclick="go(\'pools\')">참조풀에서 자료 선택/변경 →</button>';
     if(!hasText) html+='<div class="stage-note" style="margin-top:10px">\ubcf4\uc7a5 \ud14d\uc2a4\ud2b8\uac00 \uc544\uc9c1 \uc5c6\uc2b5\ub2c8\ub2e4. \uace0\uac1d \ud654\uba74\uc5d0\uc11c \ucc44\uc6b4 \ub4a4 \ubd84\uc11d\ud558\uc138\uc694.</div>';
     else if(hasAnalysis) html+='<div class="stage-note">\uc800\uc7a5\ub41c \ubcf4\uc7a5 \ubd84\uc11d\uc785\ub2c8\ub2e4 (\ucd5c\uadfc '+esc((alist[0].at||alist[0].date)||'')+' \u00b7 \ucd1d '+alist.length+'\ud68c). \ub2e4\uc2dc \uc2e4\ud589\ud558\uba74 \ube44\uc6a9\uc774 \ud55c \ubc88 \ub354 \ub4ed\ub2c8\ub2e4.</div>';
@@ -1815,6 +1939,8 @@ async function runAnalysis(id, confirmations){
     if(c.analyses.length>50) c.analyses=c.analyses.slice(0,50);
     c.analysis=data; c.analysisDate=today();
     await idbPut('customers',c);
+    { const fld=c.folder||currentFolder(); const stamp=now().replace(/[: ]/g,'-');
+      exportToPc(fld, sanitizeName(c.name)+'_보장분석_'+stamp+'.json', JSON.stringify({customer:c.name, at:now(), result:data}, null, 2), false); }
     const lc=addUsage(data._usage,'보장 분석');
     lastAnalysis=data; renderAnalysis(); renderCostMeter(lc); openAnResult(c.id);
   }catch(err){
@@ -1851,6 +1977,8 @@ async function runPlanAnalysis(id, confirmations){
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
     if(c.planAnalyses.length>50) c.planAnalyses=c.planAnalyses.slice(0,50);
     await idbPut('customers',c);
+    { const fld=c.folder||currentFolder(); const stamp=now().replace(/[: ]/g,'-');
+      exportToPc(fld, sanitizeName(c.name)+'_가입설계_'+stamp+'.json', JSON.stringify({customer:c.name, at:now(), result:data}, null, 2), false); }
     const lc=addUsage(data._usage,'가입설계 분석(비전)');
     renderAnalysis(); renderCostMeter(lc);
     renderPlanQuestions(c.id, data.questions||[]);
@@ -2058,12 +2186,27 @@ function _feRepair(s){
   }
   return out.replace(/,\s*([}\]])/g,'$1');
 }
+/* 잘린(truncation) JSON 복구: 미완성 문자열·괄호를 닫아 유효 JSON으로 */
+function _feClose(s){
+  let inStr=false,esc=false; const st=[];
+  for(let i=0;i<s.length;i++){ const ch=s[i];
+    if(inStr){ if(esc){esc=false;} else if(ch==='\\'){esc=true;} else if(ch==='"'){inStr=false;} continue; }
+    if(ch==='"'){inStr=true;} else if(ch==='{'||ch==='['){st.push(ch);} else if(ch==='}'||ch===']'){st.pop();}
+  }
+  let out=s;
+  if(inStr) out+='"';
+  out=out.replace(/[,:]\s*$/,'');
+  for(let i=st.length-1;i>=0;i--) out += (st[i]==='{'?'}':']');
+  return out;
+}
 function feParseJson(text){
   if(!text) return null;
   let t=String(text).trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
   let p=_feTryParse(t); if(p) return p;
   const a=t.indexOf('{'),b=t.lastIndexOf('}');
   if(a>=0&&b>a){ const core=t.slice(a,b+1); p=_feTryParse(core)||_feTryParse(_feRepair(core)); if(p) return p; }
+  // 잘림 복구: 여는 중괄호부터 끝까지 잡아 닫아준다
+  if(a>=0){ const tail=t.slice(a); p=_feTryParse(_feClose(_feRepair(tail))); if(p) return p; }
   return null;
 }
 /* 원문이 detail/planDetail에 문자열로 박혀 있거나 _raw가 있으면 재파싱해 구조를 복원 */
@@ -2232,6 +2375,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   await openDB();
   customers=await idbAll('customers');
   pools=await idbAll('pools');
+  pools.forEach(p=>{ p.pinned=false; });   // 선택(체크)은 세션/고객 단위 — 시작 시 초기화
   goHome();
   // 스플래시: 3초 노출 후 페이드아웃
   setTimeout(function(){
