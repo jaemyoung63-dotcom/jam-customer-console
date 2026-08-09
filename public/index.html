@@ -315,9 +315,9 @@
 <input type="file" id="import-plan-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importPlanConsult(event)">
 
 <nav class="tabs">
-  <button id="tab-customers" class="on" onclick="go('customers')"><span class="ic">◐</span>고객</button>
-  <button id="tab-pools" onclick="go('pools')"><span class="ic">▤</span>참조 풀</button>
-  <button id="tab-analysis" onclick="go('analysis')"><span class="ic">✦</span>분석</button>
+  <button id="tab-customers" class="on" onclick="navGo('customers')"><span class="ic">◐</span>고객</button>
+  <button id="tab-pools" onclick="navGo('pools')"><span class="ic">▤</span>참조 풀</button>
+  <button id="tab-analysis" onclick="navGo('analysis')"><span class="ic">✦</span>분석</button>
 </nav>
 
 <!-- ===== Sheet: 고객 편집 ===== -->
@@ -363,6 +363,7 @@
 
     <!-- STEP 2: 보장 자료 + AI 정리 + 결과(같은 페이지) -->
     <div class="cust-step" id="cstep-2" style="display:none">
+      <div id="cust-ctx2"></div>
       <label class="f">보장 자료 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 사진·PDF (드래그&드롭 가능)</span></label>
       <label class="f" style="margin-top:6px">자료 종류 <span style="font-weight:400;color:var(--ink-mute)">· 이미지 추가 시 적용</span></label>
       <div class="chips" id="doc-kind"></div>
@@ -677,7 +678,13 @@ function custStep(n){
   for(let i=1;i<=2;i++){ const el=document.getElementById('cstep-'+i); if(el) el.style.display=(i===n)?'block':'none'; }
   const sb=document.getElementById('cust-stepbar');
   if(sb) sb.innerHTML=[1,2].map(i=>'<span class="stepdot'+(i===n?' on':(i<n?' done':''))+'">'+i+'</span>').join('<span class="stepline"></span>');
-  if(n===2) refreshCoverageUI();
+  if(n===2){
+    const nm=(document.getElementById('c-name').value||'').trim();
+    const rg=(document.getElementById('c-region').value||'').trim();
+    const cx=document.getElementById('cust-ctx2');
+    if(cx) cx.innerHTML = nm ? ('<div style="background:var(--accent);color:#fff;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:15px;font-weight:700">◉ '+esc(nm)+' 고객'+(rg?' <span style="font-weight:400;opacity:.85;font-size:13px">· '+esc(rg)+'</span>':'')+'</div>') : '';
+    refreshCoverageUI();
+  }
   const sheet=document.querySelector('#ov-cust .sheet'); if(sheet) sheet.scrollTop=0;
 }
 function refreshCoverageUI(){
@@ -1324,9 +1331,11 @@ function renderPoolCtx(){
     +'<div class="row" style="align-items:center"><span style="font-size:14px;font-weight:700;color:var(--accent)">◉ '+esc(c.name)+' 고객 작업 중</span><span class="spacer"></span>'
     +'<button class="btn ghost sm" onclick="clearWorkingCust()">해제</button></div>'
     +'<div class="meta" style="margin-top:4px">아래에서 참조할 자료를 <b>선택</b>(체크)하세요. 선택한 '+pn+'개가 이 고객의 보장분석·가입설계에 반영됩니다.</div>'
-    +'<button class="btn primary wide" style="margin-top:9px" onclick="poolToAnalysis()">이 고객으로 분석 →</button></div>';
+    +'<button class="btn primary wide" style="margin-top:9px" onclick="poolToAnalysisCarry()">이 고객으로 분석 →</button></div>';
 }
-function poolToAnalysis(){ go('analysis'); }
+function poolToAnalysis(){ currentCustId=null; go('analysis'); }        // 하단 버튼: 고객 안 물고 감
+function poolToAnalysisCarry(){ go('analysis'); }                        // 배너 버튼: 작업고객 물고 감
+function navGo(s){ currentCustId=null; go(s); }                          // 하단 탭: 작업고객 해제
 function openWorkingCust(){
   if(currentCustId && customers.some(c=>c.id===currentCustId)){ openCustomer(currentCustId); }
   else { go('customers'); toast('작업 고객이 없어요. 고객을 먼저 선택하세요.'); setTimeout(toastHide,1400); }
@@ -1628,10 +1637,7 @@ function renderAnalysis(){
   c.planImages=c.planImages||[];
   const imgN=(c.images||[]).length;
   const want=[...(c.product||[]),...(c.situation||[])];
-  const matches=pools.filter(p=>p.poolType==='case').map(p=>{
-    const overlap=poolMatchScore(p,c);
-    return {p,overlap};
-  }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
+  const caseList=relevantPool(c,'case');
   const alist=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
   const hasAnalysis=alist.length>0;
   const hasText=(c.coverageText||'').trim().length>0;
@@ -1651,16 +1657,12 @@ function renderAnalysis(){
       +'<div class="kv"><span class="k">\uc0c1\ud488 \uad00\uc2ec</span><span>'+((c.product||[]).join(', ')||'-')+'</span></div>'
       +'<div class="kv"><span class="k">\uc0c1\ub2f4 \uc0c1\ud669</span><span>'+((c.situation||[]).join(', ')||'-')+'</span></div>'
       +'<div class="kv"><span class="k">\ubcf4\uc7a5 \uc790\ub8cc</span><span>'+(imgN?'\uc774\ubbf8\uc9c0 '+imgN+'\uc7a5':'\uc5c6\uc74c')+'</span></div></div>';
-    html+='<label class="f">\uc720\uc0ac \uc0c1\ub2f4\uc0ac\ub840 \ub9e4\uce6d ('+matches.length+')</label>';
-    if(matches.length){ matches.forEach(m=>{
-      const rc=RESULTS.find(r=>r[0]===m.p.result);
-      html+='<div class="card"><div class="row"><span class="name" style="font-size:14px">'+esc(m.p.title)+'</span><span class="spacer"></span>'
-        +(m.p.result?'<span class="badge b-'+(rc?rc[1]:'hold')+'">'+m.p.result+'</span>':'')+'</div>'
-        +'<div class="meta" style="margin-top:5px;">\uacf5\ud1b5 \ud0dc\uadf8 '+m.overlap+'\uac1c</div></div>';
-    });} else { html+='<div class="stage-note">\uad00\ub828 \uc0c1\ub2f4\uc0ac\ub840\uac00 \uc544\uc9c1 \uc5c6\uc5b4\uc694. \ucc38\uc870 \ud480\uc5d0 \uc0ac\ub840\ub97c \uc313\uc744\uc218\ub85d \ub9e4\uce6d\uc774 \uc815\ud655\ud574\uc9d1\ub2c8\ub2e4.</div>'; }
+    html+='<label class="f">유사 상담사례 매칭 ('+caseList.length+') <span style="font-weight:400;color:var(--ink-mute)">· 선택+자동 · 눌러서 전체</span></label>';
+    if(caseList.length){ caseList.forEach(m=>{ html+=poolTwoLineBtn(m.p, m.tag); });
+    } else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조풀에서 선택(☑)하거나 태그가 겹치는 사례를 쌓으면 매칭됩니다.</div>'; }
     html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(2)">\ub2e4\uc74c \u203a</button>';
   } else if(anStep===2){
-    html+='<button class="btn ghost sm" onclick="anStepGo(1)">\u2039 \uc774\uc804</button>';
+    html+='<button class="btn ghost sm" onclick="anStepGo(1)">\u2039 \uc0c1\ub2f4\uc0ac\ub840(1\ub2e8\uacc4)</button>';
     html+='<div class="divider"></div>';
     c.focusAreas=c.focusAreas||[]; c.excludeAreas=c.excludeAreas||[];
     html+='<label class="f">\ubd84\uc11d \uc635\uc158 <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \ubcf4\uc7a5\ubd84\uc11d\u00b7\uac00\uc785\uc124\uacc4 \uacf5\ud1b5</span></label>';
@@ -1681,7 +1683,7 @@ function renderAnalysis(){
     html+='<div id="an-result" style="margin-top:14px"></div>';
     html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(3)">\ub2e4\uc74c: \uac00\uc785\uc124\uacc4 \u203a</button>';
   } else {
-    html+='<button class="btn ghost sm" onclick="anStepGo(2)">\u2039 \uc774\uc804 (\ubcf4\uc7a5\ubd84\uc11d)</button>';
+    html+='<div class="row"><button class="btn ghost sm grow" onclick="anStepGo(1)">\u2039 \uc0c1\ub2f4\uc0ac\ub840(1\ub2e8\uacc4)</button><button class="btn ghost sm grow" onclick="anStepGo(2)">\u2039 \ubcf4\uc7a5\ubd84\uc11d(2\ub2e8\uacc4)</button></div>';
     html+='<label class="f" style="margin-top:12px">\uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0 <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \uc5ec\ub7ec \uc7a5 \ub4f1\ub85d</span></label>';
     html+='<div class="thumbs" id="an-plan-thumbs"></div>';
     const canPlan=hasAnalysis && (c.planImages&&c.planImages.length);
@@ -1923,19 +1925,42 @@ function matchedEpisodes(c){
     return {p,overlap};
   }).sort((a,b)=>b.overlap-a.overlap).slice(0,6);
 }
+/* 특정 타입에서 '선택(pinned) + 자동선정(태그겹침>0)' 전체를 반환 (선택 먼저, 그다음 점수순) */
+function relevantPool(c, type){
+  const all=pools.filter(p=>p.poolType===type);
+  const pinned=all.filter(p=>p.pinned);
+  const auto=all.filter(p=>!p.pinned).map(p=>({p,s:poolMatchScore(p,c)})).filter(m=>m.s>0).sort((a,b)=>b.s-a.s).map(m=>m.p);
+  return pinned.map(p=>({p,tag:'☑ 선택'})).concat(auto.map(p=>({p,tag:'자동'})));
+}
+/* 두줄 버튼 (제목 + 내용 간단요약) — 누르면 전체창 */
+function poolTwoLineBtn(p, tag){
+  const brief=oneLine(p.summaryFull||p.body||p.bodyFull||'', 42);
+  const rc=(p.poolType==='case'&&p.result)?RESULTS.find(r=>r[0]===p.result):null;
+  return '<div onclick="showPoolItemFull(\''+p.id+'\')" style="cursor:pointer;border:1px solid var(--line);border-radius:11px;padding:9px 12px;margin-bottom:7px;background:#fff">'
+    +'<div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+      +(tag?'<span style="font-size:11px;color:var(--accent);font-weight:600;margin-right:5px">'+tag+'</span>':'')
+      +esc(p.title||'(제목 없음)')
+      +(rc?' <span class="badge b-'+rc[1]+'" style="font-size:10px">'+p.result+'</span>':'')+'</div>'
+    +'<div class="meta" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(brief||'(내용 없음)')+' ›</div></div>';
+}
+function showPoolItemFull(id){
+  const p=pools.find(x=>x.id===id); if(!p){ openSubPage('전체 보기','<div class="stage-note">항목을 찾을 수 없습니다.</div>'); return; }
+  const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+  let h='';
+  if(tags) h+='<div class="pill-tags" style="margin-bottom:10px">'+tags+'</div>';
+  if(p.summaryFull) h+='<div style="font-weight:700;margin-bottom:4px">간단 요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(p.summaryFull)+'</div>';
+  h+='<div style="font-weight:700;margin-bottom:4px">전체 내용</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(p.bodyFull||p.body||'(내용 없음)')+'</div>';
+  openSubPage(p.title||'전체 보기', h);
+}
 function showEpisodes(){
   const id=document.getElementById('an-cust').value; const c=customers.find(x=>x.id===id);
   if(!c){ openSubPage('참고 에피소드','<div class="stage-note">고객을 먼저 선택하세요.</div>'); return; }
-  const eps=matchedEpisodes(c);
-  if(!eps.length){ openSubPage('참고 에피소드','<div class="stage-note">에피소드 풀에 등록된 항목이 없습니다. 참조 → 에피소드 풀에서 추가하세요.</div>'); return; }
-  let h='<div class="meta" style="margin-bottom:8px">이 고객과 관련도가 높은 순입니다. 상담 때 참고하세요.</div>';
-  eps.forEach(m=>{
-    const tags=[...(m.p.product||[]),...(m.p.situation||[]),...(m.p.age||[])].slice(0,5).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
-    h+='<div class="card"><div class="name" style="font-size:15px;margin-bottom:4px">'+esc(m.p.title||'(제목 없음)')+(m.overlap?' <span class="meta">· 공통 '+m.overlap+'</span>':'')+'</div>'
-      +(tags?'<div class="pill-tags" style="margin-bottom:6px">'+tags+'</div>':'')
-      +'<div style="white-space:pre-wrap;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">'+esc(m.p.body||'(내용 없음)')+'</div></div>';
-  });
-  openSubPage('참고 에피소드', h);
+  const eps=relevantPool(c,'episode');
+  if(!eps.length){ openSubPage('참고 에피소드','<div class="stage-note">관련 에피소드가 없습니다. 참조풀에서 선택(☑)하거나 태그가 겹치는 에피소드를 추가하세요.</div>'); return; }
+  const pinN=eps.filter(e=>e.tag==='☑ 선택').length;
+  let h='<div class="meta" style="margin-bottom:10px">선택 '+pinN+'개 + 자동선정 '+(eps.length-pinN)+'개 · 눌러서 전체 내용 보기</div>';
+  eps.forEach(e=>{ h+=poolTwoLineBtn(e.p, e.tag); });
+  openSubPage('참고 에피소드 ('+eps.length+')', h);
 }
 function showAnalysisHelp(){
   const h=''
