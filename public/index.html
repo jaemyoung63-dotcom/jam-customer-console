@@ -168,6 +168,8 @@
   .su-link.blue{background:#0FA0DC;} .su-link.green{background:#10A87F;} .su-link.dark{background:#24292F;}
   .su-cost{width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px;}
   .su-cost td{border:1px solid var(--line); padding:7px 9px;} .su-cost td:first-child{font-weight:700; background:#F7F9FB; white-space:nowrap;}
+  .ug-os{background:#F4F8FC; border:1px solid #D8E6F2; border-radius:11px; padding:11px 13px; margin-top:10px;}
+  .ug-os-t{font-size:13.5px; font-weight:800; color:#0C6FA8; margin-bottom:5px;}
   /* 모드별 배경색: 자료준비=웜톤, 상담·분석=블루 — 헤더·탭까지 이어져 '지금 어느 방식인지' 유지 */
   body[data-mode="connected"]{background:#E9F8F2;}
   body[data-mode="separate"]{background:#EAF7FE;}
@@ -383,7 +385,7 @@
     <div class="home-hero">
       <img class="mascot-img hm" src="data:image/png;base64,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" alt="캐릭터">
       <h1>고객상담 매니저</h1>
-      <div class="sub">푸본현대생명 · FP 현장 도우미 <span style="opacity:.7">· v31 (2026-08-09)</span></div>
+      <div class="sub">푸본현대생명 · FP 현장 도우미 <span style="opacity:.7">· v32 (2026-08-09)</span></div>
       <div class="cloud-bar" style="color:#fff;opacity:.95;margin-top:8px"><span class="cloud-dot" id="cloud-dot"></span><span id="cloud-status">오프라인</span><span id="cloud-changepw" style="display:none;margin-left:8px;text-decoration:underline;cursor:pointer;font-size:11px" onclick="changePassword()">비밀번호 변경</span><span id="cloud-logout" style="display:none;margin-left:8px;text-decoration:underline;cursor:pointer;font-size:11px" onclick="cloudLogout()">로그아웃</span></div>
     </div>
     <div class="home-menu">
@@ -530,6 +532,16 @@
       <button class="btn ghost sm" onclick="saveAP()">저장</button>
       <button class="btn ghost sm" onclick="closeSheet('ov-ap')">닫기</button></div>
     <div id="ap-body"></div>
+  </div>
+</div>
+
+<!-- ===== 팝업: 앱 공유하기 ===== -->
+<div class="overlay" id="ov-share">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="row"><h2>앱 공유하기</h2><span class="spacer"></span>
+      <button class="btn ghost sm" onclick="closeSheet('ov-share')">닫기</button></div>
+    <div id="share-body"></div>
   </div>
 </div>
 
@@ -1659,11 +1671,94 @@ async function computeStorage(){
   let orphanBytes=0; orphans.forEach(r=>orphanBytes+=(r.blob&&r.blob.size)||0);
   return {quota,usage,imgs,totalBytes,orphans,orphanBytes,ref};
 }
+let _qrLoading=null;
+function loadQR(){
+  if(window.QRCode) return Promise.resolve(window.QRCode);
+  if(_qrLoading) return _qrLoading;
+  _qrLoading=new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload=()=>res(window.QRCode); s.onerror=()=>{ _qrLoading=null; rej(new Error('QR 로드 실패')); };
+    document.head.appendChild(s); });
+  return _qrLoading;
+}
+function openShare(){
+  openSheet('ov-share');
+  const b=document.getElementById('share-body'); if(!b) return;
+  const url=location.origin||('https://'+(location.host||'jam-customer-console.pages.dev'));
+  b.innerHTML=
+    '<div class="su-hero"><h3>📤 이 앱을 동료에게</h3><p>아래 <b>QR</b>을 찍거나 <b>링크</b>를 보내면, 그분은 열어서 <b>비밀번호만</b> 넣으면 바로 씁니다. (앱을 새로 만들 필요 없음)</p></div>'
+    +'<div id="qr-box" style="display:flex;justify-content:center;padding:16px;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:12px"><div class="meta">QR 만드는 중…</div></div>'
+    +'<div class="su-key" style="display:block;text-align:center;padding:10px;word-break:break-all;margin-bottom:10px">'+esc(url)+'</div>'
+    +'<button class="btn primary wide" id="share-native" style="display:none" onclick="shareNative()">📲 공유하기 (카톡·문자 등)</button>'
+    +'<button class="btn ghost sm wide" style="margin-top:8px" onclick="copyShareLink()">🔗 링크 복사</button>'
+    +'<div class="su-warn" style="margin-top:12px">⚠️ <b>비밀번호는 링크에 포함되지 않습니다.</b> 보안을 위해 비밀번호는 <b>따로</b> 알려주세요(카톡 등). 아무나 자료를 보면 안 되니까요.</div>'
+    +'<div class="su-tip">💡 동료가 여는 방법은 <b>시스템 셋업 → 처음 쓰시는 분</b>에 그림으로 안내돼 있어요.</div>';
+  // QR 생성
+  loadQR().then(QR=>{ const box=document.getElementById('qr-box'); if(!box) return; box.innerHTML=''; new QR(box,{text:url,width:180,height:180,correctLevel:QR.CorrectLevel.M}); })
+    .catch(()=>{ const box=document.getElementById('qr-box'); if(box) box.innerHTML='<div class="meta">QR을 못 만들었어요(인터넷 확인). 아래 링크를 복사해 보내세요.</div>'; });
+  // 네이티브 공유 버튼(모바일)
+  if(navigator.share){ const n=document.getElementById('share-native'); if(n) n.style.display='block'; }
+}
+function shareNative(){
+  const url=location.origin||('https://'+location.host);
+  if(navigator.share){ navigator.share({title:'고객상담 매니저', text:'고객상담 매니저 앱입니다. 열어서 비밀번호를 입력해 쓰세요.', url}).catch(()=>{}); }
+}
+async function copyShareLink(){
+  const url=location.origin||('https://'+location.host);
+  try{ await navigator.clipboard.writeText(url); toast('✓ 링크 복사됨 — 카톡 등에 붙여넣어 보내세요'); setTimeout(toastHide,2200); }
+  catch(e){ prompt('아래 링크를 복사하세요:', url); }
+}
 function openSetup(){
   openSheet('ov-setup');
   const b=document.getElementById('setup-body'); if(!b) return;
   b.innerHTML =
-  '<div class="su-hero"><h3>처음이라도 괜찮아요 👋</h3>'
+    '<div class="su-hero"><h3>어떤 도움이 필요하세요?</h3><p>앱을 <b>처음 쓰시는 분</b>과, 앱을 <b>만들고 관리하는 분</b>의 안내가 다릅니다.</p></div>'
+    +'<div class="home-card" style="margin-bottom:12px" onclick="renderUserGuide()"><div class="hc-ic" style="background:linear-gradient(150deg,#46C4F2,#0E8FCB)">📱</div><div><div class="hc-t">처음 쓰시는 분</div><div class="hc-d">앱 열기 · 로그인 · 홈화면 추가 (쉬움)</div></div><div class="hc-go">›</div></div>'
+    +'<div class="home-card" style="margin-bottom:14px" onclick="renderAdminGuide()"><div class="hc-ic" style="background:linear-gradient(150deg,#34C79E,#0E9070)">⚙️</div><div><div class="hc-t">관리자 설정 (개발·배포)</div><div class="hc-d">API 키 · 클라우드 · D1 설정 (전문)</div></div><div class="hc-go">›</div></div>'
+    +'<button class="btn primary wide" onclick="openShare()">📤 이 앱 공유하기 (QR·링크로 보내기)</button>'
+    +'<div class="meta" style="text-align:center;margin-top:6px">동료에게 링크/QR로 보내면, 그분은 열어서 비밀번호만 넣으면 바로 씁니다.</div>';
+}
+function renderUserGuide(){
+  const b=document.getElementById('setup-body'); if(!b) return;
+  b.innerHTML =
+  '<button class="btn ghost sm" onclick="openSetup()">‹ 뒤로</button>'
+  +'<div class="su-hero" style="margin-top:10px"><h3>📱 앱 쓰는 법 (아주 쉬워요)</h3><p>어렵지 않아요. <b>3단계</b>만 하면 됩니다. 앱을 새로 만들 필요 없이, <b>열고 로그인</b>만 하면 끝!</p></div>'
+
+  +'<div class="su-step blue"><span class="su-n">1</span><span class="su-t">앱 열기</span>'
+    +'<div class="su-d"><b>받은 링크</b>를 누르세요(카톡 등으로 전달받음). 또는 인터넷 주소창에 아래를 입력합니다.</div>'
+    +'<div class="su-key" style="display:block;margin-top:8px;padding:8px;text-align:center" id="ug-url">jam-customer-console.pages.dev</div>'
+    +'<div class="su-tip">💡 <b>크롬</b>(안드로이드) 또는 <b>사파리</b>(아이폰)로 여세요.</div>'
+  +'</div>'
+
+  +'<div class="su-step blue"><span class="su-n">2</span><span class="su-t">비밀번호로 로그인</span>'
+    +'<div class="su-d">앱을 처음 열면 <b>비밀번호</b>를 물어봅니다. <b>담당자에게 받은 비밀번호</b>를 넣고 <b>로그인</b>을 누르세요.</div>'
+    +'<div class="su-tip">💡 한 번 로그인하면 그 기기는 <b>다음부터 자동으로</b> 열립니다. PC·폰·탭 <b>어디서든 같은 비밀번호</b>면 같은 자료가 보입니다.</div>'
+  +'</div>'
+
+  +'<div class="su-step green"><span class="su-n">3</span><span class="su-t">홈 화면에 아이콘으로 추가 (앱처럼)</span>'
+    +'<div class="su-d">홈 화면에 아이콘을 만들어 두면, 다음부턴 <b>일반 앱처럼</b> 아이콘만 눌러 바로 열립니다.</div>'
+    +'<div class="ug-os"><div class="ug-os-t">🤖 안드로이드 (크롬)</div>'
+      +'<div class="su-d">① 오른쪽 위 <b>⋮ (점 세 개)</b> 누르기 → ② <b>"홈 화면에 추가"</b> 또는 <b>"앱 설치"</b> 누르기 → ③ <b>추가</b>.</div></div>'
+    +'<div class="ug-os"><div class="ug-os-t">🍎 아이폰 (사파리)</div>'
+      +'<div class="su-d">① 아래 가운데 <b>공유 버튼(□에 ↑ 화살표)</b> 누르기 → ② 목록을 내려 <b>"홈 화면에 추가"</b> 누르기 → ③ <b>추가</b>.</div></div>'
+  +'</div>'
+
+  +'<div class="su-step gray"><span class="su-n">✓</span><span class="su-t">이제 이렇게 쓰세요</span>'
+    +'<ul>'
+      +'<li>홈에서 <b>자료 준비</b>(고객·자료 넣기) 또는 <b>상담·분석</b>(정리·분석) 중 하나를 고릅니다.</li>'
+      +'<li>입력하면 <b>자동으로 저장</b>됩니다("✓ 자동 저장됨" 표시). 저장 버튼을 깜빡해도 괜찮아요.</li>'
+      +'<li><b>사진(보장표 사진)</b>은 <b>그 사진을 찍은 기기에만</b> 남습니다. 글자 자료(고객·분석)는 어디서든 보입니다.</li>'
+    +'</ul>'
+    +'<div class="su-warn">⚠️ <b>인터넷이 필요합니다.</b> 그리고 비밀번호를 잊지 않게 메모해 두세요. (분실 시 담당자에게 문의)</div>'
+  +'</div>';
+  const u=document.getElementById('ug-url'); if(u) u.textContent=location.host||'jam-customer-console.pages.dev';
+}
+function renderAdminGuide(){
+  openSheet('ov-setup');
+  const b=document.getElementById('setup-body'); if(!b) return;
+  b.innerHTML =
+  '<button class="btn ghost sm" onclick="openSetup()">‹ 뒤로</button>'
+  +'<div class="su-hero" style="margin-top:10px"><h3>처음이라도 괜찮아요 👋</h3>'
   +'<p>이 앱은 <b>세 가지</b>가 연결돼 돌아갑니다. 아래 순서대로 따라 하면 됩니다. 중학생도 할 수 있어요.</p>'
   +'<div class="su-flow">'
     +'<div class="fb"><span class="fi">📁</span>GitHub<br>코드 보관</div>'
