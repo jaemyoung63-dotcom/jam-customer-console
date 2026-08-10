@@ -28,15 +28,35 @@ export async function onRequestPost(context) {
   try { body = await request.json(); } catch (e) { return json({ error: '잘못된 요청 형식' }, 400); }
 
   // 비밀번호 확인
-  const expected = env.APP_PASSWORD || '';
-  if (!expected) return json({ error: '서버에 APP_PASSWORD가 설정되지 않았습니다. Cloudflare 환경변수에 추가하세요.' }, 500);
-  if (!body || body.pw !== expected) return json({ error: '비밀번호가 올바르지 않습니다.', auth: false }, 401);
+  // 비밀번호 확인 — D1에 저장된 앱 비밀번호 우선, 없거나 마스터(APP_PASSWORD)면 허용
+  const master = env.APP_PASSWORD || '';
+  let appPw = '';
+  try {
+    const row = await env.DB.prepare("SELECT v FROM settings WHERE k='password'").first();
+    if (row && row.v) appPw = row.v;
+  } catch (e) { /* settings 테이블이 아직 없으면 무시 */ }
+
+  const inputPw = (body && body.pw) || '';
+  const okMaster = master && inputPw === master;
+  const okApp = appPw && inputPw === appPw;
+  // D1에 앱 비밀번호가 설정돼 있으면 그것 or 마스터로 로그인. 아직 없으면 마스터로만.
+  const authed = appPw ? (okApp || okMaster) : okMaster;
+
+  if (!master && !appPw) return json({ error: '서버에 비밀번호가 설정되지 않았습니다. Cloudflare 환경변수(APP_PASSWORD)를 확인하세요.' }, 500);
+  if (!authed) return json({ error: '비밀번호가 올바르지 않습니다.', auth: false }, 401);
 
   const action = body.action;
 
   try {
     if (action === 'check') {
-      return json({ ok: true, auth: true });
+      return json({ ok: true, auth: true, master: okMaster && !okApp });
+    }
+
+    if (action === 'changePw') {
+      const np = (body.newPw || '').toString().trim();
+      if (np.length < 4) return json({ error: '새 비밀번호는 4자 이상이어야 합니다.' }, 400);
+      await env.DB.prepare("INSERT INTO settings (k, v) VALUES ('password', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(np).run();
+      return json({ ok: true });
     }
 
     if (action === 'load') {
