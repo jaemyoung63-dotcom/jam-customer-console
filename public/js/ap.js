@@ -202,6 +202,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 /* ---------- 시작 ---------- */
 (async function init(){
   await openDB();
+  if(typeof fsInit==='function') await fsInit();
   { const oc=document.getElementById('ov-cust'); if(oc) oc.addEventListener('input', scheduleCustAutosave); }
   { const op=document.getElementById('ov-pool'); if(op) op.addEventListener('input', schedulePoolAutosave); }
   customers=await idbAll('customers');

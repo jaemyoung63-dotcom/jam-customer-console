@@ -154,6 +154,22 @@ async function runStorageDiagnostic(){
   return report;
 }
 function _diagRows(items,render,empty){ return items.length?items.map(render).join(''):'<div class="meta">'+esc(empty||'없음')+'</div>'; }
+function renderCloudFileSyncSection(){
+  if(typeof fsSyncSummary!=='function') return '';
+  const s=fsSyncSummary();
+  if(!s.cloudOn){
+    return '<div class="card" style="margin-top:12px"><div style="font-size:14px;font-weight:700">☁ 클라우드 파일 동기화</div>'
+      +'<div class="meta" style="margin-top:6px">오프라인 상태입니다. 로그인하면 사진·음성 파일도 클라우드에 백업됩니다.</div></div>';
+  }
+  if(s.bucketMissing){
+    return '<div class="card" style="margin-top:12px"><div style="font-size:14px;font-weight:700">☁ 클라우드 파일 동기화</div>'
+      +'<div class="meta" style="margin-top:6px">⚠ 서버에 파일 저장소(R2)가 아직 설정되지 않았습니다. 관리자가 Cloudflare 대시보드에서 R2 버킷을 연결하면 사용할 수 있습니다.</div></div>';
+  }
+  return '<div class="card" style="margin-top:12px"><div style="font-size:14px;font-weight:700">☁ 클라우드 파일 동기화</div>'
+    +'<div class="meta" style="margin-top:6px">참조된 파일 '+s.totalRefs+'개 · 업로드됨 '+s.uploaded+' · 대기 '+s.pendingUpload
+    +(s.uploadFailed?' · ⚠ 업로드 실패 '+s.uploadFailed:'')+(s.downloadFailed?' · ⚠ 다운로드 실패 '+s.downloadFailed:'')+'</div>'
+    +'<button class="btn ghost sm wide" style="margin-top:10px" onclick="fsSyncNow()">지금 동기화</button></div>';
+}
 function renderStorageDiagnostic(report){
   const s=report.summary;
   let h='<div class="card" style="margin-top:12px"><div style="font-size:14px;font-weight:700">=== STORAGE DIAGNOSTIC REPORT ===</div>'
@@ -163,6 +179,7 @@ function renderStorageDiagnostic(report){
     +'<div class="meta">IndexedDB images: '+s.indexedDbBlobCount+' · '+fmtBytes(s.indexedDbTotalBytes)+'</div>'
     +'<div class="meta">Valid references: '+s.validReferences+' · Missing: '+s.missingReferences+' · Orphans: '+s.orphanBlobs+' · Duplicate blobs: '+s.duplicateBlobs+'</div>'
     +'<button class="btn ghost sm wide" style="margin-top:10px" onclick="exportStorageDiagnostic()">JSON 내보내기 (Blob 제외)</button></div>';
+  h+=renderCloudFileSyncSection();
   h+='<details style="margin-top:10px"><summary>고객별 파일 통계 ('+report.customers.length+')</summary>'+_diagRows(report.customers,x=>'<div class="meta" style="margin:6px 2px">'+esc(x.name)+' · 보장 '+x.imagesCount+' · 설계 '+x.planImagesCount+' · 확인 '+x.foundFileCount+'/'+x.uniqueFileCount+' · '+fmtBytes(x.totalBytes)+(x.missingFileCount?' · ⚠ 누락 '+x.missingFileCount:'')+'</div>','고객 없음')+'</details>';
   h+='<details style="margin-top:10px"><summary>참조풀별 파일 통계 ('+report.pools.length+')</summary>'+_diagRows(report.pools,x=>'<div class="meta" style="margin:6px 2px">'+esc(x.title)+' · 첨부 '+x.imagesCount+' · 음성 '+x.audioCount+' · 확인 '+x.foundFileCount+'/'+x.uniqueFileCount+' · '+fmtBytes(x.totalBytes)+(x.missingFileCount?' · ⚠ 누락 '+x.missingFileCount:'')+'</div>','참조풀 없음')+'</details>';
   h+='<details style="margin-top:10px"><summary>누락 파일 ('+report.missingReferences.length+')</summary>'+_diagRows(report.missingReferences,x=>'<div class="meta" style="margin:6px 2px">'+esc(x.ownerType)+' · '+esc(x.ownerName)+' · '+esc(x.slot)+' · '+esc(x.fileId)+'</div>','누락 참조 없음')+'</details>';

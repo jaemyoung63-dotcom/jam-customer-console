@@ -1,0 +1,128 @@
+// functions/api/files.js
+// Cloudflare Pages Function — 고객상담 매니저 파일(이미지·음성) 클라우드 저장 (R2)
+// 바인딩: FILES_BUCKET (R2 bucket) / DB (D1, functions/api/data.js와 공유) / 환경변수: APP_PASSWORD
+//
+// data.js가 만들어둔 D1 "files" 테이블(메타데이터)에 실제 바이트를 얹는 역할.
+// 사진·PDF변환본·음성메모는 브라우저 IndexedDB에만 있던 것을 이 API로 R2에 올려
+// 기기를 바꿔도 사라지지 않게 한다. (텍스트 데이터는 계속 data.js가 담당)
+//
+// 요청(JSON, POST):
+//   { pw, action:'upload', id, owner_type, owner_id, category, filename, content_type, data(base64, prefix 없이) }
+//   { pw, action:'download', id }                          → { ok, id, content_type, category, data(base64) }
+//   { pw, action:'delete', id }
+
+function json(obj, status) {
+  return new Response(JSON.stringify(obj), {
+    status: status || 200,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
+  });
+}
+
+function isoNow() { return new Date().toISOString(); }
+
+function objectKey(ownerType, ownerId, id) {
+  return ownerType + '/' + encodeURIComponent(String(ownerId)) + '/' + encodeURIComponent(String(id));
+}
+
+// base64 <-> ArrayBuffer (대용량에서도 콜스택 안 터지게 청크 단위 처리)
+function base64ToBytes(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+async function sha256Hex(bytes) {
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
+  if (!env.DB) return json({ error: 'D1 데이터베이스(DB) 바인딩이 없습니다. Cloudflare Pages Settings → Bindings에서 Variable name "DB"로 연결하세요.' }, 500);
+  if (!env.FILES_BUCKET) return json({ error: 'R2 버킷 바인딩이 없습니다. Cloudflare Pages Settings → Bindings에서 R2 버킷을 Variable name "FILES_BUCKET"으로 연결하세요.', bucketMissing: true }, 500);
+
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: '잘못된 요청 형식' }, 400); }
+
+  const expected = env.APP_PASSWORD || '';
+  if (!expected) return json({ error: '서버에 APP_PASSWORD가 설정되지 않았습니다.' }, 500);
+  if (!body || body.pw !== expected) return json({ error: '비밀번호가 올바르지 않습니다.', auth: false }, 401);
+
+  const action = body.action;
+
+  try {
+    if (action === 'upload') {
+      const id = String(body.id || '').trim();
+      const ownerType = body.owner_type;
+      const ownerId = String(body.owner_id || '').trim();
+      const category = String(body.category || '기타').trim();
+      const contentType = String(body.content_type || 'application/octet-stream').trim();
+      const filename = body.filename == null ? null : String(body.filename);
+      const dataB64 = body.data;
+      if (!id) return json({ error: 'id가 없습니다.' }, 400);
+      if (!['customer', 'pool'].includes(ownerType)) return json({ error: 'owner_type은 customer 또는 pool이어야 합니다.' }, 400);
+      if (!ownerId) return json({ error: 'owner_id가 없습니다.' }, 400);
+      if (!dataB64) return json({ error: '업로드할 데이터(data)가 없습니다.' }, 400);
+
+      let bytes;
+      try { bytes = base64ToBytes(dataB64); } catch (e) { return json({ error: 'data가 올바른 base64가 아닙니다.' }, 400); }
+
+      const key = objectKey(ownerType, ownerId, id);
+      const sha256 = await sha256Hex(bytes);
+      await env.FILES_BUCKET.put(key, bytes, { httpMetadata: { contentType } });
+
+      const now = isoNow();
+      await env.DB.prepare(
+        `INSERT INTO files (id, owner_type, owner_id, category, filename, content_type, size_bytes, sha256, object_key, status, sync_version, created_at, updated_at, uploaded_at, deleted_at, last_error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', 1, ?, ?, ?, NULL, NULL)
+         ON CONFLICT(id) DO UPDATE SET
+           owner_type=excluded.owner_type, owner_id=excluded.owner_id, category=excluded.category,
+           filename=excluded.filename, content_type=excluded.content_type, size_bytes=excluded.size_bytes,
+           sha256=excluded.sha256, object_key=excluded.object_key, status='uploaded',
+           sync_version=files.sync_version+1, updated_at=excluded.updated_at, uploaded_at=excluded.uploaded_at, last_error=NULL`
+      ).bind(id, ownerType, ownerId, category, filename, contentType, bytes.length, sha256, key, now, now, now).run();
+
+      return json({ ok: true, id, sha256, size_bytes: bytes.length });
+    }
+
+    if (action === 'download') {
+      const id = String(body.id || '').trim();
+      if (!id) return json({ error: 'id가 없습니다.' }, 400);
+      const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
+      if (!row || row.status === 'deleted') return json({ error: '파일을 찾을 수 없습니다.' }, 404);
+      if (!row.object_key) return json({ error: '이 파일은 아직 업로드되지 않았습니다.' }, 404);
+
+      const obj = await env.FILES_BUCKET.get(row.object_key);
+      if (!obj) {
+        await env.DB.prepare("UPDATE files SET status='missing_source', updated_at=?, sync_version=sync_version+1 WHERE id=?").bind(isoNow(), id).run();
+        return json({ error: 'R2에 실제 파일이 없습니다(원본 유실). 로컬 기기의 원본으로 다시 업로드해야 합니다.' }, 404);
+      }
+      const buf = await obj.arrayBuffer();
+      const data = bytesToBase64(new Uint8Array(buf));
+      return json({ ok: true, id, category: row.category, filename: row.filename, content_type: row.content_type, data });
+    }
+
+    if (action === 'delete') {
+      const id = String(body.id || '').trim();
+      if (!id) return json({ error: 'id가 없습니다.' }, 400);
+      const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
+      if (!row) return json({ ok: true }); // 이미 없음
+      if (row.object_key) { try { await env.FILES_BUCKET.delete(row.object_key); } catch (e) {} }
+      await env.DB.prepare("UPDATE files SET status='deleted', deleted_at=?, updated_at=?, sync_version=sync_version+1 WHERE id=?").bind(isoNow(), isoNow(), id).run();
+      return json({ ok: true });
+    }
+
+    return json({ error: '알 수 없는 action: ' + action }, 400);
+  } catch (err) {
+    return json({ error: '파일 저장소 오류: ' + (err && err.message ? err.message : String(err)) }, 500);
+  }
+}

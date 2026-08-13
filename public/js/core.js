@@ -27,7 +27,14 @@ function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
 function idbAll(store){return new Promise(r=>{const q=tx(store,'readonly').getAll(); q.onsuccess=()=>r(q.result||[]);});}
 function idbGet(store,id){return new Promise(r=>{const q=tx(store,'readonly').get(id); q.onsuccess=()=>r(q.result);});}
 function _idbPut(store,v){return new Promise(r=>{const q=tx(store,'readwrite').put(v); q.onsuccess=()=>r();});}
-function idbPut(store,v){ const p=_idbPut(store,v); if(cloudOn&&(store==='customers'||store==='pools')){ cloudSync(store==='customers'?'saveCustomer':'savePool', v); } return p; }
+function idbPut(store,v){
+  const p=_idbPut(store,v);
+  if(cloudOn&&(store==='customers'||store==='pools')){
+    cloudSync(store==='customers'?'saveCustomer':'savePool', v);
+    if(typeof fsQueueForOwner==='function') fsQueueForOwner(store==='customers'?'customer':'pool', v);
+  }
+  return p;
+}
 
 /* ===================== 폴더 저장 시스템 =====================
    B: 앱 내부 폴더(그룹) — 각 레코드에 folder 필드, 현재 폴더 sticky
@@ -115,6 +122,7 @@ async function mergeCloud(d){
   } else {
     localHasUnsynced = (customers.length>0 || pools.length>0);
   }
+  if(typeof fsDownloadMissing==='function') fsDownloadMissing();   // 백그라운드, 저장/화면전환을 막지 않음
 }
 async function cloudUpload(){
   if(!cloudOn){ alert('먼저 클라우드에 로그인하세요.'); return; }
