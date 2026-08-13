@@ -85,6 +85,11 @@ export async function onRequestPost(context) {
   try { payload = await context.request.json(); }
   catch (e) { return json({ error: '요청 형식이 잘못되었습니다.' }, 400); }
 
+  // 비밀번호 확인 (data.js와 동일한 APP_PASSWORD 사용) — 인증 없는 외부 호출로 인한 AI 비용 남용을 막는다.
+  const expectedPw = context.env.APP_PASSWORD || '';
+  if (!expectedPw) return json({ error: '서버에 APP_PASSWORD가 설정되지 않았습니다. Cloudflare 환경변수에 추가하세요.' }, 500);
+  if (payload.pw !== expectedPw) return json({ error: '비밀번호가 올바르지 않습니다.' }, 401);
+
   const customer = payload.customer || {};
   const coverageText = (payload.coverageText || '').trim();
   const cases = payload.cases || [];
