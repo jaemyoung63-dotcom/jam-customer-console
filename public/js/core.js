@@ -101,20 +101,8 @@ async function cloudLogin(pw, silent){
     if(!silent) loginMsg((d&&d.error)||'로그인 실패'); return false;
   }catch(e){ if(!silent) loginMsg('연결 실패: '+(e.message||e)); return false; }
 }
-async function changePassword(){
-  if(!cloudOn){ alert('먼저 로그인하세요.'); return; }
-  const cur=prompt('현재 비밀번호를 입력하세요.'); if(cur===null) return;
-  if(cur!==cloudPW){ alert('현재 비밀번호가 맞지 않습니다.'); return; }
-  const np=prompt('새 비밀번호를 입력하세요. (4자 이상)'); if(np===null) return;
-  const np2=(np||'').trim();
-  if(np2.length<4){ alert('새 비밀번호는 4자 이상이어야 합니다.'); return; }
-  const np3=prompt('새 비밀번호를 한 번 더 입력하세요.'); if(np3===null) return;
-  if((np3||'').trim()!==np2){ alert('두 번 입력한 비밀번호가 다릅니다.'); return; }
-  const d=await cloudCall({pw:cloudPW, action:'changePw', newPw:np2});
-  if(d&&d.ok){ cloudPW=np2; cloudMaster=false; try{ localStorage.setItem('cloudPW',np2); }catch(e){}
-    alert('✓ 비밀번호가 변경되었습니다.\n다른 기기에서는 새 비밀번호로 다시 로그인하세요.'); updateCloudUI(); }
-  else alert('변경 실패: '+((d&&d.error)||'알 수 없음'));
-}
+/* 비밀번호 변경은 앱에서 지원하지 않음 — 서버(APP_PASSWORD)는 Cloudflare 환경변수 고정값이라
+   Cloudflare 대시보드(Settings → Variables and secrets)에서 직접 변경해야 함. 2026-08-13 관련 버튼 제거. */
 async function mergeCloud(d){
   const cc=d.customers||[], cp=d.pools||[];
   if(cc.length || cp.length){
@@ -277,12 +265,11 @@ function goHome(){
 }
 function updateCloudUI(){
   const st=document.getElementById('cloud-status'), dot=document.getElementById('cloud-dot');
-  const up=document.getElementById('cloud-upload-row'), lo=document.getElementById('cloud-logout'), cp=document.getElementById('cloud-changepw');
+  const up=document.getElementById('cloud-upload-row'), lo=document.getElementById('cloud-logout');
   if(st) st.textContent = cloudOn ? ('☁ 클라우드 연결됨'+(cloudMaster?' (초기 비밀번호 — 변경 권장)':'')) : '오프라인 (이 기기 자료만)';
   if(dot) dot.style.background = cloudOn ? (cloudMaster?'#E0A800':'#EAFff6') : '#cfd8dc';
   if(up) up.style.display = (cloudOn && localHasUnsynced) ? 'block' : 'none';
   if(lo) lo.style.display = cloudOn ? 'inline' : 'none';
-  if(cp) cp.style.display = cloudOn ? 'inline' : 'none';
 }
 /* 첫 화면 두 창 */
 function enterConnected(){ appMode='connected'; document.body.setAttribute('data-mode','connected'); currentCustId=null; go('customers'); }
