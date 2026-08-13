@@ -18,7 +18,7 @@ function apResultBlock(d){
   d=rescueResult(d); let h='';
   if(typeof d.shortfallRate!=='undefined' && d.shortfallRate!==null){ const rate=Math.max(0,Math.min(100,Math.round(Number(d.shortfallRate)||0))); h+='<div class="meta" style="margin:0 2px 8px">잔여 부족율 '+rate+'%</div>'; }
   if(d.summary) h+='<div class="ap-sum">'+esc(d.summary)+'</div>';
-  if(d.areas&&d.areas.length){ h+='<div class="ap-h">영역별 판정</div>'; d.areas.forEach(a=>{ h+='<div class="ap-li"><b>'+esc(a.name||'')+'</b> — '+esc(a.level||'')+(a.reason?(' · '+esc(a.reason)):'')+'</div>'; }); }
+  if(d.areas&&d.areas.length){ h+='<div class="ap-h">영역별 판정</div>'; d.areas.forEach(a=>{ h+='<div class="ap-li"><b>'+esc(a.name||'')+'</b> — '+esc(a.level||'')+(a.reason?(' · '+esc(a.reason)):'')+' '+certBadge(a.certainty)+'</div>'; }); }
   if(d.priorities&&d.priorities.length){ h+='<div class="ap-h">보강 우선순위</div>'; d.priorities.forEach((p,i)=>{ h+='<div class="ap-li">'+(i+1)+'. '+esc(p)+'</div>'; }); }
   if(hasLines(d.detail)) h+='<div class="ap-h">상세</div>'+linesBlock(d.detail);
   if(hasLines(d.planDetail)) h+='<div class="ap-h">상세</div>'+linesBlock(d.planDetail);

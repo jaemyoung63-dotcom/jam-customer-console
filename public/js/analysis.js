@@ -610,13 +610,22 @@ function resubmitCoverage(){
   if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
   if(anResultCustId){ closeSheet('ov-anresult'); runAnalysis(anResultCustId, lines.join('\n')); }
 }
+/* AI 분석 신뢰도(확정/추정/자료부족) 배지 — certainty 필드가 없는 옛 분석 결과는 배지 없이 그냥 넘어감(하위호환) */
+function certBadge(certainty){
+  if(!certainty) return '';
+  const map={ '확정':'sure', '추정':'guess', '자료부족':'lack' };
+  const cls=map[certainty]; if(!cls) return '';
+  return '<span class="badge small b-cert-'+cls+'" style="align-self:flex-start">'+esc(certainty)+'</span>';
+}
 function showAreas(){
   const d=lastAnalysis||{}; let h='';
   (d.areas||[]).forEach((a,i,arr)=>{
     const lv=a.level||''; const cls=lv==='충분'?'ok':(lv==='보통'?'hold':'no'); const col=lv==='충분'?'var(--ok)':(lv==='보통'?'var(--hold)':'var(--no)');
     h+='<div style="display:flex;gap:10px;padding:12px 4px;border-left:3px solid '+col+';padding-left:12px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'">'
       +'<div style="flex:1"><div style="font-size:15px">'+esc(a.name||'')+'</div><div class="meta" style="margin-top:3px">'+esc(a.reason||'')+'</div></div>'
-      +'<span class="badge b-'+cls+'" style="align-self:flex-start">'+esc(lv)+'</span></div>';
+      +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'
+      +'<span class="badge b-'+cls+'">'+esc(lv)+'</span>'+certBadge(a.certainty)
+      +'</div></div>';
   });
   openSubPage('영역별 판정', h||'<div class="stage-note">내용이 없습니다.</div>');
 }
