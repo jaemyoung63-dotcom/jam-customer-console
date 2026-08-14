@@ -153,7 +153,7 @@ export async function onRequestPost(context) {
       const rr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: tidyModel, max_tokens: 4000, system: tidySystem, messages: [{ role: 'user', content: content }] })
+        body: JSON.stringify({ model: tidyModel, max_tokens: 8000, system: tidySystem, messages: [{ role: 'user', content: content }] })
       });
       const dd = await rr.json();
       if (!rr.ok) {
