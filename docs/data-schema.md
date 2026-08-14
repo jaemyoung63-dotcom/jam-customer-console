@@ -103,6 +103,16 @@ Cloudflare D1(`customers`/`pools` 테이블)에 JSON 통짜로 동기화. 테이
 | `created` | string(YYYY-MM-DD) | 생성일 |
 | `pinned` | boolean | 세션/고객 단위 임시 선택 상태(저장 안 함, 화면 표시용) |
 
+## 동기화용 내부 필드 (2026-08-14 추가)
+
+고객/참조풀 레코드가 D1에 저장될 때만 서버가 붙이는 필드. 로컬 IndexedDB나 화면에는 별 의미 없이 같이
+따라다니는 값이고, 사용자가 직접 채우는 필드는 아니다. `functions/api/data.js`의 `saveCustomer`/`savePool`
+액션이 담당한다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `_updatedBy` | string\|null | 마지막으로 이 레코드를 저장한 브라우저(기기)의 id(`core.js`의 `getDeviceId()`, `localStorage`에 저장되어 그 브라우저에서 계속 재사용됨). 저장 시 버전 충돌 감지에 씀 — 새 저장 요청의 `updated`가 서버에 있는 값과 다를 때, `_updatedBy`가 이번 요청과 같은 기기면 "그냥 이 기기 자신이 놓친 것"으로 보고 통과시키고, 다르면 진짜 충돌로 보고 저장을 막는다(자세한 내용은 `고객상담관리_구조개선.md` 참고). |
+
 ## 파일(첨부 이미지·음성) — 로컬 저장 vs 클라우드
 
 - 브라우저 IndexedDB `images` 스토어: `{id, kind, blob, created}` — 사진, PDF 변환본, 가입설계서, 음성메모가

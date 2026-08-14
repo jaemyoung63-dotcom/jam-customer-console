@@ -161,8 +161,35 @@ export async function onRequestPost(context) {
       const table = action === 'saveCustomer' ? 'customers' : 'pools';
       const item = body.item;
       if (!item || !item.id) return json({ error: 'id가 없는 항목' }, 400);
+
+      // 버전 충돌 감지(낙관적 동시성 제어). baseUpdated = 클라이언트가 이 저장을 시작할 때
+      // 마지막으로 확인했던 updated 값. deviceId = 저장을 요청한 브라우저(기기) 식별자.
+      // updated_by는 별도 컬럼을 만들지 않고 저장되는 JSON(data) 안에 _updatedBy로 같이 둔다.
+      const baseUpdated = body.baseUpdated || null;
+      const deviceId = body.deviceId ? String(body.deviceId) : null;
+      const existing = await env.DB.prepare('SELECT data, updated FROM ' + table + ' WHERE id = ?').bind(String(item.id)).first();
+      if (existing && baseUpdated) {
+        const existingParsed = safeParse(existing.data);
+        const existingUpdatedBy = (existingParsed && existingParsed._updatedBy) || null;
+        const isSelf = deviceId && existingUpdatedBy === deviceId;
+        if (existing.updated !== baseUpdated && !isSelf) {
+          // 진짜 다른 기기/사람이 그 사이에 먼저 저장했다 — 이번 저장은 취소하고 클라이언트에 알림
+          return json({
+            error: '다른 기기에서 방금 수정되어 저장이 취소되었습니다.',
+            conflict: true,
+            server: existingParsed,
+            serverUpdated: existing.updated
+          }, 409);
+        }
+      }
+
+      // updated 컬럼은 서버 시각이 아니라 클라이언트가 보낸 item.updated를 그대로 저장한다.
+      // (클라이언트는 baseUpdated를 로컬에 저장된 item.updated 값으로 계산하므로, 컬럼이
+      //  서버 시각으로 따로 놀면 같은 기기의 정상적인 연속 저장도 계속 충돌로 오판하게 된다.)
+      const updatedVal = item.updated || new Date().toISOString();
+      const dataToStore = Object.assign({}, item, { _updatedBy: deviceId });
       await env.DB.prepare('INSERT INTO ' + table + ' (id, data, updated) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated')
-        .bind(String(item.id), JSON.stringify(item), new Date().toISOString()).run();
+        .bind(String(item.id), JSON.stringify(dataToStore), updatedVal).run();
       return json({ ok: true });
     }
 
@@ -178,13 +205,15 @@ export async function onRequestPost(context) {
       const pools = Array.isArray(body.pools) ? body.pools : [];
       const now = new Date().toISOString();
       const stmts = [];
+      // updated 컬럼은 각 레코드 자신의 updated 필드를 그대로 쓴다(saveCustomer/savePool과 동일한 규칙 —
+      // 그래야 이후 개별 저장에서 버전 충돌 비교가 어긋나지 않는다).
       for (const c of customers) {
         if (!c || !c.id) continue;
-        stmts.push(env.DB.prepare('INSERT INTO customers (id, data, updated) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated').bind(String(c.id), JSON.stringify(c), now));
+        stmts.push(env.DB.prepare('INSERT INTO customers (id, data, updated) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated').bind(String(c.id), JSON.stringify(c), c.updated || now));
       }
       for (const p of pools) {
         if (!p || !p.id) continue;
-        stmts.push(env.DB.prepare('INSERT INTO pools (id, data, updated) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated').bind(String(p.id), JSON.stringify(p), now));
+        stmts.push(env.DB.prepare('INSERT INTO pools (id, data, updated) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated').bind(String(p.id), JSON.stringify(p), p.updated || now));
       }
       if (stmts.length) await env.DB.batch(stmts);
       return json({ ok: true, saved: { customers: customers.length, pools: pools.length } });

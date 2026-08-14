@@ -27,13 +27,24 @@ function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
 function idbAll(store){return new Promise(r=>{const q=tx(store,'readonly').getAll(); q.onsuccess=()=>r(q.result||[]);});}
 function idbGet(store,id){return new Promise(r=>{const q=tx(store,'readonly').get(id); q.onsuccess=()=>r(q.result);});}
 function _idbPut(store,v){return new Promise(r=>{const q=tx(store,'readwrite').put(v); q.onsuccess=()=>r();});}
-function idbPut(store,v){
-  const p=_idbPut(store,v);
+/* 이 브라우저(기기)의 고유 id — 저장 충돌 감지 시 "이건 나 자신이 예전에 쓴 값과 어긋난 것뿐"인지
+   "진짜 다른 기기가 썼는지" 구분하는 데 씀. */
+function getDeviceId(){
+  let id; try{ id=localStorage.getItem('deviceId'); }catch(e){}
+  if(!id){ id='dev_'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); try{ localStorage.setItem('deviceId', id); }catch(e){} }
+  return id;
+}
+async function idbPut(store,v){
   if(cloudOn&&(store==='customers'||store==='pools')){
-    cloudSync(store==='customers'?'saveCustomer':'savePool', v);
+    // 덮어쓰기 전에 로컬에 있던 기존 값의 updated를 "내가 마지막으로 확인한 버전"으로 기억해둔다.
+    let baseUpdated=null;
+    try{ const prev=await idbGet(store, v.id); baseUpdated=(prev&&prev.updated)||null; }catch(e){}
+    await _idbPut(store,v);
+    cloudSync(store==='customers'?'saveCustomer':'savePool', v, baseUpdated);
     if(typeof fsQueueForOwner==='function') fsQueueForOwner(store==='customers'?'customer':'pool', v);
+    return;
   }
-  return p;
+  return _idbPut(store,v);
 }
 
 /* ===================== 폴더 저장 시스템 =====================
@@ -91,11 +102,21 @@ async function cloudCall(payload){
   let d={}; try{ d=await res.json(); }catch(e){ d={error:'응답 형식 오류 (HTTP '+res.status+')'}; }
   d._status=res.status; return d;
 }
-function cloudSync(action, item){
+function cloudSync(action, item, baseUpdated){
   if(!cloudOn) return;
-  const body=(action==='saveCustomer'||action==='savePool')?{pw:cloudPW,action,item}:{pw:cloudPW,action,id:item.id};
+  const isSave=(action==='saveCustomer'||action==='savePool');
+  const body=isSave?{pw:cloudPW,action,item,baseUpdated:baseUpdated||null,deviceId:getDeviceId()}:{pw:cloudPW,action,id:item.id};
   fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    .then(r=>r.json()).then(d=>{ cloudFlag(!(d&&d.error)); }).catch(()=>cloudFlag(false));
+    .then(r=>r.json()).then(d=>{
+      if(d&&d.conflict){
+        cloudFlag(false);
+        const label=item&&(item.name||item.title)||'이 항목';
+        toast('⚠ '+label+' — 다른 기기에서 방금 수정되어 이번 저장은 반영 안 됨. 다시 열어서 확인해주세요');
+        setTimeout(toastHide, 4500);
+        return;
+      }
+      cloudFlag(!(d&&d.error));
+    }).catch(()=>cloudFlag(false));
 }
 function cloudFlag(ok){ const el=document.getElementById('cloud-dot'); if(el){ el.style.background=ok?'#10A87F':'#E0A800'; el.title=ok?'클라우드 동기화됨':'동기화 대기/오류'; } }
 async function cloudLogin(pw, silent){
@@ -110,18 +131,38 @@ async function cloudLogin(pw, silent){
 }
 /* 비밀번호 변경은 앱에서 지원하지 않음 — 서버(APP_PASSWORD)는 Cloudflare 환경변수 고정값이라
    Cloudflare 대시보드(Settings → Variables and secrets)에서 직접 변경해야 함. 2026-08-13 관련 버튼 제거. */
+/* 클라우드 자료와 로컬 자료를 레코드 단위로 합친다.
+   예전엔 클라우드에 자료가 있으면 로컬을 통째로 지우고 덮어썼는데(_idbClear), 그러면
+   오프라인 중에 로컬에서만 수정하고 아직 클라우드에 못 올린 내용이 조용히 사라지는 문제가 있었다.
+   그래서 이제는 id별로 updated를 비교해서, 로컬이 더 최신이거나 클라우드에 아예 없는 것은
+   지우지 않고 그대로 두고, 대신 다시 클라우드로 올리도록 큐에 담는다. */
+async function mergeRecords(store, cloudList){
+  const localList=await idbAll(store);
+  const localMap=new Map(localList.map(r=>[r.id,r]));
+  const rePush=[]; // [record, baseUpdated]
+  for(const cRec of cloudList){
+    const loc=localMap.get(cRec.id);
+    if(!loc || !loc.updated || (cRec.updated && cRec.updated>=loc.updated)){
+      // 클라우드가 같거나 더 최신 — 로컬을 클라우드 값으로 맞춘다
+      await _idbPut(store, cRec);
+    } else {
+      // 로컬이 더 최신(아직 안 올라간 수정) — 로컬을 유지하고 다시 올린다
+      rePush.push([loc, cRec.updated||null]);
+    }
+    localMap.delete(cRec.id);
+  }
+  // 로컬에만 있고 클라우드엔 아예 없는 것(오프라인에서 새로 만든 레코드 등) — 그대로 두고 업로드 큐에
+  for(const loc of localMap.values()) rePush.push([loc, null]);
+  return rePush;
+}
 async function mergeCloud(d){
   const cc=d.customers||[], cp=d.pools||[];
-  if(cc.length || cp.length){
-    // 클라우드에 자료가 있으면 이 기기를 클라우드에 맞춤(덮어쓰기)
-    await _idbClear('customers'); await _idbClear('pools');
-    for(const c of cc){ await _idbPut('customers',c); }
-    for(const p of cp){ await _idbPut('pools',p); }
-    customers=await idbAll('customers'); pools=await idbAll('pools'); pools.forEach(p=>p.pinned=false);
-    localHasUnsynced=false;
-  } else {
-    localHasUnsynced = (customers.length>0 || pools.length>0);
-  }
+  const rePushCust=await mergeRecords('customers', cc);
+  const rePushPool=await mergeRecords('pools', cp);
+  customers=await idbAll('customers'); pools=await idbAll('pools'); pools.forEach(p=>p.pinned=false);
+  localHasUnsynced = (rePushCust.length>0 || rePushPool.length>0);
+  for(const [rec, baseUpdated] of rePushCust) cloudSync('saveCustomer', rec, baseUpdated);
+  for(const [rec, baseUpdated] of rePushPool) cloudSync('savePool', rec, baseUpdated);
   if(typeof fsDownloadMissing==='function') fsDownloadMissing();   // 백그라운드, 저장/화면전환을 막지 않음
 }
 async function cloudUpload(){
