@@ -158,19 +158,15 @@ async function tidyCoverage(confirmations){
       editingCust.coverageText=data.text;
       if(editingCust.id){ try{ await idbPut('customers',editingCust); }catch(e){} }
     }
-    // 응답이 정상(200)이면 결과 버튼을 '무조건' 노출 — 후처리 오류와 무관하게
-    { const rb=document.getElementById('result-btn'), hint=document.getElementById('result-hint');
-      if(rb) rb.style.display='block'; if(hint) hint.style.display='none'; }
-    // 부가 처리는 각각 격리 — 여기서 오류가 나도 버튼/결과 표시에 영향 없음
+    // 부가 처리는 각각 격리 — 여기서 오류가 나도 결과 표시에 영향 없음
     try{ addUsage(data._usage,'보장 정리(비전)'); }catch(e){}
     try{ refreshCoverageUI(); }catch(e){}
     try{ renderTidyQuestions(data.questions||[]); }catch(e){}
     prog.textContent = txt
-      ? ('정리·분석 완료 (본문 '+txt.length+'자'+(qn?(' · 확인질문 '+qn+'개'):'')+')'+((data._debug&&data._debug.stop_reason==='max_tokens')?' ⚠ 길어서 일부 잘렸을 수 있어요':'')+'. 아래 "📄 분석결과입니다" 버튼을 누르세요. 숫자·회사명은 원본과 대조하세요.')
+      ? ('정리·분석 완료 (본문 '+txt.length+'자'+(qn?(' · 확인질문 '+qn+'개'):'')+')'+((data._debug&&data._debug.stop_reason==='max_tokens')?' ⚠ 길어서 일부 잘렸을 수 있어요':'')+'. 아래 "AI 정리 기록"을 눌러 확인하세요. 숫자·회사명은 원본과 대조하세요.')
       : ('응답은 받았으나 정리 본문이 비어 있습니다 (HTTP '+res.status+' · 질문 '+qn+'개). '+(data._debug?('[진단: 중단='+data._debug.stop_reason+' · 블록='+data._debug.blocks+'('+(data._debug.types||[]).join(',')+') · 출력토큰='+data._debug.out_tokens+' · 입력토큰='+data._debug.in_tokens+' · 사진='+data._debug.img_count+']'):'')+' 다시 시도하거나 이 문구를 캡처해 주세요.');
   }catch(err){
     prog.textContent='정리 요청 실패: '+((err&&err.message)?err.message:String(err));
-    try{ if((((document.getElementById('c-coverage')||{}).value)||'').trim()){ const rb=document.getElementById('result-btn'); if(rb) rb.style.display='block'; } }catch(e){}
   }
   btn.disabled=false; btn.style.opacity=1;
 }

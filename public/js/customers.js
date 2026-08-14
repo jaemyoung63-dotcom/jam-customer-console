@@ -44,6 +44,7 @@ function setCF(k,v){custFilter[k]=v; renderCustomers();}
 async function openCustomer(id){
   const c = id ? customers.find(x=>x.id===id) : {id:null,source:'db',seg:'방문예정',product:[],situation:[],images:[]};
   editingCust = JSON.parse(JSON.stringify(c));
+  header(id?'고객 상세':'고객 등록', c.name?('◉ '+c.name+(c.region?' · '+c.region:'')):'');
   document.getElementById('cust-title').textContent = id?'고객 상세':'고객 등록';
   document.getElementById('c-delete').style.display = id?'flex':'none';
   document.getElementById('c-name').value=c.name||'';
@@ -63,7 +64,15 @@ async function openCustomer(id){
   await renderThumbs();
   custStep(1);
   refreshCoverageUI();
-  openSheet('ov-cust');
+  /* 고객상세는 "팝업 창"이 아니라 고객 화면 안의 하위 화면 — 다른 화면(.screen)들과 같은 방식으로 전환.
+     단, 하단 탭은 계속 "고객"이 켜져 있게 둠(여전히 고객 섹션 안이라는 뜻). freeUrls()는 일부러 안 부름 —
+     방금 renderThumbs()가 만든 이미지 미리보기 URL이 곧바로 지워지면 사진이 깨져 보이기 때문.
+     header()는 위에서 이미 새로 그렸으므로 여기서 다시 지우지 않음. */
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('s-custdetail').classList.add('active');
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('on'));
+  const tb=document.getElementById('tab-customers'); if(tb) tb.classList.add('on');
+  window.scrollTo(0,0);
 }
 /* ===== 고객 다단계 이동 (2단계) ===== */
 function custStep(n){
@@ -77,14 +86,9 @@ function custStep(n){
     if(cx) cx.innerHTML = nm ? ('<div style="background:var(--accent);color:#fff;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:15px;font-weight:700">◉ '+esc(nm)+' 고객'+(rg?' <span style="font-weight:400;opacity:.85;font-size:13px">· '+esc(rg)+'</span>':'')+'</div>') : '';
     refreshCoverageUI();
   }
-  const sheet=document.querySelector('#ov-cust .sheet'); if(sheet) sheet.scrollTop=0;
+  window.scrollTo(0,0);
 }
 function refreshCoverageUI(){
-  const txt=(document.getElementById('c-coverage').value||'').trim();
-  const hasHist=!!(editingCust&&editingCust.coverageHistory&&editingCust.coverageHistory.length);
-  const rb=document.getElementById('result-btn'), hint=document.getElementById('result-hint');
-  if(txt||hasHist){ if(hint) hint.style.display='none'; if(rb) rb.style.display='block'; }
-  else { if(hint) hint.style.display='block'; if(rb) rb.style.display='none'; }
   renderTidyHistory();
 }
 function showCoverageResult(){

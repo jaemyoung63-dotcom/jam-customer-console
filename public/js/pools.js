@@ -7,7 +7,6 @@ async function goToPoolFromCust(){
   await idbPut('customers',editingCust);
   customers=await idbAll('customers');
   currentCustId=editingCust.id;
-  closeSheet('ov-cust');
   go('pools');
 }
 /* 보장결과 팝업: 저장 후 팝업 유지 + 버튼 '저장완료' 표시 (닫기로 고객상세 복귀) */
@@ -21,7 +20,6 @@ function resetCovSave(){ const b=document.getElementById('cov-save-btn'); if(b){
 async function saveCustomerThenAnalyze(){
   const id=await saveCustomerCore(); if(!id) return;
   currentCustId=id;
-  closeSheet('ov-cust');
   go('analysis');
   const sel=document.getElementById('an-cust'); if(sel) sel.value=id;
   anStep=1; renderAnalysis();
@@ -30,7 +28,6 @@ async function saveCustomerThenAnalyze(){
 async function saveCustomerThenPool(){
   const id=await saveCustomerCore(); if(!id) return;
   currentCustId=id;
-  closeSheet('ov-cust');
   go('pools');
 }
 /* ===== 고객 신상정보(참조용) — 날짜·장소·내용 누적 ===== */
@@ -87,7 +84,7 @@ async function deleteCustomer(){
     const sel=document.getElementById('an-cust'); if(sel) sel.value='';
     const anBody=document.getElementById('an-body'); if(anBody) anBody.innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>';
   }
-  closeSheet('ov-cust'); renderCustomers();
+  go('customers');
 }
 function blobToDataURL(blob){return new Promise(res=>{const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob);});}
 

@@ -1,18 +1,56 @@
-/* ===================== AP · 고객 대면 화면 ===================== */
+/* ===================== AP · 고객 대면 화면 =====================
+   2026-08-14: 1~5단계 화면으로 재구성.
+   1단계 = AI 대면 멘트 만들기(예전엔 마지막 페이지에 있던 걸 맨 앞으로 옮김).
+   2~5단계 = 아이스브레이크·보장분석·에피소드·가입설계 — 각 단계는 설명 → "선택한 자료 보기" 버튼(누르면 팝업으로 내용 확인) → 생성된 멘트 → 다음, 형태로 통일. */
 let apCustId=null, apStage=1;
 const AP_STAGES=[
-  {n:1,key:'ice', icon:'🤝', t:'아이스<br>브레이크', frame:'먼저 편안하게. 웃으며 라포(친밀감)를 만드세요. 급할 필요 없습니다 — 오늘의 첫 3분이 오늘 전체를 좌우합니다.'},
-  {n:2,key:'cov', icon:'🛡️', t:'보장<br>분석', frame:'고객의 현재 보장을 차분히 짚어드리세요. 팔지 말고, 사실만 보여주세요. 사실이 신뢰를 만듭니다.'},
-  {n:3,key:'epi', icon:'💬', t:'에피소드<br>·정보', frame:'공감 이야기로 마음을 여세요. 설득이 아니라 공감입니다. 고객이 스스로 필요를 느끼게 하세요.'},
-  {n:4,key:'plan',icon:'📝', t:'가입<br>설계', frame:'자연스럽게 제안으로. 당신은 파는 게 아니라, 고객에게 꼭 필요한 것을 권하는 것입니다. 당당하게.'}
+  {n:2,key:'ice', icon:'🤝', t:'아이스<br>브레이크', frame:'먼저 편안하게. 웃으며 라포(친밀감)를 만드세요. 급할 필요 없습니다 — 오늘의 첫 3분이 오늘 전체를 좌우합니다.'},
+  {n:3,key:'cov', icon:'🛡️', t:'보장<br>분석', frame:'고객의 현재 보장을 차분히 짚어드리세요. 팔지 말고, 사실만 보여주세요. 사실이 신뢰를 만듭니다.'},
+  {n:4,key:'epi', icon:'💬', t:'에피소드<br>·정보', frame:'공감 이야기로 마음을 여세요. 설득이 아니라 공감입니다. 고객이 스스로 필요를 느끼게 하세요.'},
+  {n:5,key:'plan',icon:'📝', t:'가입<br>설계', frame:'자연스럽게 제안으로. 당신은 파는 게 아니라, 고객에게 꼭 필요한 것을 권하는 것입니다. 당당하게.'}
 ];
+/* 하단 탭 "상담"의 화면 진입점. currentCustId가 있으면 바로 그 고객으로, 없으면 고객 선택 드롭다운을 보여준다(분석 탭과 같은 방식). */
+function fillApSelect(){
+  header('AP · 고객 대면', '멘트 만들기 → 아이스브레이크 → 보장분석 → 에피소드 → 가입설계, 순서대로');
+  const sel=document.getElementById('ap-custsel'); if(sel){
+    sel.innerHTML='<option value="">— 고객 선택 —</option>';
+    customers.forEach(c=>{const o=document.createElement('option'); o.value=c.id; o.textContent=c.name+(c.region?' · '+c.region:''); sel.appendChild(o);});
+  }
+  const pk=document.getElementById('ap-picker'); if(pk) pk.style.display=currentCustId?'none':'';
+  if(currentCustId && customers.some(c=>c.id===currentCustId)){
+    if(sel) sel.value=currentCustId;
+    ensurePinsForCustomer(currentCustId);
+    if(apCustId!==currentCustId){ apCustId=currentCustId; apStage=1; }
+    renderAP();
+  } else {
+    apCustId=null;
+    const body=document.getElementById('ap-body'); if(body) body.innerHTML='<div class="empty">상담할 고객을 선택하세요.</div>';
+  }
+}
+function onApCustSel(){
+  currentCustId=document.getElementById('ap-custsel').value||null;
+  const pk=document.getElementById('ap-picker'); if(pk) pk.style.display=currentCustId?'none':'';
+  if(currentCustId){ ensurePinsForCustomer(currentCustId); apCustId=currentCustId; apStage=1; renderAP(); }
+  else { apCustId=null; const body=document.getElementById('ap-body'); if(body) body.innerHTML='<div class="empty">상담할 고객을 선택하세요.</div>'; }
+}
+/* 고객 목록·가입설계 화면의 "AP 열기" 버튼에서 특정 고객으로 바로 진입 */
 function openAP(id){
-  apCustId=id; apStage=1;
   const c=customers.find(x=>x.id===id); if(!c){ alert('고객을 찾을 수 없습니다.'); return; }
   currentCustId=id; ensurePinsForCustomer(id);
-  openSheet('ov-ap'); renderAP();
+  apCustId=id; apStage=1;
+  go('ap');
 }
-function apGo(n){ apStage=n; renderAP(); const sh=document.getElementById('ap-sheet'); if(sh) sh.scrollTop=0; }
+function apGo(n){ apStage=n; renderAP(); window.scrollTo(0,0); }
+function showApMaterial(key){
+  const c=customers.find(x=>x.id===apCustId); if(!c) return;
+  const stageName={ice:'선택한 아이스브레이크 자료',cov:'보장분석 결과',epi:'선택한 에피소드 자료',plan:'가입설계 결과'};
+  let html='';
+  if(key==='ice') html=apPoolBlock(c,'icebreak');
+  else if(key==='epi') html=apPoolBlock(c,'episode');
+  else if(key==='cov') html=apResultBlock((c.analyses&&c.analyses[0])?c.analyses[0].data:null);
+  else if(key==='plan') html=apResultBlock((c.planAnalyses&&c.planAnalyses[0])?c.planAnalyses[0].data:null);
+  openSubPage(stageName[key]||'자료', html||'<div class="stage-note">내용이 없습니다.</div>');
+}
 function apResultBlock(d){
   if(!d) return '<div class="stage-note">저장된 결과가 없습니다. 매니저 상담에서 먼저 분석을 실행하세요.</div>';
   d=rescueResult(d); let h='';
@@ -40,45 +78,46 @@ function apMaterialText(c, stageKey){
 }
 function renderAP(){
   const c=customers.find(x=>x.id===apCustId); const box=document.getElementById('ap-body'); if(!c||!box) return;
-  const st=AP_STAGES[apStage-1];
   let h='';
   // 히어로(용기)
-  h+='<div class="ap-hero"><div class="ah-t">🌟 '+esc(c.name)+' 님과의 상담, 준비됐습니다</div><div class="ah-s">당신은 이 고객에게 필요한 사람입니다. 순서대로 편안하게 — 아이스브레이크 → 보장분석 → 에피소드 → 가입설계.</div></div>';
-  // 단계 탭
+  h+='<div class="ap-hero"><div class="ah-t">🌟 '+esc(c.name)+' 님과의 상담, 준비됐습니다</div><div class="ah-s">당신은 이 고객에게 필요한 사람입니다. 순서대로 편안하게 — ① 멘트 만들기 → ② 아이스브레이크 → ③ 보장분석 → ④ 에피소드 → ⑤ 가입설계.</div></div>';
+  // 1~5단계 탭
   h+='<div class="ap-tabs">';
-  AP_STAGES.forEach(s=>{ h+='<div class="ap-tab'+(s.n===apStage?' on':'')+'" onclick="apGo('+s.n+')"><span class="at-i">'+s.icon+'</span>'+s.t+'</div>'; });
+  h+='<div class="ap-tab'+(apStage===1?' on':'')+'" onclick="apGo(1)"><span class="at-i">🤖</span>①멘트<br>만들기</div>';
+  AP_STAGES.forEach(s=>{ h+='<div class="ap-tab'+(s.n===apStage?' on':'')+'" onclick="apGo('+s.n+')"><span class="at-i">'+s.icon+'</span>'+(s.n)+'.'+s.t+'</div>'; });
   h+='</div>';
-  // 프레이밍
-  h+='<div class="ap-frame"><span class="af-ic">'+st.icon+'</span><div><b>'+st.n+'단계 · '+st.t.replace('<br>','')+'</b><br>'+st.frame+'</div></div>';
-  // 자료
-  if(st.key==='ice') h+=apPoolBlock(c,'icebreak');
-  else if(st.key==='epi') h+=apPoolBlock(c,'episode');
-  else if(st.key==='cov') h+=apResultBlock((c.analyses&&c.analyses[0])?c.analyses[0].data:null);
-  else if(st.key==='plan') h+=apResultBlock((c.planAnalyses&&c.planAnalyses[0])?c.planAnalyses[0].data:null);
-  // AI 대면 멘트 (마지막 단계에서 일괄 생성 · 여기선 생성된 것만 표시)
-  const script=(c.ap&&c.ap.scripts&&c.ap.scripts[st.key])||'';
-  if(script){ h+='<div class="ap-h">🤖 AI 대면 멘트 (설계사 참조용)</div><div class="ap-script"><div class="ap-script-h">이렇게 말해보세요</div>'+esc(script)+'</div>'; }
-  else if(st.key!=='plan'){ h+='<div class="stage-note" style="margin-top:10px">이 단계의 AI 멘트는 마지막 <b>④ 가입설계</b> 단계에서 한 번에 만들 수 있어요.</div>'; }
-  // 마지막 단계: 원하는 단계 체크 → 한 번에 AI 멘트 생성
-  if(st.key==='plan'){
-    h+='<div class="divider"></div><div class="ap-h">🤖 AI 대면 멘트 만들기</div>';
+
+  if(apStage===1){
+    // 1단계: AI 대면 멘트 만들기 — 필요한 단계를 체크해 한 번에 생성
+    h+='<div class="ap-frame"><span class="af-ic">🤖</span><div><b>1단계 · AI 대면 멘트 만들기</b><br>이번 상담에서 참고할 멘트를 미리 만들어두세요. 만든 멘트는 각 단계 화면에서 볼 수 있습니다.</div></div>';
     h+='<div class="ap-gen-box">';
-    h+='<div class="meta" style="margin-bottom:8px">멘트가 필요한 단계를 체크한 뒤 생성하세요. 생성된 멘트는 각 단계 화면에서 보입니다.</div>';
-    [['ice','① 아이스브레이크'],['cov','② 보장분석'],['epi','③ 에피소드'],['plan','④ 가입설계']].forEach(([k,label])=>{
+    h+='<div class="meta" style="margin-bottom:8px">멘트가 필요한 단계를 체크한 뒤 생성하세요.</div>';
+    [['ice','아이스브레이크'],['cov','보장분석'],['epi','에피소드'],['plan','가입설계']].forEach(([k,label])=>{
       const has=(c.ap&&c.ap.scripts&&c.ap.scripts[k])?' <span style="color:var(--ok);font-weight:700">✓ 생성됨</span>':'';
       h+='<label class="ap-ck"><input type="checkbox" class="ap-genck" value="'+k+'"'+(has?'':' checked')+'> '+label+has+'</label>';
     });
     h+='<div class="su-warn" style="margin-top:10px">💰 <b>AI 멘트 생성은 유료입니다.</b> 체크한 단계 수만큼 AI(클로드)를 호출하며, 호출할 때마다 <b>API 크레딧이 조금씩 차감</b>됩니다(보통 단계당 수십~수백 원). 필요한 단계만 체크하세요.</div>';
     h+='<button class="btn primary wide" style="margin-top:10px" id="ap-genbtn" onclick="genApScripts()">🤖 체크한 단계 대면 멘트 생성 (유료)</button>';
     h+='</div>';
+    h+='<div id="ap-prog" class="stage-note" style="margin-top:8px;display:none"></div>';
+    h+='<div class="divider"></div><div class="row"><button class="btn primary grow" onclick="apGo(2)">다음 ›</button></div>';
+  } else {
+    const st=AP_STAGES.find(s=>s.n===apStage);
+    // 프레이밍
+    h+='<div class="ap-frame"><span class="af-ic">'+st.icon+'</span><div><b>'+st.n+'단계 · '+st.t.replace('<br>','')+'</b><br>'+st.frame+'</div></div>';
+    // 자료는 버튼으로만 — 누르면 팝업으로 확인
+    h+='<button class="btn ghost wide" onclick="showApMaterial(\''+st.key+'\')">📎 선택한 '+st.t.replace('<br>','')+' 자료 보기</button>';
+    // AI 대면 멘트 (1단계에서 생성한 것을 여기서 보여줌)
+    const script=(c.ap&&c.ap.scripts&&c.ap.scripts[st.key])||'';
+    if(script){ h+='<div class="ap-h">🤖 AI 대면 멘트 (설계사 참조용)</div><div class="ap-script"><div class="ap-script-h">이렇게 말해보세요</div>'+esc(script)+'</div>'; }
+    else { h+='<div class="stage-note" style="margin-top:10px">이 단계의 AI 멘트는 <b>① 멘트 만들기</b> 단계에서 만들 수 있어요.</div>'; }
+    // 하단 네비
+    h+='<div class="divider"></div><div class="row">';
+    h+='<button class="btn ghost grow" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
+    if(apStage<5) h+='<button class="btn primary grow" onclick="apGo('+(apStage+1)+')">다음 ›</button>';
+    else h+='<button class="btn primary grow" onclick="saveAP()">✓ AP 저장하고 닫기</button>';
+    h+='</div>';
   }
-  // 하단 네비
-  h+='<div class="divider"></div><div class="row">';
-  if(apStage>1) h+='<button class="btn ghost grow" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
-  if(apStage<4) h+='<button class="btn primary grow" onclick="apGo('+(apStage+1)+')">다음 ›</button>';
-  else h+='<button class="btn primary grow" onclick="saveAP()">✓ AP 저장하고 닫기</button>';
-  h+='</div>';
-  h+='<div id="ap-prog" class="stage-note" style="margin-top:8px;display:none"></div>';
   box.innerHTML=h;
 }
 async function genApScripts(){
@@ -108,11 +147,11 @@ async function genApScripts(){
   renderAP();
 }
 async function saveAP(){
-  const c=customers.find(x=>x.id===apCustId); if(!c){ closeSheet('ov-ap'); return; }
+  const c=customers.find(x=>x.id===apCustId); if(!c){ go('customers'); return; }
   c.ap=c.ap||{scripts:{}}; c.ap.savedAt=now(); c.apSaved=true;
   await idbPut('customers',c); customers=await idbAll('customers');
   toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); setTimeout(toastHide,2200);
-  closeSheet('ov-ap'); renderCustomers();
+  go('customers');
 }
 let lastPlan=null;
 function renderPlanResult(d, date){
@@ -203,7 +242,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 (async function init(){
   await openDB();
   if(typeof fsInit==='function') await fsInit();
-  { const oc=document.getElementById('ov-cust'); if(oc) oc.addEventListener('input', scheduleCustAutosave); }
+  { const oc=document.getElementById('s-custdetail'); if(oc) oc.addEventListener('input', scheduleCustAutosave); }
   { const op=document.getElementById('ov-pool'); if(op) op.addEventListener('input', schedulePoolAutosave); }
   customers=await idbAll('customers');
   pools=await idbAll('pools');

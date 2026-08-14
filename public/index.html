@@ -102,32 +102,15 @@
       </div>
     </div>
   </div>
-</div>
 
-<!-- headers rendered per screen -->
-<input type="file" id="img-input" accept="image/*,application/pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="cam-input" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="txt-input" accept=".txt,text/plain,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="doc-input" accept=".docx,.txt,.pdf,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="audio-input" accept="audio/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
-<input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
-<input type="file" id="import-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importConsult(event)">
-<input type="file" id="import-plan-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importPlanConsult(event)">
-
-<nav class="tabs">
-  <button id="tab-home" onclick="goHome()"><span class="ic">⌂</span>홈</button>
-  <button id="tab-customers" class="on" onclick="navGo('customers')"><span class="ic">◐</span>고객</button>
-  <button id="tab-pools" onclick="navGo('pools')"><span class="ic">▤</span>참조 풀</button>
-  <button id="tab-analysis" onclick="navGo('analysis')"><span class="ic">✦</span>분석</button>
-</nav>
-
-<!-- ===== Sheet: 고객 편집 ===== -->
-<div class="overlay" id="ov-cust">
-  <div class="sheet">
-    <div class="handle"></div>
-    <div class="row"><h2 id="cust-title">고객 등록</h2><span class="spacer"></span>
+  <!-- ===== 고객 상세 (1·2단계) ===== -->
+  <div class="screen" id="s-custdetail">
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn ghost sm" onclick="go('customers')">‹ 고객 목록</button>
+      <span class="spacer"></span>
       <button class="btn ghost sm" id="cust-mic-btn" onclick="startCustVoiceWizard()">🎤 음성입력</button>
-      <button class="btn ghost sm" onclick="closeSheet('ov-cust')">닫기</button></div>
+    </div>
+    <h2 id="cust-title" style="margin:0 0 10px">고객 등록</h2>
     <div class="stepbar" id="cust-stepbar"></div>
 
     <!-- STEP 1: 기본 정보 (고객유형~상담상황) -->
@@ -172,8 +155,6 @@
       <div class="thumbs" id="c-thumbs" style="margin-top:8px"></div>
       <button class="btn ghost sm wide" id="tidy-btn" style="margin-top:10px" onclick="tidyCoverage()">AI로 정리·분석 (사진 글자 인식)</button>
       <div id="tidy-progress" class="note" style="display:none;"></div>
-      <div id="result-hint" class="note" style="margin-top:8px;color:var(--ink-mute)">AI로 정리·분석을 실행하면 여기에 결과 버튼이 생깁니다.</div>
-      <button class="btn result-ready wide" id="result-btn" style="display:none;margin-top:10px" onclick="showCoverageResult()">📄 분석결과입니다 ›</button>
       <div id="tidy-questions"></div>
       <div id="tidy-history"></div>
 
@@ -185,11 +166,39 @@
       <div class="row" style="margin-top:8px">
         <button class="btn ghost grow" onclick="custStep(1)">‹ 이전</button>
         <button class="btn danger grow" id="c-delete" onclick="deleteCustomer()">삭제</button>
-        <button class="btn ghost grow" onclick="closeSheet('ov-cust')">닫기</button>
+        <button class="btn ghost grow" onclick="go('customers')">닫기</button>
       </div>
     </div>
   </div>
+
+  <!-- ===== AP · 고객 대면 ===== -->
+  <div class="screen" id="s-ap">
+    <div class="row" style="margin-bottom:6px"><span class="spacer"></span><button class="btn ghost sm" onclick="saveAP()">저장</button></div>
+    <div id="ap-picker">
+      <label class="f" style="margin:0 0 4px">상담할 고객</label>
+      <select class="t" id="ap-custsel" onchange="onApCustSel()"></select>
+    </div>
+    <div id="ap-body"></div>
+  </div>
 </div>
+
+<!-- headers rendered per screen -->
+<input type="file" id="img-input" accept="image/*,application/pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="cam-input" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="txt-input" accept=".txt,text/plain,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="doc-input" accept=".docx,.txt,.pdf,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="audio-input" accept="audio/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px">
+<input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
+<input type="file" id="import-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importConsult(event)">
+<input type="file" id="import-plan-consult" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importPlanConsult(event)">
+
+<nav class="tabs">
+  <button id="tab-home" onclick="goHome()"><span class="ic">⌂</span>홈</button>
+  <button id="tab-customers" class="on" onclick="navGo('customers')"><span class="ic">◐</span>고객</button>
+  <button id="tab-pools" onclick="navGo('pools')"><span class="ic">▤</span>참조 풀</button>
+  <button id="tab-analysis" onclick="navGo('analysis')"><span class="ic">✦</span>분석</button>
+  <button id="tab-ap" onclick="navGo('ap')"><span class="ic">🗣️</span>상담</button>
+</nav>
 
 <!-- ===== 로그인(클라우드 비밀번호) ===== -->
 <div id="ov-login">
@@ -201,17 +210,6 @@
     <div id="login-msg"></div>
     <button class="btn primary wide" style="margin-top:10px" onclick="doLogin()">로그인</button>
     <button class="btn ghost sm wide" style="margin-top:8px" onclick="loginOffline()">이 기기 자료만 보기 (오프라인)</button>
-  </div>
-</div>
-
-<!-- ===== 팝업: AP (고객 대면 상담) ===== -->
-<div class="overlay" id="ov-ap">
-  <div class="sheet" id="ap-sheet">
-    <div class="handle"></div>
-    <div class="row"><h2 style="color:var(--accent)">AP · 고객 대면</h2><span class="spacer"></span>
-      <button class="btn ghost sm" onclick="saveAP()">저장</button>
-      <button class="btn ghost sm" onclick="closeSheet('ov-ap')">닫기</button></div>
-    <div id="ap-body"></div>
   </div>
 </div>
 

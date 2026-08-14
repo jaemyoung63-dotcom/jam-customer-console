@@ -193,7 +193,7 @@ async function runVoiceField(f){
   if(!text){ toast('못 들었어요 — 다음 항목으로 넘어갈게요'); await voiceSleep(1300); toastHide(); return; }
   let readback=null;
   try{ readback=f.handle(text); }catch(e){}
-  const oc=document.getElementById('ov-cust'); if(oc) oc.dispatchEvent(new Event('input',{bubbles:true}));
+  const oc=document.getElementById('s-custdetail'); if(oc) oc.dispatchEvent(new Event('input',{bubbles:true}));
   toast(readback ? ('✓ '+readback) : ('"'+text+'" — 이해하지 못했어요. 화면에서 직접 확인해주세요'));
   await voiceSleep(1500); toastHide();
 }

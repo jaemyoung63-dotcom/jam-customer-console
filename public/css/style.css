@@ -165,15 +165,16 @@
   .su-cost td{border:1px solid var(--line); padding:7px 9px;} .su-cost td:first-child{font-weight:700; background:#F7F9FB; white-space:nowrap;}
   .ug-os{background:#F4F8FC; border:1px solid #D8E6F2; border-radius:11px; padding:11px 13px; margin-top:10px;}
   .ug-os-t{font-size:13.5px; font-weight:800; color:#0C6FA8; margin-bottom:5px;}
-  /* 모드별 배경색: 자료준비=웜톤, 상담·분석=블루 — 헤더·탭까지 이어져 '지금 어느 방식인지' 유지 */
-  body[data-mode="connected"]{background:#E9F8F2;}
-  body[data-mode="separate"]{background:#EAF7FE;}
-  body[data-mode="connected"] header.top{background:#E9F8F2;}
-  body[data-mode="separate"] header.top{background:#EAF7FE;}
-  body[data-mode="connected"] nav.tabs{background:#F0FBF6; border-top-color:#CDEDDF;}
-  body[data-mode="separate"] nav.tabs{background:#F2FAFE; border-top-color:#CFE9F8;}
-  body[data-mode="connected"] nav.tabs button.on{color:#10A87F;}
-  body[data-mode="separate"] nav.tabs button.on{color:#0FA0DC;}
+  /* 모드별 배경색: 자료준비=블루, 상담·분석=민트 — 헤더·탭까지 이어져 '지금 어느 방식인지' 유지
+     2026-08-14: 두 색의 차이가 잘 안 느껴진다는 피드백으로 (1)배경 채도 강화 (2)상단 헤더에 색상 강조 줄 (3)하단 탭바 색 강화, 세 가지를 함께 적용 */
+  body[data-mode="connected"]{background:#D3F3E5;}
+  body[data-mode="separate"]{background:#D6EBFB;}
+  body[data-mode="connected"] header.top{background:#D3F3E5; border-bottom:3px solid #10A87F;}
+  body[data-mode="separate"] header.top{background:#D6EBFB; border-bottom:3px solid #0FA0DC;}
+  body[data-mode="connected"] nav.tabs{background:#C3EDDC; border-top:3px solid #10A87F;}
+  body[data-mode="separate"] nav.tabs{background:#C7E4F9; border-top:3px solid #0FA0DC;}
+  body[data-mode="connected"] nav.tabs button.on{color:#0B7A5C; background:rgba(16,168,127,.16); border-radius:10px;}
+  body[data-mode="separate"] nav.tabs button.on{color:#0A6E96; background:rgba(15,160,220,.16); border-radius:10px;}
   .mode-badge{font-size:11.5px; font-weight:800; padding:4px 11px; border-radius:12px; color:#fff; white-space:nowrap; align-self:center; box-shadow:0 3px 8px rgba(0,0,0,.14);}
   .mb-connected{background:#10A87F;} .mb-separate{background:#0FA0DC;}
   /* ＋추가 버튼은 '자료준비'에서만 / 연결흐름 버튼은 '상담·분석'에서만 */

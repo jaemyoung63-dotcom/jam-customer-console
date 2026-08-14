@@ -292,7 +292,7 @@ function go(s){
   const tb=document.getElementById('tab-'+s); if(tb) tb.classList.add('on');
   const nav=document.querySelector('nav.tabs'); if(nav) nav.style.display='flex';
   const fab=document.getElementById('fab');
-  if(fab) fab.style.display = (s==='analysis')?'none':'flex';
+  if(fab) fab.style.display = (s==='analysis'||s==='ap')?'none':'flex';
   if(s==='customers') renderCustomers();
   if(s==='pools'){ renderPools(); renderPoolCtx(); }
   if(s==='analysis'){
@@ -303,6 +303,7 @@ function go(s){
       const sel=document.getElementById('an-cust'); if(sel){ sel.value=currentCustId; anStep=1; renderAnalysis(); }
     }
   }
+  if(s==='ap') fillApSelect();
   window.scrollTo(0,0);
 }
 function goHome(){
