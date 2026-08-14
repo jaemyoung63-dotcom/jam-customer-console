@@ -2,7 +2,7 @@
    고객 (1·2단계)
 ========================================================= */
 function renderCustomers(){
-  header('고객', customers.length+'명 · 방문예정·상담·계약 관리');
+  header('고객', customers.length+'명 · 방문예정·상담·계약 관리', (typeof voiceSupported==='function' && voiceSupported()) ? startListVoiceCommand : null);
   // filter bar
   let bar='<div class="chips" style="margin-bottom:8px;">';
   ['전체',...SEGMENTS].forEach(s=>{ bar+='<div class="chip'+(custFilter.seg===s?' on':'')+'" onclick="setCF(\'seg\',\''+s+'\')">'+s+'</div>'; });

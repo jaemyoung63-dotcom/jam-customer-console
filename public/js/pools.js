@@ -75,9 +75,18 @@ function renderProfileLogs(){
 }
 async function deleteCustomer(){
   if(!editingCust.id||!confirm('이 고객을 삭제할까요? 첨부 이미지도 함께 삭제됩니다.')) return;
+  const delId=editingCust.id;
   for(const ref of (editingCust.images||[])) await idbDel('images',ref);
-  await idbDel('customers',editingCust.id);
+  await idbDel('customers',delId);
   customers=await idbAll('customers');
+  /* 상담·분석(연결 진행) 화면이 이 고객을 "작업 고객"으로 물고 있었다면 그 상태도 같이 정리한다.
+     안 지우면 분석 화면으로 돌아갔을 때 이미 삭제된 고객의 이전 분석 결과가 남아있는 채로 보일 수 있음. */
+  if(currentCustId===delId){
+    currentCustId=null;
+    lastAnalysis=null;
+    const sel=document.getElementById('an-cust'); if(sel) sel.value='';
+    const anBody=document.getElementById('an-body'); if(anBody) anBody.innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>';
+  }
   closeSheet('ov-cust'); renderCustomers();
 }
 function blobToDataURL(blob){return new Promise(res=>{const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob);});}

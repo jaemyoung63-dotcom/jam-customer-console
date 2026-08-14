@@ -268,13 +268,17 @@ function freeUrls(){objectUrls.forEach(u=>URL.revokeObjectURL(u)); objectUrls=[]
 function blobUrl(b){const u=URL.createObjectURL(b); objectUrls.push(u); return u;}
 
 /* ---------- 헤더 ---------- */
-function header(title,sub){
+/* micFn을 넘기면(=그 화면에서 음성 명령을 지원하면) 헤더에 🎤 버튼이 생기고, 누르면 micFn이 실행된다.
+   지원 안 하는 기기(예: 아이폰 사파리)에서는 호출부에서 voiceSupported()로 걸러 아예 안 넘기면 버튼 자체가 안 생긴다. */
+function header(title,sub,micFn){
   const old=document.querySelector('header.top'); if(old) old.remove();
   const h=document.createElement('header'); h.className='top';
   const ml = appMode==='connected' ? '상담·분석' : (appMode==='separate' ? '자료 준비' : '');
   const mb = ml ? '<span class="mode-badge mb-'+appMode+'">'+ml+'</span>' : '';
-  h.innerHTML='<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button><div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mb;
+  const mic = micFn ? '<button class="mic-btn" id="hdr-mic-btn" aria-label="음성 명령" title="음성으로 고객 찾기·추가">🎤</button>' : '';
+  h.innerHTML='<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button><div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic+mb;
   document.getElementById('app').prepend(h);
+  if(micFn){ const mb2=document.getElementById('hdr-mic-btn'); if(mb2) mb2.onclick=micFn; }
 }
 
 /* ---------- 네비 ---------- */
