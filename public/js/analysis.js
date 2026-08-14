@@ -221,7 +221,7 @@ function addAnPlanImageDirect(id,file){
             await idbPut('images',{id:rid,kind:'설계서',blob,created:today()});
             c.planImages=c.planImages||[]; c.planImages.push(rid);
             c.planText=''; c.planTextImgN=-1;
-            await idbPut('customers',c); res();
+            await idbPut('customers',c); await renderAnPlanThumbs(c); res();
           },'image/jpeg',0.72);
         }catch(err){ alert('이미지 처리 오류: '+(err&&err.message?err.message:err)); res(); }
       };
