@@ -154,11 +154,10 @@ function renderAnalysis(){
     html+='<button class="btn '+(palist.length?'result-ready':'primary')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'\u2713 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc644\ub8cc \u00b7 \ub2e4\uc2dc \ubd84\uc11d':'\uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc2e4\ud589')+'</button>';
     if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">\u203b \uba3c\uc800 \u2461 \ubcf4\uc7a5\ubd84\uc11d\uc744 \uc2e4\ud589\ud558\uc138\uc694.</div>';
     else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">\u203b \uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0\ub97c \uba3c\uc800 \ub4f1\ub85d\ud558\uc138\uc694.</div>';
-    html+='<button class="btn primary wide" style="margin-top:10px" onclick="openAP(\''+c.id+'\')">▶ AP 화면 (고객 대면 상담) 열기</button>';
-    html+='<div id="an-plan-result" style="margin-top:14px"></div>';
+        html+='<div id="an-plan-result" style="margin-top:14px"></div>';
     html+='<div id="plan-questions"></div>';
-    html+='<div class="divider"></div><div class="row"><button class="btn ghost sm grow" onclick="document.getElementById(\'import-plan-consult\').click()">\uac00\uc785\uc124\uacc4 \ubd88\ub7ec\uc624\uae30</button></div>';
     html+='<button class="btn ghost wide" style="margin-top:8px" onclick="anStepGo(2)">\u2039 \uc774\uc804 \ud654\uba74 (\ubcf4\uc7a5\ubd84\uc11d)</button>';
+    html+='<button class="btn primary wide" style="margin-top:10px" onclick="openAP(\''+c.id+'\')">▶ 고객대면상담</button>';
   }
   body.innerHTML=html;
   if(anStep===3) renderAnPlanThumbs(c);
@@ -284,7 +283,7 @@ async function runAnalysis(id, confirmations){
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">보장 분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,episodesText,catalogText,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,episodesText,catalogText,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[]; c.analyses.unshift({at:now(), date:today(), data});
@@ -322,7 +321,7 @@ async function runPlanAnalysis(id, confirmations){
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">AI가 설계서를 직접 판독·분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, confirmations:confirmations||'', episodesText, casesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, confirmations:confirmations||'', episodesText, casesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
@@ -464,76 +463,6 @@ function showAnalysisHelp(){
     +'<div style="font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin-top:6px">보장 텍스트 + ②의 보장분석 결과 + <b>가입설계서 이미지</b> + <b>에피소드 풀</b> + 상품카달로그를 엮어, 이 설계가 부족 보장을 얼마나 채우는지 봅니다. 결과: <b>잔여 부족율</b>, 보완·추가 제안, 핵심 차이(전/후), 가입설계 이후 보완, 가입설계 분석. 완료 후 <b>참고 에피소드</b> 버튼으로 상담용 에피소드를 볼 수 있습니다.</div></div>'
     +'<div class="meta" style="margin-top:4px">※ 모든 분석은 사진 대신 OCR 텍스트만 사용합니다. 부족율·갱신형은 참고치이니 원본과 대조하세요.</div>';
   openSubPage('세 가지 분석 도움말', h);
-}
-/* 매니저 상담 저장(파일) */
-async function saveConsult(id){
-  const c=customers.find(x=>x.id===id); if(!c){alert('고객을 먼저 선택하세요.'); return;}
-  const list=(c.analyses&&c.analyses.length)?c.analyses:(c.analysis?[{date:c.analysisDate,data:c.analysis}]:[]);
-  if(!list.length){alert('저장할 분석 결과가 없습니다. 먼저 분석을 실행하세요.'); return;}
-  const pack={ type:'manager-consult', v:1, exported:today(),
-    customer:{id:c.id,name:c.name,age:c.age,region:c.region,product:c.product||[],situation:c.situation||[],source:c.source||'db',grade:c.grade||''},
-    coverageText:c.coverageText||'', analyses:list, planAnalyses:c.planAnalyses||[] };
-  await pcSave(c.name, '매니저상담_'+sanitizeName(c.name||'고객')+'_'+today()+'.json', pack);
-}
-/* 매니저 상담 불러오기(파일) */
-async function importConsult(e){
-  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
-  try{
-    const pack=JSON.parse(await f.text());
-    if(!pack||pack.type!=='manager-consult'||!pack.customer){alert('올바른 상담 파일이 아닙니다.'); return;}
-    const cu=pack.customer;
-    let c=customers.find(x=>x.id===cu.id)||customers.find(x=>x.name===cu.name);
-    if(!c){
-      if(!confirm('이 고객이 목록에 없습니다. 새 고객으로 만들어 상담 내용을 불러올까요?')) return;
-      c={id:cu.id||uid(), name:cu.name||'(이름없음)', age:cu.age||'', region:cu.region||'', product:cu.product||[], situation:cu.situation||[], source:cu.source||'db', grade:cu.grade||'', seg:'상담', images:[], created:today()};
-    }
-    if(!(c.coverageText||'').trim()) c.coverageText=pack.coverageText||'';
-    const incoming=Array.isArray(pack.analyses)?pack.analyses:[];
-    c.analyses=(c.analyses||[]).concat(incoming);
-    c.analyses.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-    if(c.analyses.length>50) c.analyses=c.analyses.slice(0,50);
-    if(c.analyses[0]){ c.analysis=c.analyses[0].data; c.analysisDate=c.analyses[0].date; }
-    if(Array.isArray(pack.planAnalyses)&&pack.planAnalyses.length){
-      c.planAnalyses=(c.planAnalyses||[]).concat(pack.planAnalyses);
-      c.planAnalyses.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-      if(c.planAnalyses.length>50) c.planAnalyses=c.planAnalyses.slice(0,50);
-    }
-    await idbPut('customers',c);
-    customers=await idbAll('customers');
-    document.getElementById('an-cust').value=c.id;
-    renderAnalysis();
-    alert('상담 내용을 불러왔습니다.');
-  }catch(err){ alert('불러오기 실패: '+(err&&err.message?err.message:err)); }
-}
-/* 가입설계 분석 저장(파일) */
-async function savePlanConsult(id){
-  const c=customers.find(x=>x.id===id); if(!c){alert('고객을 먼저 선택하세요.'); return;}
-  const list=c.planAnalyses||[];
-  if(!list.length){alert('저장할 가입설계 분석이 없습니다. 먼저 가입설계 분석을 실행하세요.'); return;}
-  const pack={ type:'plan-consult', v:1, exported:today(),
-    customer:{id:c.id,name:c.name,age:c.age,region:c.region}, planAnalyses:list };
-  await pcSave(c.name, '가입설계_'+sanitizeName(c.name||'고객')+'_'+today()+'.json', pack);
-}
-/* 가입설계 분석 불러오기(파일) */
-async function importPlanConsult(e){
-  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
-  try{
-    const pack=JSON.parse(await f.text());
-    if(!pack||pack.type!=='plan-consult'||!pack.customer){alert('올바른 가입설계 파일이 아닙니다.'); return;}
-    const cu=pack.customer;
-    let c=customers.find(x=>x.id===cu.id)||customers.find(x=>x.name===cu.name);
-    if(!c){alert('이 파일의 고객이 목록에 없습니다. 먼저 고객을 등록한 뒤 실행하세요.'); return;}
-    const inc=Array.isArray(pack.planAnalyses)?pack.planAnalyses:[];
-    if(!inc.length){alert('파일에 가입설계 분석 내용이 없습니다.'); return;}
-    c.planAnalyses=(c.planAnalyses||[]).concat(inc);
-    c.planAnalyses.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-    if(c.planAnalyses.length>50) c.planAnalyses=c.planAnalyses.slice(0,50);
-    await idbPut('customers',c);
-    customers=await idbAll('customers');
-    document.getElementById('an-cust').value=c.id;
-    anStep=2; renderAnalysis();
-    alert('가입설계 분석을 불러왔습니다.');
-  }catch(err){ alert('불러오기 실패: '+(err&&err.message?err.message:err)); }
 }
 /* ---------- 분석결과 JSON 2차 복구 (백엔드가 원문을 넘겼거나 옛 기록이 깨진 경우) ---------- */
 function _feTryParse(s){ try{ return JSON.parse(s); }catch(e){ return null; } }

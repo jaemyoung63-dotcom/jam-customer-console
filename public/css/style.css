@@ -53,7 +53,7 @@
   header.top .home-btn{background:none; border:none; font-size:19px; line-height:1; color:var(--ink-soft); cursor:pointer; padding:2px 4px 2px 0; flex-shrink:0;}
   /* ===== 음성 입력(듣고 받아쓰기) 버튼 ===== */
   header.top .mic-btn{background:none; border:none; font-size:18px; line-height:1; color:var(--ink-soft); cursor:pointer; padding:6px; border-radius:50%; flex-shrink:0;}
-  header.top .mic-btn.listening, #cust-mic-btn.listening{background:#FDEAEA; color:#D6392E; animation:mic-pulse 1.1s ease-in-out infinite;}
+  header.top .mic-btn.listening, #cust-mic-btn.listening, #hdr-mic-btn.listening{background:#FDEAEA; color:#D6392E; animation:mic-pulse 1.1s ease-in-out infinite;}
   @keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(214,57,46,.35);} 50%{box-shadow:0 0 0 7px rgba(214,57,46,0);}}
   /* ===== 스플래시 ===== */
   #splash{position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -116,6 +116,13 @@
   #login-pw{width:100%; box-sizing:border-box; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; font-size:16px; text-align:center;}
   #login-pw:focus{outline:none; border-color:var(--accent);}
   #login-msg{display:none; font-size:12.5px; color:#C0392B; margin-top:9px; line-height:1.5;}
+  /* 담당자 선택 오버레이(2026-08-14) — 로그인 오버레이와 같은 틀 */
+  #ov-advisor{position:fixed; inset:0; z-index:121; background:linear-gradient(160deg,#37C2EF,#1FC1B4 52%,#18B778); display:none; align-items:center; justify-content:center; padding:24px;}
+  #ov-advisor.show{display:flex;}
+  #advisor-select{width:100%; box-sizing:border-box; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; font-size:16px; text-align:center; background:#fff;}
+  #advisor-pw{width:100%; box-sizing:border-box; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; font-size:16px; text-align:center; margin-top:10px;}
+  #advisor-pw:focus, #advisor-select:focus{outline:none; border-color:var(--accent);}
+  #advisor-login-msg{display:none; font-size:12.5px; color:#C0392B; margin-top:9px; line-height:1.5;}
   /* 홈 클라우드 상태 */
   .cloud-bar{display:flex; align-items:center; gap:8px; justify-content:center; font-size:12px; color:var(--ink-mute); margin-top:4px;}
   .cloud-dot{width:9px; height:9px; border-radius:50%; background:#10A87F; display:inline-block;}
@@ -308,6 +315,7 @@
     display:none; align-items:flex-end; justify-content:center;
   }
   #ov-subpage{ z-index:200; }
+  #ov-admin{ z-index:130; } /* 담당자 선택 화면(z-index:121) 위에 떠야 하므로 더 높게 — 2026-08-14 */
   #p-drop.drag-over{ outline:2px dashed var(--accent); outline-offset:3px; border-radius:12px; background:rgba(46,125,50,.04); }
   .overlay.show{display:flex;}
   .sheet{

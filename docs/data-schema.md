@@ -113,6 +113,12 @@ Cloudflare D1(`customers`/`pools` 테이블)에 JSON 통짜로 동기화. 테이
 |---|---|---|
 | `_updatedBy` | string\|null | 마지막으로 이 레코드를 저장한 브라우저(기기)의 id(`core.js`의 `getDeviceId()`, `localStorage`에 저장되어 그 브라우저에서 계속 재사용됨). 저장 시 버전 충돌 감지에 씀 — 새 저장 요청의 `updated`가 서버에 있는 값과 다를 때, `_updatedBy`가 이번 요청과 같은 기기면 "그냥 이 기기 자신이 놓친 것"으로 보고 통과시키고, 다르면 진짜 충돌로 보고 저장을 막는다(자세한 내용은 `고객상담관리_구조개선.md` 참고). |
 
+D1의 `customers`/`pools` 테이블에는 위 JSON(`data` 컬럼)과 별도로 `owner` 컬럼이 있다(2026-08-14 다중
+담당자 구조 추가). 어느 담당자(`advisors.id`) 소유인지 표시하며, JSON 안에는 들어가지 않고 순수 서버
+컬럼으로만 존재한다. 신규 레코드는 저장한 사람이 자동으로 owner가 되고, 이미 다른 담당자 소유로
+확정된 레코드는 다른 담당자가 저장·삭제할 수 없다(`functions/api/data.js`, `functions/_lib/advisors.js`
+참고). 담당자 계정(`advisors` 테이블: id/name/password_hash)은 고객·참조풀과는 별개 테이블이다.
+
 ## 파일(첨부 이미지·음성) — 로컬 저장 vs 클라우드
 
 - 브라우저 IndexedDB `images` 스토어: `{id, kind, blob, created}` — 사진, PDF 변환본, 가입설계서, 음성메모가

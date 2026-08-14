@@ -374,7 +374,7 @@ function renderAdminGuide(){
   +'<div class="su-step blue"><span class="su-n">A</span><span class="su-t">이 기기 저장소 (브라우저 안)</span>'
     +'<div class="su-d">모든 자료는 먼저 <b>지금 쓰는 기기의 브라우저 안(저장소)</b>에 저장됩니다. 인터넷이 없어도 이 기기에서는 바로 열립니다.</div>'
     +'<ul>'
-      +'<li><b>사진(보장표·설계서 이미지)</b>은 <b>이 기기에만</b> 남습니다. 다른 기기에서는 안 보입니다.</li>'
+      +'<li><b>사진(보장표·설계서 이미지)</b>은 먼저 <b>이 기기에</b> 저장됩니다. 아래 클라우드 파일 저장소(R2)가 연결돼 있으면 자동으로 클라우드에도 올라가 다른 기기에서도 보입니다 — 연결 여부는 <b>저장소 관리 → 클라우드 파일 동기화</b> 카드에서 확인하세요.</li>'
       +'<li>홈 <b>저장소 관리</b>에서 사용량·이미지를 확인·정리할 수 있습니다.</li>'
     +'</ul>'
     +'<div class="su-warn">⚠️ 크롬에서 "인터넷 사용 기록 삭제 → 쿠키 및 사이트 데이터"를 지우면 <b>이 기기 저장분이 사라집니다.</b> 그래서 아래 클라우드(B)와 PC 백업을 함께 씁니다.</div>'
@@ -385,7 +385,7 @@ function renderAdminGuide(){
     +'<ul>'
       +'<li>저장할 때마다(또는 입력 중 자동으로) 클라우드에 자동 반영됩니다. 홈에 <b>☁ 클라우드 연결됨</b> 표시.</li>'
       +'<li>새 기기에서 처음 쓸 때는 홈의 <b>⬆ 이 기기 자료를 클라우드로 올리기</b>로 한 번 올리면 됩니다.</li>'
-      +'<li><b>사진은 클라우드에 올라가지 않습니다</b>(텍스트만). 사진까지 공유하려면 별도 설정(R2/구글드라이브)이 필요합니다.</li>'
+      +'<li>여기(D1)에는 <b>텍스트만</b> 저장됩니다. <b>사진·음원 파일</b>은 별도의 클라우드 파일 저장소(Cloudflare R2)가 연결돼 있으면 자동으로 올라갑니다 — 아래 <b>저장소 관리 → 클라우드 파일 동기화</b> 카드의 "업로드됨 N개"로 확인하세요(이 계정은 이미 연결되어 정상 작동 중입니다).</li>'
     +'</ul>'
     +'<div class="su-tip">💡 D1 무료 범위는 <b>저장 5GB</b>로, 텍스트만 쓰는 이 앱에는 넘치게 충분합니다. 카드 등록을 안 했다면 한도를 넘어도 <b>결제가 아니라 잠깐 멈추기만</b> 합니다(다음 날 초기화).</div>'
     +'<div class="su-d" style="margin-top:8px"><b>설정 요약</b>(한 번만): ① D1 데이터베이스 <span class="su-key">jam-console-db</span> 생성 → ② Pages에 바인딩 <span class="su-key">DB</span> 연결 → ③ 환경변수 <span class="su-key">APP_PASSWORD</span>(로그인 비밀번호) 설정 → ④ 함수 파일 <span class="su-key">functions/api/data.js</span> 배포.</div>'
@@ -395,6 +395,29 @@ function renderAdminGuide(){
   +'<div class="su-step gray"><span class="su-n">C</span><span class="su-t">PC로 전체 백업 (수동)</span>'
     +'<div class="su-d">가끔 <b>내 PC 폴더에 파일로도</b> 백업해 두면 가장 안전합니다. 홈의 <b>💾 PC로 전체 백업</b> 버튼을 누르고 폴더를 고르면, 고객·참조·분석 전체가 파일로 저장됩니다.</div>'
     +'<div class="su-tip">💡 PC 백업은 폴더 선택창 때문에 <b>버튼을 눌러야만</b> 됩니다(자동 불가). 데이터 자체는 클라우드에 자동 저장되니, PC 백업은 <b>가끔 한 번씩</b>이면 충분합니다.</div>'
+  +'</div>'
+
+  +'<div class="su-hero" style="margin-top:6px"><h3>👥 여러 담당자(설계사)가 같이 쓰기</h3><p>2026-08-14부터 최대 20명까지 담당자별로 자료를 분리해서 쓸 수 있습니다. 처음 한 번만 설정하면 됩니다.</p></div>'
+
+  +'<div class="su-step blue"><span class="su-n">D</span><span class="su-t">관리자 비밀번호(ADMIN_PASSWORD) 만들기</span>'
+    +'<div class="su-d">담당자를 추가·삭제하는 "담당자 관리" 화면은 <b>앱 공통 비밀번호와는 다른 별도의 관리자 비밀번호</b>로 보호됩니다. 담당자 20명이 공통 비밀번호를 알아도 이 화면은 못 엽니다.</div>'
+    +'<ol>'
+      +'<li>Cloudflare 대시보드 → 이 프로젝트 → <b>Settings → Variables and Secrets</b>.</li>'
+      +'<li><b>변수 추가</b>: 이름 <span class="su-key">ADMIN_PASSWORD</span>, 값에는 원하는 관리자 전용 비밀번호(직원들에게 알려주지 않는 값). Secret로 저장 권장.</li>'
+      +'<li>저장 후 <b>다시 배포(Retry deployment)</b>.</li>'
+    +'</ol>'
+    +'<a class="su-link blue" href="https://dash.cloudflare.com" target="_blank" rel="noopener">☁️ Cloudflare 대시보드 열기</a>'
+  +'</div>'
+
+  +'<div class="su-step green"><span class="su-n">E</span><span class="su-t">담당자 등록 & 기존 자료 배정</span>'
+    +'<div class="su-d">배포가 끝나면, 앱의 로그인 화면 아래 <b>⚙ 담당자 관리</b>를 눌러 관리자 비밀번호로 들어갑니다.</div>'
+    +'<ol>'
+      +'<li>맨 위 <b>초기 설정 실행</b> 버튼을 한 번 누릅니다(처음 한 번만 필요 — D1에 필요한 테이블을 자동으로 만듭니다).</li>'
+      +'<li><b>담당자 추가</b>로 설계사 이름과 개인 비밀번호를 한 명씩 등록합니다(최대 20명).</li>'
+      +'<li>지금까지 있던 기존 고객·참조 자료는 아직 담당자가 안 정해진 상태입니다. 담당자 목록에서 대표님(또는 그 자료를 관리할 분) 옆의 <b>기존자료 받기</b> 버튼을 눌러 배정하세요.</li>'
+      +'<li>이후 담당자가 바뀌면(퇴사 등) <b>자료 이전</b> 버튼으로 그 담당자의 자료를 통째로 다른 담당자에게 옮길 수 있습니다.</li>'
+    +'</ol>'
+    +'<div class="su-tip">💡 각 담당자는 이름을 고르고 본인 비밀번호만 입력하면 됩니다. 아이디를 따로 외울 필요가 없어요.</div>'
   +'</div>'
 
   +'<div style="text-align:center;color:var(--ink-mute);font-size:12px;margin:6px 0 4px">막히면 각 단계의 파란/초록 버튼을 눌러 해당 사이트로 바로 이동하세요.</div>';
@@ -549,20 +572,6 @@ async function togglePin(ev,id){
   toast(p.pinned?'이 고객의 선택으로 저장됨':'선택 해제'); setTimeout(toastHide,1200);
 }
 function pinnedCount(){ return pools.filter(p=>p.pinned).length; }
-/* 보장분석 결과를 PC 폴더에 저장 (고객이름 하위폴더) */
-async function saveCoverageFile(){
-  const id=document.getElementById('an-cust').value; const c=customers.find(x=>x.id===id);
-  if(!c){ toast('고객을 먼저 선택하세요'); setTimeout(toastHide,1500); return; }
-  const e=(c.analyses&&c.analyses[0]); if(!e){ toast('저장할 보장분석 결과가 없습니다'); setTimeout(toastHide,1600); return; }
-  await pcSave(c.name, sanitizeName(c.name)+'_보장분석_'+String(e.at||today()).replace(/[: ]/g,'-')+'.json', {customer:c.name, at:e.at, result:e.data});
-}
-/* 가입설계 결과를 PC 폴더에 저장 */
-async function savePlanFile(){
-  const id=document.getElementById('an-cust').value; const c=customers.find(x=>x.id===id);
-  if(!c){ toast('고객을 먼저 선택하세요'); setTimeout(toastHide,1500); return; }
-  const e=(c.planAnalyses&&c.planAnalyses[0]); if(!e){ toast('저장할 가입설계 결과가 없습니다'); setTimeout(toastHide,1600); return; }
-  await pcSave(c.name, sanitizeName(c.name)+'_가입설계_'+String(e.at||today()).replace(/[: ]/g,'-')+'.json', {customer:c.name, at:e.at, result:e.data});
-}
 /* 참조풀 상단: 지금 이어서 작업 중인 고객 배너 (선택→분석 연결) */
 function renderPoolCtx(){
   const box=document.getElementById('pool-ctx'); if(!box) return;
@@ -579,7 +588,9 @@ function renderPoolCtx(){
 }
 function poolToAnalysis(){ currentCustId=null; go('analysis'); }        // 하단 버튼: 고객 안 물고 감
 function poolToAnalysisCarry(){ go('analysis'); }                        // 배너 버튼: 작업고객 물고 감
-function navGo(s){ currentCustId=null; go(s); }                          // 하단 탭: 작업고객 해제
+/* 하단 탭 이동: 상담·분석(연결) 모드에서는 "작업 고객"을 그대로 물고 간다(이름물고가기).
+   자료 준비(별도) 모드에서는 예전처럼 탭을 옮기면 작업 고객을 해제한다. */
+function navGo(s){ if(appMode!=='connected'){ currentCustId=null; } go(s); }
 function openWorkingCust(){
   if(currentCustId && customers.some(c=>c.id===currentCustId)){ openCustomer(currentCustId); }
   else { go('customers'); toast('작업 고객이 없어요. 고객을 먼저 선택하세요.'); setTimeout(toastHide,1400); }
@@ -689,7 +700,7 @@ function pickPoolText(){
 }
 async function aiSummarize(text){
   if(!cloudOn) throw new Error('AI 요약 기능은 로그인 후 사용할 수 있습니다.');
-  const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pw:cloudPW, mode:'summarize',text})});
+  const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'summarize',text})});
   const data=await res.json();
   if(!res.ok) throw new Error(data.error||'요약 실패');
   addUsage(data._usage,'요약');
@@ -785,27 +796,19 @@ async function deletePool(){
   await idbDel('pools',editingPool.id); pools=await idbAll('pools');
   closeSheet('ov-pool'); renderPools();
 }
-async function exportPools(){
-  await pcSave('_전체백업', '참조풀전체_'+today()+'.json', pools);
-}
-/* 하단 고객 목록 화면: 전체 고객 저장 (이미지·보장분석·가입설계 기록 포함, 복원 가능) */
-async function exportAllCustomers(){
-  if(!customers.length){ alert('저장할 고객이 없습니다.'); return; }
-  // 이미지까지 담은 완전 백업 payload
-  const ids=new Set(); customers.forEach(c=>(c.images||[]).forEach(id=>ids.add(id)));
-  customers.forEach(c=>(c.planImages||[]).forEach(id=>ids.add(id)));
-  const images=[];
-  for(const id of ids){ const rec=await idbGet('images',id); if(rec&&rec.blob){ images.push({id:rec.id,kind:rec.kind,created:rec.created,dataURL:await blobToDataURL(rec.blob)}); } }
-  const payload={type:'customers-backup', exported:today(), customers, images};
-  const fname='고객전체백업_'+today()+'.json';
-  await pcSave('_전체백업', fname, payload);
-}
+/* 참조풀 "JSON 불러오기": "PC로 전체 백업"이 만든 참조풀전체_*.json을 불러온다.
+   신규 형식({type:'pools-backup', pools, images})은 첨부 사진·음원까지 함께 복원하고,
+   예전 형식(배열만)도 그대로 읽어(하위호환) 글자 정보만 복원한다. */
 async function importPools(e){
   const f=e.target.files[0]; if(!f) return;
   try{
-    const arr=JSON.parse(await f.text());
+    const data=JSON.parse(await f.text());
+    const arr = Array.isArray(data) ? data : (data.pools||[]);
+    const imgs = Array.isArray(data) ? [] : (data.images||[]);
+    for(const im of imgs){ if(im&&im.id&&im.dataURL){ const blob=await (await fetch(im.dataURL)).blob(); await idbPut('images',{id:im.id,kind:im.kind,created:im.created,blob}); } }
     for(const p of arr){ if(p&&p.id){ await idbPut('pools',p);} }
-    pools=await idbAll('pools'); renderPools(); alert('불러오기 완료: '+arr.length+'건');
+    pools=await idbAll('pools'); renderPools();
+    alert('불러오기 완료: '+arr.length+'건'+(imgs.length?(' · 사진·음원 '+imgs.length+'개'):''));
   }catch(err){alert('파일을 읽을 수 없습니다.');}
   e.target.value='';
 }

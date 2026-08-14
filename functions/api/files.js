@@ -6,10 +6,16 @@
 // 사진·PDF변환본·음성메모는 브라우저 IndexedDB에만 있던 것을 이 API로 R2에 올려
 // 기기를 바꿔도 사라지지 않게 한다. (텍스트 데이터는 계속 data.js가 담당)
 //
+// 2026-08-14 다중 담당자 확장: 사이트 비밀번호(pw)만으로는 통과 못 하고, 담당자 개인 비밀번호
+// (advisorId/advisorPw)까지 확인한 뒤, 그 파일이 딸린 고객·참조풀이 실제로 이 담당자 소유인지도
+// 확인한다(ownerBelongsToAdvisor). data.js와 같은 규칙.
+//
 // 요청(JSON, POST):
-//   { pw, action:'upload', id, owner_type, owner_id, category, filename, content_type, data(base64, prefix 없이) }
-//   { pw, action:'download', id }                          → { ok, id, content_type, category, data(base64) }
-//   { pw, action:'delete', id }
+//   { pw, advisorId, advisorPw, action:'upload', id, owner_type, owner_id, category, filename, content_type, data(base64, prefix 없이) }
+//   { pw, advisorId, advisorPw, action:'download', id }             → { ok, id, content_type, category, data(base64) }
+//   { pw, advisorId, advisorPw, action:'delete', id }
+
+import { checkSitePassword, checkAdvisor, ownerBelongsToAdvisor } from '../_lib/advisors.js';
 
 function json(obj, status) {
   return new Response(JSON.stringify(obj), {
@@ -53,9 +59,12 @@ export async function onRequestPost(context) {
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: '잘못된 요청 형식' }, 400); }
 
-  const expected = env.APP_PASSWORD || '';
-  if (!expected) return json({ error: '서버에 APP_PASSWORD가 설정되지 않았습니다.' }, 500);
-  if (!body || body.pw !== expected) return json({ error: '비밀번호가 올바르지 않습니다.', auth: false }, 401);
+  const siteCheck = checkSitePassword(env, body, json);
+  if (!siteCheck.ok) return siteCheck.res;
+
+  const advisorCheck = await checkAdvisor(env, body, json);
+  if (!advisorCheck.ok) return advisorCheck.res;
+  const advisorId = advisorCheck.advisor.id;
 
   const action = body.action;
 
@@ -72,6 +81,9 @@ export async function onRequestPost(context) {
       if (!['customer', 'pool'].includes(ownerType)) return json({ error: 'owner_type은 customer 또는 pool이어야 합니다.' }, 400);
       if (!ownerId) return json({ error: 'owner_id가 없습니다.' }, 400);
       if (!dataB64) return json({ error: '업로드할 데이터(data)가 없습니다.' }, 400);
+
+      const owns = await ownerBelongsToAdvisor(env, ownerType, ownerId, advisorId);
+      if (!owns) return json({ error: '본인 담당 고객·참조풀이 아니라 올릴 수 없습니다. (고객 정보가 아직 클라우드에 저장되지 않았다면 잠시 후 다시 시도됩니다)' }, 403);
 
       let bytes;
       try { bytes = base64ToBytes(dataB64); } catch (e) { return json({ error: 'data가 올바른 base64가 아닙니다.' }, 400); }
@@ -99,6 +111,8 @@ export async function onRequestPost(context) {
       if (!id) return json({ error: 'id가 없습니다.' }, 400);
       const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
       if (!row || row.status === 'deleted') return json({ error: '파일을 찾을 수 없습니다.' }, 404);
+      const owns = await ownerBelongsToAdvisor(env, row.owner_type, row.owner_id, advisorId);
+      if (!owns) return json({ error: '본인 담당 고객·참조풀의 파일이 아닙니다.' }, 403);
       if (!row.object_key) return json({ error: '이 파일은 아직 업로드되지 않았습니다.' }, 404);
 
       const obj = await env.FILES_BUCKET.get(row.object_key);
@@ -116,6 +130,8 @@ export async function onRequestPost(context) {
       if (!id) return json({ error: 'id가 없습니다.' }, 400);
       const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
       if (!row) return json({ ok: true }); // 이미 없음
+      const owns = await ownerBelongsToAdvisor(env, row.owner_type, row.owner_id, advisorId);
+      if (!owns) return json({ error: '본인 담당 고객·참조풀의 파일이 아닙니다.' }, 403);
       if (row.object_key) { try { await env.FILES_BUCKET.delete(row.object_key); } catch (e) {} }
       await env.DB.prepare("UPDATE files SET status='deleted', deleted_at=?, updated_at=?, sync_version=sync_version+1 WHERE id=?").bind(isoNow(), isoNow(), id).run();
       return json({ ok: true });

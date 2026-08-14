@@ -2,9 +2,16 @@
    고객 (1·2단계)
 ========================================================= */
 function renderCustomers(){
-  header('고객', customers.length+'명 · 방문예정·상담·계약 관리', (typeof voiceSupported==='function' && voiceSupported()) ? startListVoiceCommand : null);
+  header('고객', customers.length+'명 · 방문예정·상담·계약 관리', null);
+  // 이름 검색 + 마이크(같이 붙여서)
+  const micOn=(typeof voiceSupported==='function' && voiceSupported());
+  let bar='<div class="row" style="margin-bottom:12px;align-items:center;gap:8px">'
+    +'<div style="position:relative;flex:1;min-width:0"><input class="t" id="cust-search" placeholder="고객 이름으로 찾기" value="'+esc(custSearch)+'" oninput="onCustSearch(this.value)" style="padding-right:32px;width:100%">'
+    +'<span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.55;font-size:14px">🔍</span></div>'
+    +(micOn?'<button class="btn ghost sm" id="hdr-mic-btn" style="flex-shrink:0" onclick="startListVoiceCommand()">🎤</button>':'')
+    +'</div>';
   // filter bar
-  let bar='<div class="chips" style="margin-bottom:8px;">';
+  bar+='<div class="chips" style="margin-bottom:8px;">';
   ['전체',...SEGMENTS].forEach(s=>{ bar+='<div class="chip'+(custFilter.seg===s?' on':'')+'" onclick="setCF(\'seg\',\''+s+'\')">'+s+'</div>'; });
   bar+='</div><div class="chips" style="margin-bottom:14px;">';
   bar+='<div class="chip'+(custFilter.src==='전체'?' on':'')+'" onclick="setCF(\'src\',\'전체\')">전체</div>';
@@ -14,10 +21,13 @@ function renderCustomers(){
   let list = customers.slice().sort((a,b)=>b.updated.localeCompare(a.updated));
   if(custFilter.seg!=='전체') list=list.filter(c=>c.seg===custFilter.seg);
   if(custFilter.src!=='전체') list=list.filter(c=>c.source===custFilter.src);
+  if((custSearch||'').trim()) list=list.filter(c=>(c.name||'').includes(custSearch.trim()));
 
   let html=bar;
   if(list.length===0){
-    html+='<div class="empty"><div class="big">아직 등록된 고객이 없어요</div>오른쪽 아래 + 버튼으로 첫 고객을 등록하세요.</div>';
+    html += (custSearch||'').trim()
+      ? '<div class="empty"><div class="big">\''+esc(custSearch.trim())+'\' 이름의 고객이 없어요</div>검색어를 확인하거나 지워보세요.</div>'
+      : '<div class="empty"><div class="big">아직 등록된 고객이 없어요</div>오른쪽 아래 + 버튼으로 첫 고객을 등록하세요.</div>';
   } else {
     list.forEach(c=>{
       const src = c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>';
@@ -40,10 +50,19 @@ function renderCustomers(){
   document.getElementById('cust-list').innerHTML=html;
 }
 function setCF(k,v){custFilter[k]=v; renderCustomers();}
+/* 이름 검색: 매번 다시 그리면 입력 커서가 끊기므로, 다시 그린 뒤 포커스·커서 위치를 복원 */
+function onCustSearch(v){
+  custSearch=v; renderCustomers();
+  const si=document.getElementById('cust-search');
+  if(si){ si.focus(); try{ const p=si.value.length; si.setSelectionRange(p,p); }catch(e){} }
+}
 
 async function openCustomer(id){
   const c = id ? customers.find(x=>x.id===id) : {id:null,source:'db',seg:'방문예정',product:[],situation:[],images:[]};
   editingCust = JSON.parse(JSON.stringify(c));
+  /* 상담·분석(연결) 모드에서 고객을 선택하면 "작업 고객"으로 물고 간다 —
+     이후 하단 탭(분석·상담·참조풀)으로 옮겨가도 이 고객 정보가 계속 뜨게 하기 위함(navGo()에서 유지). */
+  if(appMode==='connected' && id) currentCustId=id;
   header(id?'고객 상세':'고객 등록', c.name?('◉ '+c.name+(c.region?' · '+c.region:'')):'');
   document.getElementById('cust-title').textContent = id?'고객 상세':'고객 등록';
   document.getElementById('c-delete').style.display = id?'flex':'none';

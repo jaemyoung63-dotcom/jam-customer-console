@@ -96,8 +96,7 @@ function renderAP(){
       const has=(c.ap&&c.ap.scripts&&c.ap.scripts[k])?' <span style="color:var(--ok);font-weight:700">✓ 생성됨</span>':'';
       h+='<label class="ap-ck"><input type="checkbox" class="ap-genck" value="'+k+'"'+(has?'':' checked')+'> '+label+has+'</label>';
     });
-    h+='<div class="su-warn" style="margin-top:10px">💰 <b>AI 멘트 생성은 유료입니다.</b> 체크한 단계 수만큼 AI(클로드)를 호출하며, 호출할 때마다 <b>API 크레딧이 조금씩 차감</b>됩니다(보통 단계당 수십~수백 원). 필요한 단계만 체크하세요.</div>';
-    h+='<button class="btn primary wide" style="margin-top:10px" id="ap-genbtn" onclick="genApScripts()">🤖 체크한 단계 대면 멘트 생성 (유료)</button>';
+    h+='<button class="btn primary wide" style="margin-top:10px" id="ap-genbtn" onclick="genApScripts()">🤖 체크된 단계 상담 멘트 생성</button>';
     h+='</div>';
     h+='<div id="ap-prog" class="stage-note" style="margin-top:8px;display:none"></div>';
     h+='<div class="divider"></div><div class="row"><button class="btn primary grow" onclick="apGo(2)">다음 ›</button></div>';
@@ -135,7 +134,7 @@ async function genApScripts(){
     if(prog){ prog.style.display='block'; prog.textContent='AI 대면 멘트 생성 중… ('+(i+1)+'/'+cks.length+' · '+stageName[k]+')'; }
     try{
       const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({pw:cloudPW, mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region}, material:apMaterialText(c,k)})});
+        body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region}, material:apMaterialText(c,k)})});
       const data=await res.json();
       if(!res.ok){ throw new Error(data.error||('HTTP '+res.status)); }
       const txt=(data.text||'').trim();
@@ -247,10 +246,15 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   customers=await idbAll('customers');
   pools=await idbAll('pools');
   pools.forEach(p=>{ p.pinned=false; });   // 선택(체크)은 세션/고객 단위 — 시작 시 초기화
-  // 클라우드 로그인
+  // 클라우드 로그인 — 1) 사이트 비밀번호, 2) 담당자 개인 비밀번호(2026-08-14 추가) 순서로 자동 로그인 시도
   let saved=''; try{ saved=localStorage.getItem('cloudPW')||''; }catch(e){}
-  if(saved){ const ok=await cloudLogin(saved, true); if(ok){ goHome(); } else { showLogin(); } }
-  else { showLogin(); }
+  if(saved){
+    const ok=await cloudLogin(saved, true);
+    if(ok){
+      const aok=await trySilentAdvisorLogin();
+      if(aok){ goHome(); } else if(typeof showAdvisorPicker==='function'){ showAdvisorPicker(); } else { goHome(); }
+    } else { showLogin(); }
+  } else { showLogin(); }
   // 스플래시: 3초 노출 후 페이드아웃
   setTimeout(function(){
     const sp=document.getElementById('splash');

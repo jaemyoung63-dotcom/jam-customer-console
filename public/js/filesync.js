@@ -43,7 +43,7 @@ async function fsUploadOne(id, ownerType, ownerId, category) {
     if (!b64) return false;
     const contentType = rec.blob.type || 'application/octet-stream';
     const d = await fsCall({
-      pw: cloudPW, action: 'upload', id, owner_type: ownerType, owner_id: ownerId,
+      pw: cloudPW, advisorId, advisorPw, action: 'upload', id, owner_type: ownerType, owner_id: ownerId,
       category: rec.kind || category || '기타', filename: null, content_type: contentType, data: b64
     });
     if (d && d.ok) {
@@ -75,7 +75,7 @@ async function fsQueueForOwner(ownerType, record) {
 async function fsDownloadOne(id) {
   if (fsBucketMissing) return false;
   try {
-    const d = await fsCall({ pw: cloudPW, action: 'download', id });
+    const d = await fsCall({ pw: cloudPW, advisorId, advisorPw, action: 'download', id });
     if (d && d.ok && d.data) {
       const binary = atob(d.data);
       const arr = new Uint8Array(binary.length);

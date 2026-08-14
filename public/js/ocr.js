@@ -140,7 +140,7 @@ async function tidyCoverage(confirmations){
     if(!items.length){ prog.textContent='사진을 읽지 못했습니다. 다시 등록해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
     const _pg=startProgress(p=>{ prog.textContent='AI가 사진을 직접 판독·정리 중… '+p+'%'+(imgs.length>12?' (앞 12장)':''); });
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, mode:'tidy', images:items, confirmations:confirmations||'', custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'tidy', images:items, confirmations:confirmations||'', custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
     const rawResp=await res.text(); _pg.done();
     let data;
     try{ data=JSON.parse(rawResp); }

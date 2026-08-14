@@ -97,6 +97,9 @@ function _idbClear(store){return new Promise(r=>{const q=tx(store,'readwrite').c
 
 /* ===================== 클라우드 동기화 (Cloudflare D1) ===================== */
 let cloudPW='', cloudOn=false, localHasUnsynced=false, cloudMaster=false;
+/* 담당자(설계사) 구분 — 2026-08-14 추가. 사이트 비밀번호(cloudPW)와는 별개로, 로그인한
+   담당자 개인 비밀번호. 서버가 이 값으로 "이 사람 자료만" 걸러서 보여준다. */
+let advisorId='', advisorPw='', advisorName='';
 async function cloudCall(payload){
   const res=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   let d={}; try{ d=await res.json(); }catch(e){ d={error:'응답 형식 오류 (HTTP '+res.status+')'}; }
@@ -105,7 +108,9 @@ async function cloudCall(payload){
 function cloudSync(action, item, baseUpdated){
   if(!cloudOn) return;
   const isSave=(action==='saveCustomer'||action==='savePool');
-  const body=isSave?{pw:cloudPW,action,item,baseUpdated:baseUpdated||null,deviceId:getDeviceId()}:{pw:cloudPW,action,id:item.id};
+  const body=isSave
+    ?{pw:cloudPW,advisorId,advisorPw,action,item,baseUpdated:baseUpdated||null,deviceId:getDeviceId()}
+    :{pw:cloudPW,advisorId,advisorPw,action,id:item.id};
   fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
     .then(r=>r.json()).then(d=>{
       if(d&&d.conflict){
@@ -119,18 +124,41 @@ function cloudSync(action, item, baseUpdated){
     }).catch(()=>cloudFlag(false));
 }
 function cloudFlag(ok){ const el=document.getElementById('cloud-dot'); if(el){ el.style.background=ok?'#10A87F':'#E0A800'; el.title=ok?'클라우드 동기화됨':'동기화 대기/오류'; } }
+/* 1단계: 사이트 공통 비밀번호만 확인(아직 담당자는 모름 — 데이터는 안 불러옴). */
 async function cloudLogin(pw, silent){
   try{
-    const d=await cloudCall({pw, action:'load'});
-    if(d && d.ok){ cloudPW=pw; cloudOn=true; try{ localStorage.setItem('cloudPW',pw); }catch(e){} await mergeCloud(d);
-      // 마스터로 로그인했는지 확인(안내용)
-      try{ const ck=await cloudCall({pw, action:'check'}); cloudMaster=!!(ck&&ck.master); }catch(e){}
-      return true; }
+    const d=await cloudCall({pw, action:'check'});
+    if(d && d.ok){ cloudPW=pw; cloudOn=true; try{ localStorage.setItem('cloudPW',pw); }catch(e){} return true; }
     if(!silent) loginMsg((d&&d.error)||'로그인 실패'); return false;
   }catch(e){ if(!silent) loginMsg('연결 실패: '+(e.message||e)); return false; }
 }
+/* 2단계: 담당자 개인 비밀번호 확인 + 그 담당자 자료만 불러오기.
+   같은 기기에서 이전에 다른 담당자로 로그인했던 흔적이 있으면(=로컬에 그 사람 자료가 남아있으면)
+   화면에 섞여 보이지 않도록 로컬 자료를 먼저 비운다(장비를 여러 담당자가 같이 쓰는 경우 대비). */
+async function advisorLogin(id, pw, silent){
+  try{
+    const d=await cloudCall({pw:cloudPW, advisorId:id, advisorPw:pw, action:'advisorLogin'});
+    if(d && d.ok){
+      let prevId=''; try{ prevId=localStorage.getItem('advisorId')||''; }catch(e){}
+      if(prevId && prevId!==id){ await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images'); }
+      advisorId=id; advisorPw=pw; advisorName=(d.advisor&&d.advisor.name)||'';
+      try{ localStorage.setItem('advisorId',id); localStorage.setItem('advisorPw',pw); localStorage.setItem('advisorName',advisorName); }catch(e){}
+      await mergeCloud(d);
+      return true;
+    }
+    if(!silent && typeof advisorLoginMsg==='function') advisorLoginMsg((d&&d.error)||'로그인 실패');
+    return false;
+  }catch(e){ if(!silent && typeof advisorLoginMsg==='function') advisorLoginMsg('연결 실패: '+(e.message||e)); return false; }
+}
+/* 기기에 저장된 담당자 정보로 자동 로그인 시도(앱 재실행 시). 실패하면 담당자 선택 화면을 띄워야 함. */
+async function trySilentAdvisorLogin(){
+  let id='', pw=''; try{ id=localStorage.getItem('advisorId')||''; pw=localStorage.getItem('advisorPw')||''; }catch(e){}
+  if(!id || !pw) return false;
+  return await advisorLogin(id, pw, true);
+}
 /* 비밀번호 변경은 앱에서 지원하지 않음 — 서버(APP_PASSWORD)는 Cloudflare 환경변수 고정값이라
-   Cloudflare 대시보드(Settings → Variables and secrets)에서 직접 변경해야 함. 2026-08-13 관련 버튼 제거. */
+   Cloudflare 대시보드(Settings → Variables and secrets)에서 직접 변경해야 함. 2026-08-13 관련 버튼 제거.
+   담당자 개인 비밀번호는 "담당자 관리"(관리자 전용) 화면에서 초기화할 수 있다. */
 /* 클라우드 자료와 로컬 자료를 레코드 단위로 합친다.
    예전엔 클라우드에 자료가 있으면 로컬을 통째로 지우고 덮어썼는데(_idbClear), 그러면
    오프라인 중에 로컬에서만 수정하고 아직 클라우드에 못 올린 내용이 조용히 사라지는 문제가 있었다.
@@ -168,11 +196,24 @@ async function mergeCloud(d){
 async function cloudUpload(){
   if(!cloudOn){ alert('먼저 클라우드에 로그인하세요.'); return; }
   if(!customers.length && !pools.length){ alert('올릴 자료가 없습니다.'); return; }
-  const d=await cloudCall({pw:cloudPW, action:'bulkSave', customers, pools});
+  const d=await cloudCall({pw:cloudPW, advisorId, advisorPw, action:'bulkSave', customers, pools});
   if(d&&d.ok){ localHasUnsynced=false; alert('✓ 클라우드에 올렸습니다.\n고객 '+((d.saved&&d.saved.customers)||customers.length)+'명, 참조 '+((d.saved&&d.saved.pools)||pools.length)+'건'); goHome(); }
   else alert('업로드 실패: '+((d&&d.error)||'알 수 없음'));
 }
-function cloudLogout(){ cloudOn=false; cloudPW=''; try{ localStorage.removeItem('cloudPW'); }catch(e){} showLogin(); }
+function cloudLogout(){
+  cloudOn=false; cloudPW=''; advisorId=''; advisorPw=''; advisorName='';
+  try{ localStorage.removeItem('cloudPW'); localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); }catch(e){}
+  showLogin();
+}
+/* 담당자만 바꾸기(사이트 로그인은 유지) — 같은 기기를 다른 담당자가 이어서 쓸 때.
+   화면·로컬에 남아있던 이전 담당자 자료를 바로 비워서 잠깐이라도 섞여 보이지 않게 한다. */
+async function advisorSwitch(){
+  advisorId=''; advisorPw=''; advisorName='';
+  try{ localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); }catch(e){}
+  await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images');
+  customers=[]; pools=[];
+  if(typeof showAdvisorPicker==='function') showAdvisorPicker();
+}
 function loginMsg(m){ const el=document.getElementById('login-msg'); if(el){ el.textContent=m||''; el.style.display=m?'block':'none'; } }
 function showLogin(){ const ov=document.getElementById('ov-login'); if(ov){ ov.classList.add('show'); } const i=document.getElementById('login-pw'); if(i){ i.value=''; setTimeout(()=>i.focus(),100); } }
 function hideLogin(){ const ov=document.getElementById('ov-login'); if(ov){ ov.classList.remove('show'); } }
@@ -181,7 +222,12 @@ async function doLogin(){
   if(!pw){ loginMsg('비밀번호를 입력하세요.'); return; }
   loginMsg('연결 중…');
   const ok=await cloudLogin(pw,false);
-  if(ok){ hideLogin(); goHome(); }
+  if(!ok) return;
+  hideLogin();
+  const aok=await trySilentAdvisorLogin();
+  if(aok) goHome();
+  else if(typeof showAdvisorPicker==='function') showAdvisorPicker();
+  else goHome();
 }
 function loginOffline(){ cloudOn=false; hideLogin(); goHome(); }
 
@@ -233,7 +279,10 @@ async function pcBackupAll(){
     const ids=new Set(); customers.forEach(c=>{(c.images||[]).forEach(i=>ids.add(i)); (c.planImages||[]).forEach(i=>ids.add(i));});
     const images=[]; for(const id of ids){ const rec=await idbGet('images',id); if(rec&&rec.blob){ images.push({id:rec.id,kind:rec.kind,created:rec.created,dataURL:await blobToDataURL(rec.blob)}); } }
     await _writeJson(dir,'고객전체백업_'+today()+'.json',{type:'customers-backup',exported:today(),customers,images});
-    await _writeJson(dir,'참조풀전체_'+today()+'.json',pools);
+    // 참조풀(첨부 사진·음원까지 포함한 완전 백업)
+    const poolIds=new Set(); pools.forEach(p=>{(p.images||[]).forEach(i=>poolIds.add(i)); if(p.audio) poolIds.add(p.audio);});
+    const poolImages=[]; for(const id of poolIds){ const rec=await idbGet('images',id); if(rec&&rec.blob){ poolImages.push({id:rec.id,kind:rec.kind,created:rec.created,dataURL:await blobToDataURL(rec.blob)}); } }
+    await _writeJson(dir,'참조풀전체_'+today()+'.json',{type:'pools-backup',exported:today(),pools,images:poolImages});
     toast('✓ PC 백업 완료: '+(root.name||'')+'/_전체백업/'); setTimeout(toastHide,2600);
   }catch(e){ toast('백업 실패: '+((e&&e.message)||e)); setTimeout(toastHide,2200); }
 }
@@ -261,6 +310,7 @@ function ensurePinsForCustomer(custId){
 const ANALYZE_URL='/api/analyze';
 let editingCust=null, editingPool=null, poolType='case';
 let custFilter={seg:'전체', src:'전체'};
+let custSearch='';   // 고객 목록 상단 이름 검색어
 let poolFilter=[];
 let objectUrls=[];
 
@@ -320,10 +370,13 @@ function goHome(){
 function updateCloudUI(){
   const st=document.getElementById('cloud-status'), dot=document.getElementById('cloud-dot');
   const up=document.getElementById('cloud-upload-row'), lo=document.getElementById('cloud-logout');
-  if(st) st.textContent = cloudOn ? ('☁ 클라우드 연결됨'+(cloudMaster?' (초기 비밀번호 — 변경 권장)':'')) : '오프라인 (이 기기 자료만)';
-  if(dot) dot.style.background = cloudOn ? (cloudMaster?'#E0A800':'#EAFff6') : '#cfd8dc';
+  const sw=document.getElementById('advisor-switch');
+  const advisorLabel = advisorId ? ('☁ '+(advisorName||'담당자')+' 로 연결됨') : '오프라인 (이 기기 자료만)';
+  if(st) st.textContent = cloudOn ? (advisorId ? advisorLabel : ('☁ 클라우드 연결됨'+(cloudMaster?' (초기 비밀번호 — 변경 권장)':''))) : '오프라인 (이 기기 자료만)';
+  if(dot) dot.style.background = cloudOn ? (advisorId ? '#10A87F' : (cloudMaster?'#E0A800':'#EAFff6')) : '#cfd8dc';
   if(up) up.style.display = (cloudOn && localHasUnsynced) ? 'block' : 'none';
   if(lo) lo.style.display = cloudOn ? 'inline' : 'none';
+  if(sw) sw.style.display = (cloudOn && advisorId) ? 'inline' : 'none';
 }
 /* 첫 화면 두 창 */
 function enterConnected(){ appMode='connected'; document.body.setAttribute('data-mode','connected'); currentCustId=null; go('customers'); }

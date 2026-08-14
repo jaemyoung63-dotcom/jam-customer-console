@@ -1,5 +1,12 @@
 // 보장 분석 중계 함수 (Cloudflare Pages Functions)
 // API 키는 Cloudflare 환경변수(ANTHROPIC_API_KEY)에서만 읽으며 코드에 넣지 않습니다.
+//
+// 2026-08-14 다중 담당자 확장: 사이트 비밀번호(pw) 확인 뒤 담당자 개인 비밀번호(advisorId/advisorPw)도
+// 확인한다. AI 비용을 담당자별로 나눠 추적하고 싶으면, Cloudflare 환경변수에
+// "ANTHROPIC_KEY_" + 담당자id 형식으로 그 담당자 전용 키(Anthropic Workspace API 키)를 추가하면
+// 되고, 없으면 지금처럼 공통 ANTHROPIC_API_KEY를 그대로 쓴다(둘 다 안 만들어도 기존과 동일하게 작동).
+
+import { checkSitePassword, checkAdvisor } from '../_lib/advisors.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -76,19 +83,25 @@ export async function onRequestOptions() {
 }
 
 export async function onRequestPost(context) {
-  const key = context.env.ANTHROPIC_API_KEY;
-  if (!key) return json({ error: '서버에 API 키가 없습니다. Cloudflare 환경변수 ANTHROPIC_API_KEY를 설정하세요.' }, 500);
-
   const model = context.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 
   let payload;
   try { payload = await context.request.json(); }
   catch (e) { return json({ error: '요청 형식이 잘못되었습니다.' }, 400); }
 
-  // 비밀번호 확인 (data.js와 동일한 APP_PASSWORD 사용) — 인증 없는 외부 호출로 인한 AI 비용 남용을 막는다.
-  const expectedPw = context.env.APP_PASSWORD || '';
-  if (!expectedPw) return json({ error: '서버에 APP_PASSWORD가 설정되지 않았습니다. Cloudflare 환경변수에 추가하세요.' }, 500);
-  if (payload.pw !== expectedPw) return json({ error: '비밀번호가 올바르지 않습니다.' }, 401);
+  // 1단계: 사이트 공통 비밀번호 확인 (data.js와 동일한 APP_PASSWORD) — 인증 없는 외부 호출로 인한 AI 비용 남용을 막는다.
+  const siteCheck = checkSitePassword(context.env, payload, json);
+  if (!siteCheck.ok) return siteCheck.res;
+
+  // 2단계: 담당자 개인 비밀번호 확인 — 누구의 AI 사용인지 구분(비용 추적용 키 선택에도 씀).
+  const advisorCheck = await checkAdvisor(context.env, payload, json);
+  if (!advisorCheck.ok) return advisorCheck.res;
+  const advisorId = advisorCheck.advisor.id;
+
+  // 담당자 전용 키(ANTHROPIC_KEY_<advisorId>)가 Cloudflare 환경변수에 있으면 그걸 쓰고,
+  // 없으면 기존처럼 공통 ANTHROPIC_API_KEY를 쓴다. 담당자별 키를 안 만들어도 그대로 작동한다.
+  const key = context.env['ANTHROPIC_KEY_' + advisorId] || context.env.ANTHROPIC_API_KEY;
+  if (!key) return json({ error: '서버에 API 키가 없습니다. Cloudflare 환경변수 ANTHROPIC_API_KEY를 설정하세요.' }, 500);
 
   const customer = payload.customer || {};
   const coverageText = (payload.coverageText || '').trim();
