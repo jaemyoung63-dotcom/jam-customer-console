@@ -203,6 +203,9 @@ async function cloudUpload(){
 function cloudLogout(){
   cloudOn=false; cloudPW=''; advisorId=''; advisorPw=''; advisorName='';
   try{ localStorage.removeItem('cloudPW'); localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); }catch(e){}
+  const ova=document.getElementById('ov-advisor'); if(ova) ova.classList.remove('show');
+  const ovAdmin=document.getElementById('ov-admin'); if(ovAdmin) ovAdmin.classList.remove('show');
+  document.body.style.overflow='';
   showLogin();
 }
 /* 담당자만 바꾸기(사이트 로그인은 유지) — 같은 기기를 다른 담당자가 이어서 쓸 때.
