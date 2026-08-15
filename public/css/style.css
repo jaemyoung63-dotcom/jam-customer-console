@@ -123,6 +123,11 @@
   #advisor-pw{width:100%; box-sizing:border-box; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; font-size:16px; text-align:center; margin-top:10px;}
   #advisor-pw:focus, #advisor-select:focus{outline:none; border-color:var(--accent);}
   #advisor-login-msg{display:none; font-size:12.5px; color:#C0392B; margin-top:9px; line-height:1.5;}
+  /* 비밀번호 입력칸 옆 눈(보기) 아이콘 — 2026-08-15 추가 */
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:44px !important;}
+  .pw-eye{position:absolute; right:5px; top:50%; transform:translateY(-50%); width:32px; height:32px; border:none; background:transparent; cursor:pointer; font-size:17px; line-height:1; display:flex; align-items:center; justify-content:center; color:var(--ink-mute); padding:0; border-radius:8px;}
+  .pw-eye:active{background:var(--paper);}
   /* 홈 클라우드 상태 */
   .cloud-bar{display:flex; align-items:center; gap:8px; justify-content:center; font-size:12px; color:var(--ink-mute); margin-top:4px;}
   .cloud-dot{width:9px; height:9px; border-radius:50%; background:#10A87F; display:inline-block;}
