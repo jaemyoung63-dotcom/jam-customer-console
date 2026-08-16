@@ -6,6 +6,27 @@ function togglePw(id, btn){
   if(btn){ btn.textContent = show ? '🙈' : '👁'; btn.setAttribute('aria-label', show?'비밀번호 숨기기':'비밀번호 보기'); }
 }
 
+/* ---------- AI 결과 텍스트: 개조식(불릿) 변환 + 핵심 단어 색상 강조 ---------- */
+/* hlText: 이미 esc() 처리된 안전한 문자열에 색을 입힘 (부족/위험류=빨강, 충분/확보류·핵심수치=파랑) */
+function hlText(s){
+  s=String(s||'');
+  s=s.replace(/(\d[\d,]*\s*(?:만원|억원|원|%|세|개월|년))/g, '<span style="color:#1a56db;font-weight:700">$1</span>');
+  s=s.replace(/(부족|위험|미흡|취약|시급|불충분|확인\s*필요|공백|미가입|해지|만기\s*임박|갱신형)/g, '<span style="color:#c0392b;font-weight:700">$1</span>');
+  s=s.replace(/(충분|확보|적정|우수|안정적|완료|비갱신형)/g, '<span style="color:#1a56db;font-weight:700">$1</span>');
+  return s;
+}
+/* bulletize: 문장 단위 줄글(raw, 미이스케이프)을 개조식 불릿 목록 HTML로 변환 */
+function bulletize(text){
+  const raw=String(text||'').trim(); if(!raw) return '';
+  const parts=raw.split(/\n+/)
+    .flatMap(line=>line.split(/(?<=[.!?])\s+(?=[가-힣A-Za-z0-9"'])/))
+    .map(x=>x.trim()).filter(Boolean);
+  if(!parts.length) return '';
+  let h='';
+  parts.forEach(p=>{ h+='<div style="padding:2px 0 2px 2px">· '+hlText(esc(p))+'</div>'; });
+  return h;
+}
+
 /* ---------- 상수 ---------- */
 const AGES=['20대','30대','40대','50대','60대+'];
 const PRODUCTS=['종신','정기','암','건강','실손','연금저축','어린이','CI'];

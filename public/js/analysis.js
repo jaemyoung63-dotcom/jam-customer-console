@@ -522,7 +522,7 @@ function renderAnalysisResult(d, date){
   d=rescueResult(d);
   const box=document.getElementById('anresult-body'); if(!box) return; lastAnalysis=d; let h='';
   if(date) h+='<div class="meta" style="margin:0 2px 8px">분석일 '+esc(date)+'</div>';
-  if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.6;color:var(--ink-soft)">'+esc(d.summary)+'</div></div>';
+  if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.7;color:var(--ink-soft)">'+bulletize(d.summary)+'</div></div>';
   h+='<div class="btn-grid">';
   if(d.areas&&d.areas.length) h+='<button class="btn ghost" onclick="showAreas()">영역별 판정</button>';
   if(d.priorities&&d.priorities.length) h+='<button class="btn ghost" onclick="showPriorities()">보강 우선순위</button>';
@@ -551,7 +551,7 @@ function showAreas(){
   (d.areas||[]).forEach((a,i,arr)=>{
     const lv=a.level||''; const cls=lv==='충분'?'ok':(lv==='보통'?'hold':'no'); const col=lv==='충분'?'var(--ok)':(lv==='보통'?'var(--hold)':'var(--no)');
     h+='<div style="display:flex;gap:10px;padding:12px 4px;border-left:3px solid '+col+';padding-left:12px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'">'
-      +'<div style="flex:1"><div style="font-size:15px">'+esc(a.name||'')+'</div><div class="meta" style="margin-top:3px">'+esc(a.reason||'')+'</div></div>'
+      +'<div style="flex:1"><div style="font-size:15px">'+esc(a.name||'')+'</div><div class="meta" style="margin-top:3px">'+hlText(esc(a.reason||''))+'</div></div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'
       +'<span class="badge b-'+cls+'">'+esc(lv)+'</span>'+certBadge(a.certainty)
       +'</div></div>';
@@ -560,7 +560,7 @@ function showAreas(){
 }
 function showPriorities(){
   const d=lastAnalysis||{}; let h='';
-  (d.priorities||[]).forEach((p,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+esc(p)+'</span></div>';});
+  (d.priorities||[]).forEach((p,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+hlText(esc(p))+'</span></div>';});
   openSubPage('보강 우선순위', h||'<div class="stage-note">내용이 없습니다.</div>');
 }
 function showDetail(){
@@ -573,7 +573,7 @@ function linesBlock(v){
   let h='<div style="font-size:14px;line-height:1.75;color:var(--ink-soft)">';
   arr.forEach(x=>{ const s=String(x==null?'':x).trim(); if(!s) return;
     if(/^\[.*\]$/.test(s)) h+='<div style="font-weight:700;color:var(--ink);margin:10px 0 3px">'+esc(s)+'</div>';
-    else h+='<div style="padding:1px 0 1px 2px">· '+esc(s.replace(/^[-•]\s*/,''))+'</div>';
+    else h+='<div style="padding:1px 0 1px 2px">· '+hlText(esc(s.replace(/^[-•]\s*/,'')))+'</div>';
   });
   return h+'</div>';
 }

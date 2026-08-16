@@ -331,6 +331,15 @@
   .sheet .close{position:absolute;}
   .handle{width:38px; height:4px; border-radius:2px; background:var(--line-strong); margin:0 auto 14px;}
 
+  /* 보장분석 결과 보는 창 — 휴대폰에서 전체화면으로 표시 · 2026-08-16 추가 */
+  @media(max-width:552px){
+    #ov-anresult, #ov-subpage{ align-items:stretch; }
+    #ov-anresult .sheet, #ov-subpage .sheet{
+      width:100%; max-width:100%; height:100%; max-height:100vh;
+      border-radius:0; padding-top:calc(18px + env(safe-area-inset-top));
+    }
+  }
+
   /* redaction */
   .redwrap{position:relative; width:100%; background:#0d0f12; border-radius:var(--radius-sm); overflow:hidden; touch-action:none; user-select:none;}
   .redwrap canvas{display:block; width:100%; height:auto;}

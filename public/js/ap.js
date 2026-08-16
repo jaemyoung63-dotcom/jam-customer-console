@@ -162,7 +162,7 @@ function renderPlanResult(d, date){
   h+='<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><span style="font-size:14px">잔여 부족율</span><span class="spacer"></span><span style="font-size:26px;font-weight:700;color:'+col+'">'+rate+'%</span></div>';
   h+='<div style="height:12px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+rate+'%;background:'+col+'"></div></div></div>';
   // 부족율 아래 요약창 (보장분석과 동일한 별도 카드)
-  if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.6;color:var(--ink-soft)">'+esc(d.summary)+'</div></div>';
+  if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.7;color:var(--ink-soft)">'+bulletize(d.summary)+'</div></div>';
   h+='<div class="btn-grid">';
   if(hasLines(d.planDetail)) h+='<button class="btn primary" onclick="showPlanDetail()">상세 분석</button>';
   if(pools.some(p=>p.poolType==='episode')) h+='<button class="btn ghost" onclick="showEpisodes()">🗣 참고 에피소드</button>';
@@ -203,7 +203,7 @@ function showAfterGaps(){
 }
 function showRecommend(){
   const d=lastPlan||{}; let h='';
-  (d.recommend||[]).forEach((x,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+esc(x)+'</span></div>';});
+  (d.recommend||[]).forEach((x,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+hlText(esc(x))+'</span></div>';});
   openSubPage('보완·추가 제안', h||'<div class="stage-note">내용이 없습니다.</div>');
 }
 function showPlanDetail(){
