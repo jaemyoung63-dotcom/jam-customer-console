@@ -1,3 +1,11 @@
+/* ---------- 비밀번호 눈 표시(입력 내용 보기) ---------- */
+function togglePw(id, btn){
+  const el=document.getElementById(id); if(!el) return;
+  const show = el.type==='password';
+  el.type = show ? 'text' : 'password';
+  if(btn){ btn.textContent = show ? '🙈' : '👁'; btn.setAttribute('aria-label', show?'비밀번호 숨기기':'비밀번호 보기'); }
+}
+
 /* ---------- 상수 ---------- */
 const AGES=['20대','30대','40대','50대','60대+'];
 const PRODUCTS=['종신','정기','암','건강','실손','연금저축','어린이','CI'];
@@ -203,9 +211,6 @@ async function cloudUpload(){
 function cloudLogout(){
   cloudOn=false; cloudPW=''; advisorId=''; advisorPw=''; advisorName='';
   try{ localStorage.removeItem('cloudPW'); localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); }catch(e){}
-  const ova=document.getElementById('ov-advisor'); if(ova) ova.classList.remove('show');
-  const ovAdmin=document.getElementById('ov-admin'); if(ovAdmin) ovAdmin.classList.remove('show');
-  document.body.style.overflow='';
   showLogin();
 }
 /* 담당자만 바꾸기(사이트 로그인은 유지) — 같은 기기를 다른 담당자가 이어서 쓸 때.

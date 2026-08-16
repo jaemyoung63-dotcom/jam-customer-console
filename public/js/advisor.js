@@ -56,7 +56,8 @@ function renderAdminGate(){
   const b=document.getElementById('admin-body'); if(!b) return;
   b.innerHTML =
     '<div class="su-hero"><h3>관리자 비밀번호</h3><p>담당자를 추가·삭제하거나 비밀번호를 초기화하려면 관리자 비밀번호가 필요합니다. (앱 공통 비밀번호와는 다른 별도 비밀번호입니다 · Cloudflare 환경변수 <b>ADMIN_PASSWORD</b>)</p></div>'
-    +'<input class="t" type="password" id="admin-gate-pw" placeholder="관리자 비밀번호" onkeydown="if(event.key===\'Enter\')doAdminGateSubmit()">'
+    +'<div class="pw-wrap"><input class="t" type="password" id="admin-gate-pw" placeholder="관리자 비밀번호" onkeydown="if(event.key===\'Enter\')doAdminGateSubmit()">'
+    +'<button type="button" class="pw-eye" onclick="togglePw(\'admin-gate-pw\',this)" aria-label="비밀번호 보기">👁</button></div>'
     +'<div id="admin-gate-msg" style="display:none;color:#C0392B;font-size:12.5px;margin-top:8px"></div>'
     +'<button class="btn primary wide" style="margin-top:12px" onclick="doAdminGateSubmit()">확인</button>';
   setTimeout(()=>{ const i=document.getElementById('admin-gate-pw'); if(i) i.focus(); }, 100);
@@ -102,7 +103,8 @@ function renderAdminList(d){
 
   h+='<div class="card" style="margin-bottom:14px"><div style="font-weight:700;margin-bottom:8px">담당자 추가</div>'
     +'<input class="t" id="admin-add-name" placeholder="이름" style="margin-bottom:8px">'
-    +'<input class="t" type="password" id="admin-add-pw" placeholder="개인 비밀번호(4자 이상)">'
+    +'<div class="pw-wrap"><input class="t" type="password" id="admin-add-pw" placeholder="개인 비밀번호(4자 이상)">'
+    +'<button type="button" class="pw-eye" onclick="togglePw(\'admin-add-pw\',this)" aria-label="비밀번호 보기">👁</button></div>'
     +'<button class="btn primary wide" style="margin-top:10px" onclick="doAdminAddAdvisor()">추가</button>'
     +'<div id="admin-add-msg" style="display:none;color:#C0392B;font-size:12.5px;margin-top:8px"></div></div>';
 
@@ -125,11 +127,23 @@ function renderAdminList(d){
         +'<button class="btn ghost sm" onclick="doAdminResetPw(\''+a.id+'\',\''+esc(a.name).replace(/'/g,"\\'")+'\')">비밀번호초기화</button>'
         +(((unowned.customers||unowned.pools))?'<button class="btn ghost sm" onclick="doAdminAssignUnowned(\''+a.id+'\')">기존자료 받기</button>':'')
         +'<button class="btn ghost sm" onclick="doAdminReassignPrompt(\''+a.id+'\',\''+esc(a.name).replace(/'/g,"\\'")+'\')">자료 이전</button>'
+        +'<button class="btn ghost sm" onclick="doCopyAiKeyVarName(\''+a.id+'\',\''+esc(a.name).replace(/'/g,"\\'")+'\')">AI키 변수명 복사</button>'
         +'<button class="btn danger sm" onclick="doAdminDeleteAdvisor(\''+a.id+'\',\''+esc(a.name).replace(/'/g,"\\'")+'\')">삭제</button>'
         +'</div></div>';
     });
   }
   b.innerHTML=h;
+}
+
+async function doCopyAiKeyVarName(id, name){
+  const varName = 'ANTHROPIC_KEY_' + id;
+  try{
+    await navigator.clipboard.writeText(varName);
+    toast('✓ "'+name+'" 담당자의 AI키 변수명을 복사했습니다. Cloudflare "Variables and secrets"에서 이름 칸에 그대로 붙여넣으세요.');
+    setTimeout(toastHide,4200);
+  }catch(e){
+    alert(name+' 담당자의 AI키 변수명(복사 실패, 직접 적어주세요):\n\n'+varName);
+  }
 }
 
 async function doAdminSetupSchema(){
