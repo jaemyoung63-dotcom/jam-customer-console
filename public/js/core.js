@@ -227,9 +227,10 @@ async function mergeCloud(d){
 }
 async function cloudUpload(){
   if(!cloudOn){ alert('먼저 클라우드에 로그인하세요.'); return; }
-  if(!customers.length && !pools.length){ alert('올릴 자료가 없습니다.'); return; }
-  const d=await cloudCall({pw:cloudPW, advisorId, advisorPw, action:'bulkSave', customers, pools});
-  if(d&&d.ok){ localHasUnsynced=false; alert('✓ 클라우드에 올렸습니다.\n고객 '+((d.saved&&d.saved.customers)||customers.length)+'명, 참조 '+((d.saved&&d.saved.pools)||pools.length)+'건'); goHome(); }
+  if(!customers.length){ alert('올릴 고객 자료가 없습니다.'); return; }
+  // 2026-08-17: 참조풀은 이제 공용이라 이 업로드로는 올리지 않는다(관리자 화면에서만 관리).
+  const d=await cloudCall({pw:cloudPW, advisorId, advisorPw, action:'bulkSave', customers, pools:[]});
+  if(d&&d.ok){ localHasUnsynced=false; alert('✓ 클라우드에 올렸습니다.\n고객 '+((d.saved&&d.saved.customers)||customers.length)+'명'); goHome(); }
   else alert('업로드 실패: '+((d&&d.error)||'알 수 없음'));
 }
 function cloudLogout(){
@@ -413,7 +414,9 @@ function updateCloudUI(){
 /* 첫 화면 두 창 */
 function enterConnected(){ appMode='connected'; document.body.setAttribute('data-mode','connected'); currentCustId=null; go('customers'); }
 function enterSeparate(){ appMode='separate'; document.body.setAttribute('data-mode','separate'); currentCustId=null; go('customers'); }
-function onFab(){ if(curScreen==='customers') openCustomer(null); else if(curScreen==='pools') openPool(null); }
+// 2026-08-17: 참조풀은 이제 공용(관리자 화면에서만 추가·수정)이라, 이 화면(+ 버튼)에서는
+// 더 이상 새 자료를 추가하지 않는다 — 안내만 띄운다.
+function onFab(){ if(curScreen==='customers') openCustomer(null); else if(curScreen==='pools'){ toast('참조풀 자료 추가·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.'); setTimeout(toastHide,2200); } }
 
 /* ---------- chip helpers ---------- */
 function chipGroup(el, items, selected, multi, onchange){

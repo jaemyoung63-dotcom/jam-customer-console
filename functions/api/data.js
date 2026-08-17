@@ -29,8 +29,23 @@
 //   { pw, adminPw, action:'adminDeleteAdvisor', id }               → 담당자 삭제(소유 자료 없을 때만)
 //   { pw, adminPw, action:'adminAssignUnowned', id }               → 소유자 없는 기존 자료를 이 담당자에게 배정
 //   { pw, adminPw, action:'adminReassignAll', fromId, toId }       → 한 담당자의 자료를 통째로 다른 담당자에게 이전
+//   { pw, adminPw, action:'adminListPools' }                       → 공용 참조풀 전체 목록(비공개 포함, 관리자 화면용)
+//   { pw, adminPw, action:'adminSavePool', item:{...,published,globalPinned} } → 공용 참조풀 1건 저장(upsert)
+//   { pw, adminPw, action:'adminDeletePool', id }                  → 공용 참조풀 1건 삭제
+//
+// 2026-08-17: 참조풀(카달로그·에피소드·상담사례·설계서)은 더 이상 담당자 개인 소유가 아니라
+// owner='shared'로 통합된 공용 자료다. 관리자 화면에서만 추가·수정·삭제·공개여부·전역고정을
+// 관리하고, "공개(published)" 표시된 것만 담당자들의 load/advisorLogin 응답에 실린다.
 
 import { checkSitePassword, checkAdminPassword, checkAdvisor, ensureSchema, ownerBelongsToAdvisor, sha256Hex, newAdvisorId, isoNow } from '../_lib/advisors.js';
+
+// 2026-08-17 참조풀 공용화: 참조풀(카달로그·에피소드·상담사례·설계서)은 더 이상 담당자 개인
+// 소유가 아니라, owner='shared'라는 고정 값으로 저장되는 "공용 자료"다. 관리자 화면에서만
+// 추가·수정·삭제하고(adminSavePool/adminDeletePool), 그중 "공개"(published:true) 표시된
+// 것만 담당자들의 load/advisorLogin 응답에 포함되어 실제 분석에 쓰인다.
+// "전역 고정"(globalPinned:true)은 고객이 누구든 항상 같은 내용으로 나가게 해서
+// 프롬프트 캐싱이 재사용되게 하는 표시(functions/api/analyze.js에서 사용).
+const SHARED_OWNER = 'shared';
 
 function json(obj, status) {
   return new Response(JSON.stringify(obj), {
@@ -123,7 +138,11 @@ export async function onRequestPost(context) {
 
     if (action === 'advisorLogin' || action === 'load') {
       const cust = await env.DB.prepare('SELECT data FROM customers WHERE owner = ?').bind(advisorId).all();
-      const pool = await env.DB.prepare('SELECT data FROM pools WHERE owner = ?').bind(advisorId).all();
+      // 참조풀은 이제 담당자 개인 소유가 아니라 공용(owner='shared') + "공개" 표시된 것만 받는다.
+      // ORDER BY id로 순서를 고정한다 — poolFixedText/poolDynamicText(analysis.js)가 "전역 고정"
+      // 자료를 매번 같은 순서로 나열해야 프롬프트 캐싱이 재사용된다(순서가 흔들리면 글자가
+      // 하나라도 달라져 캐시가 매번 새로 써진다).
+      const pool = await env.DB.prepare("SELECT data FROM pools WHERE owner = ? AND json_extract(data,'$.published') = 1 ORDER BY id").bind(SHARED_OWNER).all();
       const customers = (cust.results || []).map(r => safeParse(r.data)).filter(Boolean);
       const pools = (pool.results || []).map(r => safeParse(r.data)).filter(Boolean);
       return json({ ok: true, customers, pools, advisor: advisorCheck.advisor });
@@ -262,7 +281,9 @@ export async function onRequestPost(context) {
 
     if (action === 'bulkSave') {
       const customers = Array.isArray(body.customers) ? body.customers : [];
-      const pools = Array.isArray(body.pools) ? body.pools : [];
+      // 2026-08-17: 참조풀은 이제 공용(owner='shared')이라 담당자 개인 백업 복원으로 되돌리면
+      // 안 된다(잘못하면 공용 자료가 그 담당자 개인 소유로 다시 나뉘어버림). 참조풀 복원은
+      // 관리자 화면(adminSavePool)에서만 하도록, 여기서는 고객 자료만 처리한다.
       const now = new Date().toISOString();
       const stmts = [];
       // updated 컬럼은 각 레코드 자신의 updated 필드를 그대로 쓴다(saveCustomer/savePool과 동일한 규칙 —
@@ -272,12 +293,8 @@ export async function onRequestPost(context) {
         if (!c || !c.id) continue;
         stmts.push(env.DB.prepare('INSERT INTO customers (id, data, updated, owner) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated, owner=excluded.owner').bind(String(c.id), JSON.stringify(c), c.updated || now, advisorId));
       }
-      for (const p of pools) {
-        if (!p || !p.id) continue;
-        stmts.push(env.DB.prepare('INSERT INTO pools (id, data, updated, owner) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated, owner=excluded.owner').bind(String(p.id), JSON.stringify(p), p.updated || now, advisorId));
-      }
       if (stmts.length) await env.DB.batch(stmts);
-      return json({ ok: true, saved: { customers: customers.length, pools: pools.length } });
+      return json({ ok: true, saved: { customers: customers.length, pools: 0 } });
     }
 
     return json({ error: '알 수 없는 action: ' + action }, 400);
@@ -363,6 +380,41 @@ async function handleAdmin(env, body, action) {
     const rc = await env.DB.prepare('UPDATE customers SET owner = ? WHERE owner IS NULL').bind(id).run();
     const rp = await env.DB.prepare('UPDATE pools SET owner = ? WHERE owner IS NULL').bind(id).run();
     return json({ ok: true, assigned: { customers: (rc.meta && rc.meta.changes) || 0, pools: (rp.meta && rp.meta.changes) || 0 } });
+  }
+
+  // ---------- 참조풀(공용) 관리 — 2026-08-17 추가 ----------
+  // 참조풀은 개별 담당자 소유가 아니라 owner='shared'로 통합 관리한다. "공개"(published)
+  // 표시된 것만 담당자들의 load 응답에 실려 실제 상담·분석에 쓰이고, "전역 고정"(globalPinned)
+  // 표시된 것은 고객이 바뀌어도 항상 같은 내용으로 나가 프롬프트 캐싱이 재사용된다.
+  if (action === 'adminListPools') {
+    const r = await env.DB.prepare('SELECT data, updated FROM pools WHERE owner = ? ORDER BY updated DESC').bind(SHARED_OWNER).all();
+    const pools = (r.results || []).map(row => {
+      const p = safeParse(row.data);
+      if (p) p.updated = row.updated;
+      return p;
+    }).filter(Boolean);
+    return json({ ok: true, pools });
+  }
+
+  if (action === 'adminSavePool') {
+    const item = body.item;
+    if (!item || !item.id) return json({ error: 'id가 없는 자료' }, 400);
+    const dataToStore = Object.assign({}, item, {
+      published: !!item.published,
+      globalPinned: !!item.globalPinned
+    });
+    const updatedVal = item.updated || isoNow();
+    await env.DB.prepare(
+      'INSERT INTO pools (id, data, updated, owner) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated, owner=excluded.owner'
+    ).bind(String(item.id), JSON.stringify(dataToStore), updatedVal, SHARED_OWNER).run();
+    return json({ ok: true });
+  }
+
+  if (action === 'adminDeletePool') {
+    const id = String(body.id || '').trim();
+    if (!id) return json({ error: 'id가 필요합니다.' }, 400);
+    await env.DB.prepare('DELETE FROM pools WHERE id = ? AND owner = ?').bind(id, SHARED_OWNER).run();
+    return json({ ok: true });
   }
 
   if (action === 'adminReassignAll') {
