@@ -3,27 +3,42 @@
 ========================================================= */
 function renderCustomers(){
   header('고객', customers.length+'명 · 방문예정·상담·계약 관리', null);
-  // 이름 검색 + 마이크(같이 붙여서)
+  ensureCustToolbar();
+  renderCustFilterChips();
+  renderCustResults();
+}
+/* 검색창(input)은 화면에 처음 들어올 때 딱 한 번만 만든다. 한글 등은 자모를 조합해서
+   완성되는데(예: ㄱ+ㅏ+ㅁ→감), 글자를 치는 도중에 이 input을 통째로 다시 만들어(지웠다 새로
+   그려서) 바꿔치기하면 브라우저가 "지금 조합 중이던 칸"을 잃어버려서 글자가 깨져 보인다
+   (예: "감"이 "ㄱㅏㅁ"으로 따로 남음). 그래서 검색어가 바뀌어도 이 input 자체는 절대
+   다시 만들지 않고(ensureCustToolbar에서 이미 있으면 건너뜀), 그 아래 결과 목록만 새로 그린다. */
+function ensureCustToolbar(){
+  if(document.getElementById('cust-search')) return;
   const micOn=(typeof voiceSupported==='function' && voiceSupported());
   let bar='<div class="row" style="margin-bottom:12px;align-items:center;gap:8px">'
     +'<div style="position:relative;flex:1;min-width:0"><input class="t" id="cust-search" placeholder="고객 이름으로 찾기" value="'+esc(custSearch)+'" oninput="onCustSearch(this.value)" oncompositionstart="onCustSearchCompositionStart()" oncompositionend="onCustSearchCompositionEnd(this.value)" style="padding-right:32px;width:100%">'
     +'<span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.55;font-size:14px">🔍</span></div>'
     +(micOn?'<button class="btn ghost sm" id="hdr-mic-btn" style="flex-shrink:0" onclick="startListVoiceCommand()">🎤</button>':'')
     +'</div>';
-  // filter bar
-  bar+='<div class="chips" style="margin-bottom:8px;">';
-  ['전체',...SEGMENTS].forEach(s=>{ bar+='<div class="chip'+(custFilter.seg===s?' on':'')+'" onclick="setCF(\'seg\',\''+s+'\')">'+s+'</div>'; });
-  bar+='</div><div class="chips" style="margin-bottom:14px;">';
-  bar+='<div class="chip'+(custFilter.src==='전체'?' on':'')+'" onclick="setCF(\'src\',\'전체\')">전체</div>';
-  SOURCES.forEach(([v,l])=>{ bar+='<div class="chip'+(custFilter.src===v?' on':'')+'" onclick="setCF(\'src\',\''+v+'\')">'+l+'</div>'; });
-  bar+='</div>';
-
+  bar+='<div class="chips" id="cust-seg-chips" style="margin-bottom:8px;"></div>';
+  bar+='<div class="chips" id="cust-src-chips" style="margin-bottom:14px;"></div>';
+  const box=document.getElementById('cust-toolbar'); if(box) box.innerHTML=bar;
+}
+function renderCustFilterChips(){
+  let segHtml='';
+  ['전체',...SEGMENTS].forEach(s=>{ segHtml+='<div class="chip'+(custFilter.seg===s?' on':'')+'" onclick="setCF(\'seg\',\''+s+'\')">'+s+'</div>'; });
+  const segEl=document.getElementById('cust-seg-chips'); if(segEl) segEl.innerHTML=segHtml;
+  let srcHtml='<div class="chip'+(custFilter.src==='전체'?' on':'')+'" onclick="setCF(\'src\',\'전체\')">전체</div>';
+  SOURCES.forEach(([v,l])=>{ srcHtml+='<div class="chip'+(custFilter.src===v?' on':'')+'" onclick="setCF(\'src\',\''+v+'\')">'+l+'</div>'; });
+  const srcEl=document.getElementById('cust-src-chips'); if(srcEl) srcEl.innerHTML=srcHtml;
+}
+function renderCustResults(){
   let list = customers.slice().sort((a,b)=>b.updated.localeCompare(a.updated));
   if(custFilter.seg!=='전체') list=list.filter(c=>c.seg===custFilter.seg);
   if(custFilter.src!=='전체') list=list.filter(c=>c.source===custFilter.src);
   if((custSearch||'').trim()) list=list.filter(c=>(c.name||'').includes(custSearch.trim()));
 
-  let html=bar;
+  let html='';
   if(list.length===0){
     html += (custSearch||'').trim()
       ? '<div class="empty"><div class="big">\''+esc(custSearch.trim())+'\' 이름의 고객이 없어요</div>검색어를 확인하거나 지워보세요.</div>'
@@ -47,23 +62,16 @@ function renderCustomers(){
   html+='<div class="divider"></div>';
   html+='<button class="btn primary wide add-btn" onclick="openCustomer(null)">＋ 고객 추가</button>';
   html+='<div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="document.getElementById(\'import-cust-input\').click()">불러오기(복원)</button></div>';
-  document.getElementById('cust-list').innerHTML=html;
+  const box=document.getElementById('cust-results'); if(box) box.innerHTML=html;
 }
-function setCF(k,v){custFilter[k]=v; renderCustomers();}
-/* 이름 검색: 매번 다시 그리면 입력 커서가 끊기므로, 다시 그린 뒤 포커스·커서 위치를 복원.
-   한글 등은 자모를 조합해서 완성되는데(예: ㄱ+ㅏ+ㅁ→감), 조합 중에 매 키 입력마다
-   input을 통째로 다시 그려버리면 브라우저가 조합하던 상태를 잃어버려서 글자가
-   깨져 보인다(예: "감"이 "ㄱㅏㅁ"으로). 그래서 조합 중(_imeComposing=true)에는
-   화면을 다시 그리지 않고, 조합이 끝난 뒤(oncompositionend)에만 다시 그린다. */
+function setCF(k,v){custFilter[k]=v; renderCustFilterChips(); renderCustResults();}
 let _imeComposing=false;
 function onCustSearchCompositionStart(){ _imeComposing=true; }
 function onCustSearchCompositionEnd(v){ _imeComposing=false; onCustSearch(v); }
 function onCustSearch(v){
   custSearch=v;
   if(_imeComposing) return;
-  renderCustomers();
-  const si=document.getElementById('cust-search');
-  if(si){ si.focus(); try{ const p=si.value.length; si.setSelectionRange(p,p); }catch(e){} }
+  renderCustResults(); // 검색창(input)은 절대 건드리지 않고, 결과 목록만 새로 그린다
 }
 
 async function openCustomer(id){
