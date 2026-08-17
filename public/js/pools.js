@@ -569,15 +569,29 @@ function renderPools(){
 async function viewPoolItem(id){
   const p=pools.find(x=>x.id===id); if(!p) return;
   const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+  const toc=p.tocSummary||p.summaryFull||'';       // 새 형식(목차식 요약) 우선, 예전 형식(summaryFull)은 폴백
+  const kc=p.keyContent||p.bodyFull||p.body||'';   // 새 형식(개조식 핵심내용) 우선, 예전 형식(원문)은 폴백
   let h='';
   if(p.result){ const rc=RESULTS.find(r=>r[0]===p.result); h+='<span class="badge b-'+(rc?rc[1]:'hold')+'" style="margin-bottom:8px;display:inline-block">'+esc(p.result)+'</span>'; }
   if(tags) h+='<div class="pill-tags" style="margin-bottom:12px">'+tags+'</div>';
-  if(p.summaryFull) h+='<div style="font-weight:700;margin-bottom:4px">AI 정리 요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(p.summaryFull)+'</div>';
-  const full=p.bodyFull||p.body||'';
-  h+='<div style="font-weight:700;margin-bottom:4px">'+(p.summaryFull?'전체 원문':'내용')+'</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(full||'(내용 없음)')+'</div>';
+  if(toc) h+='<div style="font-weight:700;margin-bottom:4px">요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(toc)+'</div>';
+  h+='<div style="font-weight:700;margin-bottom:4px">'+(toc?'핵심내용':'내용')+'</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(kc||'(내용 없음)')+'</div>';
+  if(p.images&&p.images.length) h+='<div style="font-weight:700;margin:16px 0 4px">첨부 자료</div><div class="thumbs" id="poolview-thumbs"></div>';
   if(p.audio) h+='<div id="poolview-audio" style="margin-top:16px"></div>';
   h+='<div class="meta" style="margin-top:16px">✎ 내용 수정·삭제는 "⚙ 관리자 화면 → 참조풀 관리"에서만 할 수 있어요.</div>';
   openSubPage(p.title||'참조 자료', h);
+  if(p.images&&p.images.length){
+    const wrap=document.getElementById('poolview-thumbs');
+    if(wrap){
+      for(const ref of p.images){
+        const rec=await idbGet('images',ref);
+        const d=document.createElement('div'); d.className='thumb';
+        if(rec&&rec.blob) d.innerHTML='<img src="'+blobUrl(rec.blob)+'" onclick="openLightbox(this.src)">';
+        else d.innerHTML='<span class="k">아직 안 내려받아졌어요</span>';
+        wrap.appendChild(d);
+      }
+    }
+  }
   if(p.audio){
     const rec=await idbGet('images',p.audio);
     const box=document.getElementById('poolview-audio');

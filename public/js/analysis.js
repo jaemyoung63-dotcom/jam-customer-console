@@ -366,7 +366,14 @@ async function getCustPlanText(c, box){
    체크된 게 없으면 상품·상황 태그가 많이 겹치는 자료를 자동으로 찾아 같은 방식으로 지시한다.
    이 지시문 자체는 고객마다 달라지므로 캐시 대상이 아니지만(poolDynamicText 등), 제목만 담기
    때문에 비용에는 거의 영향이 없다. */
-function poolItemText(p){ const r=p.result?(' ('+p.result+')'):''; return '['+(p.title||'')+']'+r+' '+(((p.bodyFull||p.body)||'').slice(0,700)); }
+/* 관리자 화면에서 AI로 정리한 "핵심내용"(개조식·4000자 이내)이 있으면 그것을 그대로 쓴다 —
+   이미 분석용으로 압축해둔 내용이라 더 자를 필요가 없다. 예전 형식(핵심내용 없이 원문만 있는
+   항목)은 지금처럼 700자로 잘라서 쓴다. */
+function poolItemText(p){
+  const r=p.result?(' ('+p.result+')'):'';
+  if(p.keyContent) return '['+(p.title||'')+']'+r+' '+p.keyContent;
+  return '['+(p.title||'')+']'+r+' '+(((p.bodyFull||p.body)||'').slice(0,700));
+}
 /* 전역 고정된 자료 — 고객 무관, 항상 동일(캐시 재사용 대상). 참조풀관리에 올라간 건 전부 전역 고정이므로
    사실상 "공개된 이 종류의 전체 목록"과 같다. */
 function poolFixedText(type, limit){
@@ -377,7 +384,7 @@ function poolFixedText(type, limit){
 async function getCatalogTextFixed(){
   const cats=pools.filter(p=>p.poolType==='catalog');
   if(!cats.length) return '';
-  return cats.map(cat=>{ const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt; return t; }).join('\n\n---\n\n').slice(0,6000);
+  return cats.map(cat=>{ const ctxt=cat.keyContent||cat.bodyFull||cat.body||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt; return t; }).join('\n\n---\n\n').slice(0,6000);
 }
 /* 에피소드·상담사례 매칭 점수(고객 태그와 겹치는 정도) */
 function poolMatchScore(p, c){

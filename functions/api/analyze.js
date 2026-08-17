@@ -276,6 +276,41 @@ export async function onRequestPost(context) {
     }
   }
 
+  // 참조풀 자료 정리 모드: 관리자가 넣은 원문을 "제목 키워드 / 목차식 요약 / 개조식 핵심내용"으로 정리.
+  // keyContent가 실제로 상담사례 매칭 보장분석 때 AI에게 전달되는 값이므로, 여기서 미리 압축해두면
+  // 그만큼 매 분석마다 드는 토큰(비용)이 줄어든다.
+  if (payload.mode === 'organize_pool') {
+    const src = (payload.text || '').trim();
+    if (!src) return json({ error: '정리할 내용이 없습니다.' }, 400);
+    const poolTypeLabel = (payload.poolTypeLabel || '참조 자료').toString().slice(0, 20);
+    const oModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const osys = [
+      '당신은 보험설계사의 참조 자료(' + poolTypeLabel + ')를 정리하는 조수입니다.',
+      '아래 원문을 읽고, 다른 설명 없이 아래 JSON 형식으로만 답하세요:',
+      '{"titleKeyword":"이 자료를 가장 잘 나타내는 8~16자 핵심 키워드","summary":"책의 목차처럼 이 자료의 구성을 3~8줄로 정리(각 줄 앞에 번호나 하이픈을 붙여 구조가 보이게)","keyContent":"실제 상담·설계 때 참고할 핵심 내용을 개조식(하이픈 -)으로 정리. 4000자를 넘지 않게. 인사말·사족 없이 사실·수치·조건 위주로."}',
+      '원문에 없는 내용은 지어내지 마세요.'
+    ].join('\n');
+    try {
+      const rr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: oModel, max_tokens: 3200, system: sysCached(osys), messages: [{ role: 'user', content: src.slice(0, 20000) }] })
+      });
+      const rd = await rr.json();
+      if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
+      const raw = (rd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      const parsed = parseModelJson(raw) || {};
+      return json({
+        titleKeyword: (parsed.titleKeyword || '').toString().slice(0, 40),
+        summary: (parsed.summary || '').toString().slice(0, 1200),
+        keyContent: (parsed.keyContent || '').toString().slice(0, 4000),
+        _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || oModel }
+      });
+    } catch (err) {
+      return json({ error: '정리 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+    }
+  }
+
   // 가입설계 분석 모드: 보장 분석 결과 + 가입설계서(사진 직접 판독)로 부족 보장·추가 제안 분석
   if (payload.mode === 'plan') {
     const cov = (payload.coverageText || '').trim();
