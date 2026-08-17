@@ -27,6 +27,38 @@ function bulletize(text){
   return h;
 }
 
+/* =========================================================
+   화면 모드(모바일 / PC·태블릿) 선택
+   로그인 화면에서 "모바일"/"PC·태블릿"을 직접 고르면 이 브라우저에 저장해서
+   다음에 접속할 때도 그대로 적용되고, 고른 적이 없으면 화면 폭(560px 기준)을
+   보고 자동으로 정해요.
+   ========================================================= */
+const VIEW_MODE_KEY = 'jam_view_mode'; // 저장되는 값: 'mobile' | 'desktop' (없으면 자동)
+function getViewModePref(){
+  try{ return localStorage.getItem(VIEW_MODE_KEY); }
+  catch(e){ return null; } // 시크릿 모드 등에서 저장이 막혀 있어도 자동 모드로 그냥 넘어가요
+}
+function setViewModePref(mode){
+  try{
+    if(mode) localStorage.setItem(VIEW_MODE_KEY, mode);
+    else localStorage.removeItem(VIEW_MODE_KEY);
+  }catch(e){ /* 저장이 안 돼도 화면 전환 자체는 바로 되게 둡니다 */ }
+  applyViewMode();
+}
+function applyViewMode(){
+  const pref = getViewModePref();
+  const isMobile = pref ? pref === 'mobile' : window.matchMedia('(max-width:560px)').matches;
+  document.documentElement.classList.toggle('view-mobile', isMobile);
+  document.documentElement.classList.toggle('view-desktop', !isMobile);
+}
+applyViewMode();
+window.addEventListener('resize', ()=>{ if(!getViewModePref()) applyViewMode(); });
+function pickViewMode(mode, btnEl){
+  setViewModePref(mode);
+  const wrap = btnEl && btnEl.closest ? btnEl.closest('#viewModePick') : document.getElementById('viewModePick');
+  if(wrap) wrap.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btnEl));
+}
+
 /* ---------- 상수 ---------- */
 const AGES=['20대','30대','40대','50대','60대+'];
 const PRODUCTS=['종신','정기','암','건강','실손','연금저축','어린이','CI'];
@@ -248,7 +280,15 @@ async function advisorSwitch(){
   if(typeof showAdvisorPicker==='function') showAdvisorPicker();
 }
 function loginMsg(m){ const el=document.getElementById('login-msg'); if(el){ el.textContent=m||''; el.style.display=m?'block':'none'; } }
-function showLogin(){ const ov=document.getElementById('ov-login'); if(ov){ ov.classList.add('show'); } const i=document.getElementById('login-pw'); if(i){ i.value=''; setTimeout(()=>i.focus(),100); } }
+function showLogin(){
+  const ov=document.getElementById('ov-login'); if(ov){ ov.classList.add('show'); }
+  const i=document.getElementById('login-pw'); if(i){ i.value=''; setTimeout(()=>i.focus(),100); }
+  // 화면 모드 선택 버튼이 지금 저장된(또는 자동 판단된) 값을 반영하도록 맞춰줍니다.
+  const pref=getViewModePref();
+  const isMobileNow = pref ? pref==='mobile' : window.matchMedia('(max-width:560px)').matches;
+  const wrap=document.getElementById('viewModePick');
+  if(wrap) wrap.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.mode===(isMobileNow?'mobile':'desktop')));
+}
 function hideLogin(){ const ov=document.getElementById('ov-login'); if(ov){ ov.classList.remove('show'); } }
 async function doLogin(){
   const pw=(document.getElementById('login-pw').value||'').trim();
