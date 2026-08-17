@@ -6,7 +6,7 @@
 // "ANTHROPIC_KEY_" + 담당자id 형식으로 그 담당자 전용 키(Anthropic Workspace API 키)를 추가하면
 // 되고, 없으면 지금처럼 공통 ANTHROPIC_API_KEY를 그대로 쓴다(둘 다 안 만들어도 기존과 동일하게 작동).
 
-import { checkSitePassword, checkAdvisor } from '../_lib/advisors.js';
+import { checkSitePassword, checkAdvisor, checkAdminPassword } from '../_lib/advisors.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -107,14 +107,24 @@ export async function onRequestPost(context) {
   const siteCheck = checkSitePassword(context.env, payload, json);
   if (!siteCheck.ok) return siteCheck.res;
 
-  // 2단계: 담당자 개인 비밀번호 확인 — 누구의 AI 사용인지 구분(비용 추적용 키 선택에도 씀).
-  const advisorCheck = await checkAdvisor(context.env, payload, json);
-  if (!advisorCheck.ok) return advisorCheck.res;
-  const advisorId = advisorCheck.advisor.id;
+  // 2단계: 누구의 AI 사용인지 확인.
+  // 'organize_pool'(관리자 "참조풀 관리" 화면의 AI 정리)은 특정 담당자 개인 자료가 아니라 전체
+  // 담당자가 공용으로 쓰는 자료를 관리자가 정리하는 작업이다. 그래서 담당자 로그인 대신 관리자
+  // 비밀번호(ADMIN_PASSWORD)로 확인한다 — 이미 "⚙ 관리자 화면"에 들어와 있으면(관리자 비밀번호를
+  // 한 번 입력했으면) 담당자를 따로 고르거나 개인 비밀번호를 또 입력하지 않아도 자동으로 진행된다.
+  let advisorId = '';
+  if (payload.mode === 'organize_pool') {
+    const adminCheck = checkAdminPassword(context.env, payload, json);
+    if (!adminCheck.ok) return adminCheck.res;
+  } else {
+    const advisorCheck = await checkAdvisor(context.env, payload, json);
+    if (!advisorCheck.ok) return advisorCheck.res;
+    advisorId = advisorCheck.advisor.id;
+  }
 
   // 담당자 전용 키(ANTHROPIC_KEY_<advisorId>)가 Cloudflare 환경변수에 있으면 그걸 쓰고,
-  // 없으면 기존처럼 공통 ANTHROPIC_API_KEY를 쓴다. 담당자별 키를 안 만들어도 그대로 작동한다.
-  const key = context.env['ANTHROPIC_KEY_' + advisorId] || context.env.ANTHROPIC_API_KEY;
+  // 없거나(또는 담당자 구분이 없는 organize_pool 같은 경우) 공통 ANTHROPIC_API_KEY를 쓴다.
+  const key = (advisorId && context.env['ANTHROPIC_KEY_' + advisorId]) || context.env.ANTHROPIC_API_KEY;
   if (!key) return json({ error: '서버에 API 키가 없습니다. Cloudflare 환경변수 ANTHROPIC_API_KEY를 설정하세요.' }, 500);
 
   const customer = payload.customer || {};
@@ -310,7 +320,7 @@ export async function onRequestPost(context) {
     const osys = [
       '당신은 보험설계사의 참조 자료(' + poolTypeLabel + ')를 정리하는 조수입니다.',
       '아래 원문을 읽고, 다른 설명 없이 아래 JSON 형식으로만 답하세요:',
-      '{"titleKeyword":"이 자료를 가장 잘 나타내는 8~16자 핵심 키워드","summary":"책의 목차처럼 이 자료의 구성을 3~8줄로 정리(각 줄 앞에 번호나 하이픈을 붙여 구조가 보이게)","keyContent":"실제 상담·설계 때 참고할 핵심 내용을 개조식(하이픈 -)으로 정리. 4000자를 넘지 않게. 인사말·사족 없이 사실·수치·조건 위주로."}',
+      '{"titleKeyword":"이 자료를 가장 잘 나타내는 8~16자 핵심 키워드","summary":"책의 목차처럼 이 자료의 구성을 3~8줄로 정리(각 줄 앞에 번호나 하이픈을 붙여 구조가 보이게)","keyContent":"실제 상담·설계 때 참고할 핵심 내용을 개조식(하이픈 -)으로 정리. 4000자를 넘지 않게. 인사말·사족 없이 사실·수치·조건 위주로.","tags":["나중에 비슷한 고객에게 이 자료를 자동으로 찾아 쓸 수 있도록, 상품·상황·나이대 등을 나타내는 짧은 한국어 키워드 3~8개(예: 종신보험, 은퇴설계, 40대, 사업가)"]}',
       '원문에 없는 내용은 지어내지 마세요.'
     ].join('\n');
     try {
@@ -323,10 +333,14 @@ export async function onRequestPost(context) {
       if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
       const raw = (rd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
       const parsed = parseModelJson(raw) || {};
+      const tags = Array.isArray(parsed.tags)
+        ? parsed.tags.map(t => String(t || '').trim()).filter(Boolean).slice(0, 8)
+        : [];
       return json({
         titleKeyword: (parsed.titleKeyword || '').toString().slice(0, 40),
         summary: (parsed.summary || '').toString().slice(0, 1200),
         keyContent: (parsed.keyContent || '').toString().slice(0, 4000),
+        tags: tags,
         transcript: transcript || undefined,
         _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || oModel }
       });

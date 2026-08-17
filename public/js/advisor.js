@@ -263,8 +263,9 @@ function renderAdminPools(){
     b.innerHTML=h;
     renderAdminPoolAudio();
     renderAdminPoolThumbs();
+    renderAdminPoolFileList();
     const textDrop=document.getElementById('ap-textdrop');
-    if(textDrop) enableDrop(textDrop, appendAdminPoolText, f=>(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
+    if(textDrop) enableDrop(textDrop, handleAdminPoolDropFile, f=>(f.type&&(f.type.indexOf('text')===0||f.type.indexOf('audio')===0))||/\.txt$/i.test(f.name||'')||/\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(f.name||''));
     const imgDrop=document.getElementById('ap-imgdrop');
     if(imgDrop) enableDrop(imgDrop, addAdminPoolImageDirect, f=>isPdfFile(f)||(f.type&&f.type.indexOf('image')===0));
     return;
@@ -324,25 +325,19 @@ function closeAdminPoolEditor(){ _adminPoolEditing=null; renderAdminPools(); }
 
 function renderAdminPoolEditorHtml(p){
   const label=(ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
-  let resultField='';
-  if(p.poolType==='case'){
-    resultField='<div style="font-size:12.5px;color:var(--ink-mute);margin:10px 0 4px">결과</div>'
-      +'<select class="t" id="ap-result">'
-      +['','성공','보류','실패'].map(r=>'<option value="'+r+'" '+(p.result===r?'selected':'')+'>'+(r||'(선택 안 함)')+'</option>').join('')
-      +'</select>';
-  }
   const kcLen=(p.keyContent||'').length;
   return '<div class="su-hero"><h3>'+(p._isNew?'새 '+label:label+' 편집')+'</h3></div>'
 
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin-bottom:4px">① 텍스트 자료 <span style="font-weight:400">· .txt 파일을 여러 개 한꺼번에 끌어다 놓을 수 있어요</span></div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin-bottom:4px">① 텍스트 자료 <span style="font-weight:400">· 텍스트(.txt)·음원 파일을 여러 개 한꺼번에 끌어다 놓을 수 있어요</span></div>'
     +'<div id="ap-textdrop" style="border:1.5px dashed var(--line-strong);border-radius:10px;padding:2px">'
-    +'<textarea class="t" id="ap-rawtext" rows="6" placeholder="내용을 직접 적거나, 텍스트 파일을 여기로 끌어다 놓으세요.">'+esc(p.rawText||'')+'</textarea>'
+    +'<textarea class="t" id="ap-rawtext" rows="6" placeholder="내용을 직접 적거나, 텍스트·음원 파일을 여기로 끌어다 놓으세요.">'+esc(p.rawText||'')+'</textarea>'
     +'</div>'
+    +'<div class="pill-tags" id="ap-filelist" style="margin-top:6px"></div>'
     +'<div class="row" style="gap:8px;margin-top:8px">'
     +'<button class="btn ghost sm" onclick="pickAdminPoolText()">📎 파일에서 불러오기</button>'
     +'<button class="btn btn-ai sm" onclick="organizeAdminPool()">🤖 AI로 정리</button>'
     +'</div>'
-    +'<div class="meta" style="margin-top:4px">"AI로 정리"를 누르면 위 텍스트를 읽고 제목·요약·핵심내용을 자동으로 만들어줘요.</div>'
+    +'<div class="meta" style="margin-top:4px">"AI로 정리"를 누르면 위 텍스트(+음원)를 읽고 제목·요약·핵심내용·태그를 자동으로 만들어줘요.</div>'
 
     +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">제목 <span style="font-weight:400">· AI 정리 후 자동으로 채워지며, 직접 고쳐도 돼요</span></div>'
     +'<input class="t" id="ap-title" value="'+esc(p.title||'')+'" placeholder="제목 (날짜 · 분류 · 핵심내용 형식으로 자동 생성)">'
@@ -359,13 +354,12 @@ function renderAdminPoolEditorHtml(p){
     +'<div class="thumbs" id="ap-thumbs"></div>'
     +'</div>'
 
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택)</div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택) <span style="font-weight:400">· 여러 개 넣어도 가장 최근 파일 1개만 쓰여요</span></div>'
     +'<div id="ap-audio"></div>'
     +'<div class="meta" style="margin-top:4px">"AI로 정리"를 누르면 이 음원도 먼저 글로 옮긴 뒤 요약·핵심내용에 합쳐져요 (Cloudflare에 Workers AI 바인딩을 추가해야 작동해요 — 아직이라면 안내를 확인하세요).</div>'
 
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다)</div>'
-    +'<input class="t" id="ap-tags" value="'+esc([...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].join(', '))+'" placeholder="예: 종신보험, 은퇴설계, 40대">'
-    +resultField
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다) <span style="font-weight:400">· AI 정리 후 자동으로 채워지며, 직접 고쳐도 돼요</span></div>'
+    +'<input class="t" id="ap-tags" value="'+esc([...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].join(', '))+'" placeholder="예: 종신보험, 은퇴설계, 40대 (AI로 정리를 누르면 자동으로 채워져요)">'
     +'<div class="row" style="gap:14px;margin-top:12px">'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="checkbox" id="ap-published" '+(p.published?'checked':'')+'>공개(전체 담당자)</label>'
     +'</div>'
@@ -391,27 +385,56 @@ function syncAdminPoolEditorFields(){
 }
 
 /* ① 텍스트 자료: 파일에서 글자만 그대로 읽어 rawText에 이어붙인다(AI 호출 없음 — "AI로 정리"를
-   눌러야 실제 AI가 돈다. 여러 파일을 한꺼번에 끌어다 놓아도 각 파일 내용이 순서대로 이어진다). */
+   눌러야 실제 AI가 돈다. 여러 파일을 한꺼번에 끌어다 놓아도 각 파일 내용이 순서대로 이어진다).
+   .txt(텍스트) 파일과 음원 파일을 한꺼번에 여러 개 골라도, 종류를 자동으로 구분해서 처리한다. */
 function pickAdminPoolText(){
   const inp=document.getElementById('txt-input'); inp.value='';
-  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await appendAdminPoolText(f);};
+  inp.onchange=async e=>{
+    const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null;
+    for(const f of fs){ await handleAdminPoolDropFile(f); }
+  };
   inp.click();
+}
+/* ①번 칸(드래그&드롭 포함)에 들어온 파일 한 개를 종류에 맞춰 처리하고, 처리한 파일 이름을
+   화면에 목록으로 보여준다(#ap-filelist). 텍스트 파일은 내용을 이어붙이고, 음원 파일은
+   음원 칸(#ap-audio)에 첨부한다 — 음원은 한 번에 한 개만 유지되므로, 여러 개를 넣으면
+   가장 최근 파일로 바뀐다(목록에는 넣은 파일이 전부 남아 무엇을 넣었는지 확인할 수 있다). */
+async function handleAdminPoolDropFile(file){
+  const p=_adminPoolEditing; if(!p||!file) return;
+  const isAudio=(file.type&&file.type.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(file.name||'');
+  if(isAudio) await attachAdminPoolAudioFile(file);
+  else await appendAdminPoolText(file);
+  p._droppedFiles=p._droppedFiles||[];
+  p._droppedFiles.push({name:file.name||(isAudio?'음원':'텍스트'), kind:isAudio?'audio':'text'});
+  renderAdminPoolFileList();
 }
 async function appendAdminPoolText(file){
   const p=_adminPoolEditing; if(!p) return;
   syncAdminPoolEditorFields();
   try{
     const full=(await file.text()||'').trim();
-    if(!full){ alert('파일에서 읽을 텍스트가 없습니다. (텍스트(.txt) 파일만 여기서 지원해요 — PDF·이미지는 아래 ④번 칸에 넣어주세요)'); return; }
+    if(!full){ alert('파일에서 읽을 텍스트가 없습니다. (텍스트(.txt) 파일·음원 파일만 여기서 지원해요 — PDF·이미지는 아래 ④번 칸에 넣어주세요)'); return; }
     p.rawText = p.rawText ? (p.rawText+'\n\n'+full) : full;
     const ta=document.getElementById('ap-rawtext'); if(ta) ta.value=p.rawText;
   }catch(err){ alert('파일 처리 실패: '+(err&&err.message?err.message:err)); }
 }
+/* ①번 칸에 지금까지 넣은 파일 이름 목록을 칩(chip) 형태로 보여준다. 편집을 새로 열면 비워진다
+   (실제 데이터는 rawText·audio에 이미 반영돼 있으므로, 이 목록은 "방금 무엇을 넣었는지"
+   확인용 표시일 뿐이다). */
+function renderAdminPoolFileList(){
+  const p=_adminPoolEditing; if(!p) return;
+  const wrap=document.getElementById('ap-filelist'); if(!wrap) return;
+  const files=p._droppedFiles||[];
+  wrap.innerHTML=files.map(f=>'<span class="pt">'+(f.kind==='audio'?'🎤 ':'📄 ')+esc(f.name)+'</span>').join('');
+}
 /* 서버(functions/api/analyze.js, mode:'organize_pool')에 텍스트를 보내
-   {titleKeyword, summary(목차식), keyContent(개조식·4000자 이내)}를 받아온다. */
+   {titleKeyword, summary(목차식), keyContent(개조식·4000자 이내), tags}를 받아온다.
+   이건 특정 담당자 개인 자료가 아니라 관리자가 공용 자료를 정리하는 작업이라, 담당자
+   개인 비밀번호가 아니라 이미 입력해둔 관리자 비밀번호(_adminPw)로 인증한다 — 그래서
+   담당자를 따로 고르라는 창이 뜨지 않고 바로 진행된다. */
 async function aiOrganizePool(text, poolTypeLabel, audioBase64){
   if(!cloudOn) throw new Error('AI 정리 기능은 로그인 후 사용할 수 있습니다.');
-  const body={pw:cloudPW, advisorId, advisorPw, mode:'organize_pool', text, poolTypeLabel};
+  const body={pw:cloudPW, adminPw:_adminPw, mode:'organize_pool', text, poolTypeLabel};
   if(audioBase64) body.audioBase64=audioBase64;
   const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   const data=await res.json();
@@ -445,6 +468,7 @@ async function organizeAdminPool(){
     p.title=(today()+' · '+label+(keyword?(' · '+keyword):'')).trim();
     p.tocSummary=r.summary||'';
     p.keyContent=(r.keyContent||'').slice(0,4000);
+    if(Array.isArray(r.tags) && r.tags.length){ p.free=r.tags; p.product=[]; p.situation=[]; p.age=[]; delete p._tagsRaw; }
     if(r.transcript) p.rawText = p.rawText ? (p.rawText+'\n\n[음원 인식 내용]\n'+r.transcript) : ('[음원 인식 내용]\n'+r.transcript);
     renderAdminPools();
   }catch(err){ _pg.done(); toastHide(); alert('AI 정리 실패: '+(err&&err.message?err.message:err)); }
@@ -529,13 +553,20 @@ function addAdminAudioBtn(wrap){
   const add=document.createElement('button'); add.className='btn ghost sm wide';
   add.textContent='＋ 음원 추가'; add.onclick=pickAdminPoolAudio; wrap.appendChild(add);
 }
+/* 음원 파일 하나를 실제로 첨부한다(기존 음원이 있으면 지우고 교체) — "＋ 음원 추가" 버튼과
+   ①번 드래그&드롭 칸(handleAdminPoolDropFile) 양쪽에서 공용으로 쓴다. */
+async function attachAdminPoolAudioFile(file){
+  const p=_adminPoolEditing; if(!p) return;
+  const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:file,created:today()});
+  if(p.audio) await idbDel('images',p.audio);
+  p.audio=rid; renderAdminPoolAudio();
+}
 function pickAdminPoolAudio(){
   const inp=document.getElementById('audio-input'); inp.value='';
   inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return;
-    const p=_adminPoolEditing; if(!p) return;
-    const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:f,created:today()});
-    if(p.audio) await idbDel('images',p.audio);
-    p.audio=rid; renderAdminPoolAudio();};
+    await attachAdminPoolAudioFile(f);
+    const p=_adminPoolEditing; if(p){ p._droppedFiles=p._droppedFiles||[]; p._droppedFiles.push({name:f.name||'음원',kind:'audio'}); renderAdminPoolFileList(); }
+  };
   inp.click();
 }
 async function removeAdminPoolAudio(){
