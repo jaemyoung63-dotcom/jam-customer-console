@@ -96,7 +96,7 @@ function renderAP(){
       const has=(c.ap&&c.ap.scripts&&c.ap.scripts[k])?' <span style="color:var(--ok);font-weight:700">✓ 생성됨</span>':'';
       h+='<label class="ap-ck"><input type="checkbox" class="ap-genck" value="'+k+'"'+(has?'':' checked')+'> '+label+has+'</label>';
     });
-    h+='<button class="btn primary wide" style="margin-top:10px" id="ap-genbtn" onclick="genApScripts()">🤖 체크된 단계 상담 멘트 생성</button>';
+    h+='<button class="btn btn-ai wide" style="margin-top:10px" id="ap-genbtn" onclick="genApScripts()">🤖 체크된 단계 상담 멘트 생성</button>';
     h+='</div>';
     h+='<div id="ap-prog" class="stage-note" style="margin-top:8px;display:none"></div>';
     h+='<div class="divider"></div><div class="row"><button class="btn primary grow" onclick="apGo(2)">다음 ›</button></div>';

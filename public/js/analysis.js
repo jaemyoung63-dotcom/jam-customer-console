@@ -142,7 +142,7 @@ function renderAnalysis(){
     if(hasAnalysis){
       html+='<button class="btn result-ready wide" style="margin-top:8px" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기 ›</button>';
     } else {
-      html+='<button class="btn primary wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">상담사례 매칭 보장분석</button>';
+      html+='<button class="btn btn-ai wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">🤖 상담사례 매칭 보장분석</button>';
     }
     html+='<div id="an-result" style="margin-top:14px"></div>';
     html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(3)">\ub2e4\uc74c: \uac00\uc785\uc124\uacc4 \u203a</button>';
@@ -151,7 +151,7 @@ function renderAnalysis(){
     html+='<label class="f" style="margin-top:12px">\uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0 <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \uc5ec\ub7ec \uc7a5 \ub4f1\ub85d</span></label>';
     html+='<div class="thumbs" id="an-plan-thumbs"></div>';
     const canPlan=hasAnalysis && (c.planImages&&c.planImages.length);
-    html+='<button class="btn '+(palist.length?'result-ready':'primary')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'\u2713 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc644\ub8cc \u00b7 \ub2e4\uc2dc \ubd84\uc11d':'\uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc2e4\ud589')+'</button>';
+    html+='<button class="btn '+(palist.length?'result-ready':'btn-ai')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'\u2713 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc644\ub8cc \u00b7 \ub2e4\uc2dc \ubd84\uc11d':'\ud83e\udd16 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc2e4\ud589')+'</button>';
     if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">\u203b \uba3c\uc800 \u2461 \ubcf4\uc7a5\ubd84\uc11d\uc744 \uc2e4\ud589\ud558\uc138\uc694.</div>';
     else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">\u203b \uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0\ub97c \uba3c\uc800 \ub4f1\ub85d\ud558\uc138\uc694.</div>';
         html+='<div id="an-plan-result" style="margin-top:14px"></div>';

@@ -276,6 +276,9 @@
   button.btn.btn-blue:active{ transform:translateY(3px); box-shadow:0 1px 0 #1888C0, 0 2px 6px rgba(24,136,192,.24); }
   button.btn.btn-green{background:linear-gradient(180deg,#4FD0A8,#20B98C); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #0E9070, 0 6px 14px rgba(16,168,127,.28);}
   button.btn.btn-green:active{ transform:translateY(3px); box-shadow:0 1px 0 #0E9070, 0 2px 6px rgba(16,168,127,.24); }
+  /* AI 실행 버튼 전용 색(보라) — 파란 primary/btn-blue와 구분해서 "AI가 대신 해주는 동작"임을 한눈에 표시 */
+  button.btn.btn-ai{background:linear-gradient(180deg,#C79CF5,#9955EA); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #7A2FD0, 0 6px 14px rgba(122,47,208,.32);}
+  button.btn.btn-ai:active{ transform:translateY(3px); box-shadow:0 1px 0 #7A2FD0, 0 2px 6px rgba(122,47,208,.28); }
   button.btn.danger{color:var(--no); border-color:var(--no-soft);}
   button.btn.wide{width:100%;}
   button.btn.sm{padding:7px 11px; font-size:12.5px;}
