@@ -280,9 +280,32 @@ export async function onRequestPost(context) {
   // keyContent가 실제로 상담사례 매칭 보장분석 때 AI에게 전달되는 값이므로, 여기서 미리 압축해두면
   // 그만큼 매 분석마다 드는 토큰(비용)이 줄어든다.
   if (payload.mode === 'organize_pool') {
-    const src = (payload.text || '').trim();
-    if (!src) return json({ error: '정리할 내용이 없습니다.' }, 400);
+    let src = (payload.text || '').trim();
     const poolTypeLabel = (payload.poolTypeLabel || '참조 자료').toString().slice(0, 20);
+
+    // 음원이 함께 왔으면 먼저 Cloudflare Workers AI(Whisper)로 글로 옮긴 뒤, 원문 뒤에 이어붙인다.
+    // 이 기능을 쓰려면 이 Pages 프로젝트에 "Workers AI" 바인딩(변수명 AI)이 추가되어 있어야 한다
+    // (Cloudflare 대시보드 → 프로젝트 → Settings → Functions → Bindings → Add → Workers AI → 이름 "AI").
+    const audioBase64 = (payload.audioBase64 || '').toString();
+    let transcript = '';
+    if (audioBase64) {
+      if (!context.env.AI) {
+        return json({ error: '음성인식을 쓰려면 Cloudflare Pages 프로젝트에 "Workers AI" 바인딩(변수명 AI)을 추가하고 다시 배포해야 합니다. (Settings → Functions → Bindings → Add → Workers AI)' }, 400);
+      }
+      try {
+        const binary = atob(audioBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const whisperRes = await context.env.AI.run('@cf/openai/whisper', { audio: Array.from(bytes) });
+        transcript = (whisperRes && whisperRes.text) ? String(whisperRes.text).trim() : '';
+        if (!transcript) return json({ error: '음성에서 글자를 읽어내지 못했습니다. 음원 길이가 너무 길거나 인식이 어려운 음질일 수 있어요.' }, 400);
+      } catch (err) {
+        return json({ error: '음성인식 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+      }
+    }
+    if (transcript) src = src ? (src + '\n\n[음원 인식 내용]\n' + transcript) : transcript;
+    if (!src) return json({ error: '정리할 내용이 없습니다.' }, 400);
+
     const oModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
     const osys = [
       '당신은 보험설계사의 참조 자료(' + poolTypeLabel + ')를 정리하는 조수입니다.',
@@ -304,6 +327,7 @@ export async function onRequestPost(context) {
         titleKeyword: (parsed.titleKeyword || '').toString().slice(0, 40),
         summary: (parsed.summary || '').toString().slice(0, 1200),
         keyContent: (parsed.keyContent || '').toString().slice(0, 4000),
+        transcript: transcript || undefined,
         _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || oModel }
       });
     } catch (err) {

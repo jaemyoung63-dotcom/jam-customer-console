@@ -361,7 +361,7 @@ function renderAdminPoolEditorHtml(p){
 
     +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택)</div>'
     +'<div id="ap-audio"></div>'
-    +'<div class="meta" style="margin-top:4px">AI가 음원 내용을 자동으로 글로 옮기지는 못해요 — 담당자 화면에서 재생만 할 수 있어요.</div>'
+    +'<div class="meta" style="margin-top:4px">"AI로 정리"를 누르면 이 음원도 먼저 글로 옮긴 뒤 요약·핵심내용에 합쳐져요 (Cloudflare에 Workers AI 바인딩을 추가해야 작동해요 — 아직이라면 안내를 확인하세요).</div>'
 
     +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다)</div>'
     +'<input class="t" id="ap-tags" value="'+esc([...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].join(', '))+'" placeholder="예: 종신보험, 은퇴설계, 40대">'
@@ -409,28 +409,43 @@ async function appendAdminPoolText(file){
 }
 /* 서버(functions/api/analyze.js, mode:'organize_pool')에 텍스트를 보내
    {titleKeyword, summary(목차식), keyContent(개조식·4000자 이내)}를 받아온다. */
-async function aiOrganizePool(text, poolTypeLabel){
+async function aiOrganizePool(text, poolTypeLabel, audioBase64){
   if(!cloudOn) throw new Error('AI 정리 기능은 로그인 후 사용할 수 있습니다.');
-  const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'organize_pool', text, poolTypeLabel})});
+  const body={pw:cloudPW, advisorId, advisorPw, mode:'organize_pool', text, poolTypeLabel};
+  if(audioBase64) body.audioBase64=audioBase64;
+  const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   const data=await res.json();
   if(!res.ok) throw new Error(data.error||'정리 실패');
   if(typeof addUsage==='function') addUsage(data._usage,'참조풀 정리');
   return data;
 }
+/* 음원이 첨부돼 있으면 base64로 읽어서 같이 보낸다 — 서버가 Cloudflare Workers AI(Whisper)로
+   먼저 글로 옮긴 뒤, 그 내용을 텍스트 자료와 합쳐서 정리한다. */
 async function organizeAdminPool(){
   const p=_adminPoolEditing; if(!p) return;
   syncAdminPoolEditorFields();
   const src=(p.rawText||'').trim();
-  if(!src){ alert('먼저 ①번 칸에 텍스트 자료를 넣어주세요.'); return; }
+  let audioBase64='';
+  if(p.audio){
+    try{
+      const rec=await idbGet('images',p.audio);
+      if(rec&&rec.blob){
+        const dataUrl=await blobToDataURL(rec.blob);
+        const comma=dataUrl.indexOf(','); audioBase64=comma>=0?dataUrl.slice(comma+1):'';
+      }
+    }catch(e){}
+  }
+  if(!src && !audioBase64){ alert('먼저 ①번 칸에 텍스트를 넣거나 음원을 추가해주세요.'); return; }
   const label=(ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
-  const _pg=startProgress(pc=>toast('AI로 정리 중… '+pc+'%'));
+  const _pg=startProgress(pc=>toast((audioBase64?'음성 인식 · ':'')+'AI로 정리 중… '+pc+'%'));
   try{
-    const r=await aiOrganizePool(src, label);
+    const r=await aiOrganizePool(src, label, audioBase64);
     _pg.done(); toastHide();
     const keyword=(r.titleKeyword||'').trim();
     p.title=(today()+' · '+label+(keyword?(' · '+keyword):'')).trim();
     p.tocSummary=r.summary||'';
     p.keyContent=(r.keyContent||'').slice(0,4000);
+    if(r.transcript) p.rawText = p.rawText ? (p.rawText+'\n\n[음원 인식 내용]\n'+r.transcript) : ('[음원 인식 내용]\n'+r.transcript);
     renderAdminPools();
   }catch(err){ _pg.done(); toastHide(); alert('AI 정리 실패: '+(err&&err.message?err.message:err)); }
 }
