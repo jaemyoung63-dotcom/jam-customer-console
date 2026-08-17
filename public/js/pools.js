@@ -550,19 +550,42 @@ function renderPools(){
 
   const wrap=document.getElementById('pool-list');
   if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>자료 등록·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.</div>'; return; }
-  let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 아래에서 이 고객 <b>분석에 포함</b>할 자료를 체크하세요(체크가 없으면 자동으로 비슷한 걸 골라 씁니다).</div>';
+  let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 항목을 누르면 AI가 정리한 내용을 볼 수 있고, 아래에서 이 고객 <b>분석에 포함</b>할 자료를 체크하세요(체크가 없으면 자동으로 비슷한 걸 골라 씁니다).</div>';
   list.forEach(p=>{
     let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
     const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
     const pin=!!p.pinned;
     const toggleLabel=pin?'☑ 분석에 포함됨':'☐ 분석에 포함';
     const pinBtn='<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+toggleLabel+'</span>';
-    html+='<div class="card">'
+    html+='<div class="card tap" onclick="viewPoolItem(\''+p.id+'\')">'
       +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+' '+pinBtn+'</div>'
       +'<div class="pill-tags">'+tags+'</div>'
       +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';
   });
   wrap.innerHTML=html;
+}
+/* 항목을 누르면 관리자 화면에서 AI가 정리한 내용을 그대로 보여준다(읽기 전용 —
+   수정·삭제는 "⚙ 관리자 화면 → 참조풀 관리"에서만 가능). */
+async function viewPoolItem(id){
+  const p=pools.find(x=>x.id===id); if(!p) return;
+  const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+  let h='';
+  if(p.result){ const rc=RESULTS.find(r=>r[0]===p.result); h+='<span class="badge b-'+(rc?rc[1]:'hold')+'" style="margin-bottom:8px;display:inline-block">'+esc(p.result)+'</span>'; }
+  if(tags) h+='<div class="pill-tags" style="margin-bottom:12px">'+tags+'</div>';
+  if(p.summaryFull) h+='<div style="font-weight:700;margin-bottom:4px">AI 정리 요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(p.summaryFull)+'</div>';
+  const full=p.bodyFull||p.body||'';
+  h+='<div style="font-weight:700;margin-bottom:4px">'+(p.summaryFull?'전체 원문':'내용')+'</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(full||'(내용 없음)')+'</div>';
+  if(p.audio) h+='<div id="poolview-audio" style="margin-top:16px"></div>';
+  h+='<div class="meta" style="margin-top:16px">✎ 내용 수정·삭제는 "⚙ 관리자 화면 → 참조풀 관리"에서만 할 수 있어요.</div>';
+  openSubPage(p.title||'참조 자료', h);
+  if(p.audio){
+    const rec=await idbGet('images',p.audio);
+    const box=document.getElementById('poolview-audio');
+    if(box){
+      if(rec&&rec.blob) box.innerHTML='<audio controls style="width:100%" src="'+blobUrl(rec.blob)+'"></audio>';
+      else box.innerHTML='<div class="meta">♪ 음원(아직 이 기기로 안 내려받아졌어요 — 홈 화면에서 잠시 후 다시 열어보세요)</div>';
+    }
+  }
 }
 async function togglePin(ev,id){
   ev.stopPropagation();

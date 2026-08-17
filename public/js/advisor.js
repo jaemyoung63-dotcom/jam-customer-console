@@ -261,6 +261,10 @@ function renderAdminPools(){
   if(_adminPoolEditing){
     h+=renderAdminPoolEditorHtml(_adminPoolEditing);
     b.innerHTML=h;
+    renderAdminPoolBrief();
+    renderAdminPoolAudio();
+    const dropEl=document.getElementById('ap-drop');
+    if(dropEl) enableDrop(dropEl, importFileToAdminPoolBody, f=>isPdfFile(f)||(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
     return;
   }
 
@@ -297,7 +301,7 @@ function renderAdminPools(){
 
 function openAdminPoolEditor(id, type){
   const found=id?_adminPools.find(x=>x.id===id):null;
-  _adminPoolEditing = found ? JSON.parse(JSON.stringify(found)) : {id:null,poolType:type,title:'',body:'',bodyFull:'',free:[],product:[],situation:[],age:[],result:'',published:true,globalPinned:true};
+  _adminPoolEditing = found ? JSON.parse(JSON.stringify(found)) : {id:null,poolType:type,title:'',body:'',bodyFull:'',summaryFull:'',brief:'',hasFull:false,audio:null,free:[],product:[],situation:[],age:[],result:'',published:true,globalPinned:true};
   _adminPoolEditing._isNew=!found;
   renderAdminPools();
 }
@@ -315,9 +319,17 @@ function renderAdminPoolEditorHtml(p){
   return '<div class="su-hero"><h3>'+(p._isNew?'새 '+label:label+' 편집')+'</h3></div>'
     +'<div style="font-size:12.5px;color:var(--ink-mute);margin-bottom:4px">제목</div>'
     +'<input class="t" id="ap-title" value="'+esc(p.title||'')+'" placeholder="제목">'
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:10px 0 4px">본문</div>'
-    +'<textarea class="t" id="ap-body" rows="6" placeholder="내용">'+esc(p.bodyFull||p.body||'')+'</textarea>'
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:10px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다)</div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:10px 0 4px">본문 <span style="font-weight:400">· 음성·텍스트·PDF 파일을 아래 칸에 끌어다 놓으면 AI가 자동으로 정리해줘요</span></div>'
+    +'<div id="ap-drop" style="border:1.5px dashed var(--line-strong);border-radius:10px;padding:2px">'
+    +'<div id="ap-brief"></div>'
+    +'<textarea class="t" id="ap-body" rows="6" placeholder="내용을 적거나, 텍스트·PDF 파일을 여기로 끌어다 놓으세요.">'+esc(p.bodyFull||p.body||'')+'</textarea>'
+    +'</div>'
+    +'<div class="row" style="gap:8px;margin-top:8px">'
+    +'<button class="btn ghost sm" onclick="pickAdminPoolText()">📎 파일에서 불러오기</button>'
+    +'</div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:14px 0 4px">음원(선택)</div>'
+    +'<div id="ap-audio"></div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:14px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다)</div>'
     +'<input class="t" id="ap-tags" value="'+esc([...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].join(', '))+'" placeholder="예: 종신보험, 은퇴설계, 40대">'
     +resultField
     +'<div class="row" style="gap:14px;margin-top:12px">'
@@ -330,25 +342,142 @@ function renderAdminPoolEditorHtml(p){
     +'</div>';
 }
 
+/* 편집 중인 폼(제목·태그·결과·공개·본문)의 지금 화면 값을 _adminPoolEditing에 옮겨 담는다.
+   파일 처리(AI 정리)는 시간이 걸리는 비동기 작업이라, 그 사이에 화면을 다시 그려도
+   사용자가 이미 입력해둔 값(제목 등)이 사라지지 않게 먼저 저장해두는 용도. */
+function syncAdminPoolEditorFields(){
+  const p=_adminPoolEditing; if(!p) return;
+  const t=document.getElementById('ap-title'); if(t) p.title=t.value;
+  const tg=document.getElementById('ap-tags'); if(tg) p._tagsRaw=tg.value;
+  const r=document.getElementById('ap-result'); if(r) p.result=r.value;
+  const pub=document.getElementById('ap-published'); if(pub) p.published=pub.checked;
+  const bd=document.getElementById('ap-body'); if(bd && bd.style.display!=='none') p.body=bd.value;
+}
+
+/* 참조 풀 편집(js/pools.js)의 파일→AI 정리 흐름과 완전히 같은 방식 — 관리자 화면용으로 옮겨왔다. */
+function renderAdminPoolBrief(){
+  const p=_adminPoolEditing; if(!p) return;
+  const box=document.getElementById('ap-brief'); if(!box) return;
+  const ta=document.getElementById('ap-body');
+  const sum=p.summaryFull||p.brief||'';
+  if(!sum){ box.innerHTML=''; if(ta) ta.style.display=''; return; }
+  if(ta) ta.style.display='none';
+  box.innerHTML='<div onclick="showAdminPoolFull()" style="cursor:pointer;border:1px solid var(--accent);border-radius:10px;padding:11px 13px;background:rgba(46,125,50,0.05);margin:6px">'
+    +'<div class="meta" style="color:var(--accent);font-weight:600;margin-bottom:5px">📄 AI 정리 결과 · 눌러서 전체 보기 ›</div>'
+    +'<div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden">'+esc(sum)+'</div></div>';
+}
+function showAdminPoolFull(){
+  const p=_adminPoolEditing; if(!p) return;
+  const sumF=p.summaryFull||''; const full=p.bodyFull||p.body||'';
+  let h='';
+  if(sumF) h+='<div style="font-weight:700;margin-bottom:4px">AI 요약</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:14px">'+esc(sumF)+'</div>';
+  h+='<div style="font-weight:700;margin-bottom:4px">전체 원문</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(full||'(원문 없음)')+'</div>';
+  openSubPage('AI 정리 결과', h);
+}
+function pickAdminPoolText(){
+  const inp=document.getElementById('txt-input'); inp.value='';
+  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await importFileToAdminPoolBody(f);};
+  inp.click();
+}
+async function importFileToAdminPoolBody(file){
+  const p=_adminPoolEditing; if(!p) return;
+  syncAdminPoolEditorFields();
+  try{
+    let full='';
+    if(isPdfFile(file)){
+      toast('PDF 여는 중…');
+      full=(await extractPdfText(file)).trim();
+      if(full.length>=30){
+        toast('PDF 텍스트 추출 완료');
+      } else {
+        toast('스캔 PDF — 이미지에서 글자 추출 중…');
+        const blobs=await pdfToImageBlobs(file,(n,N)=>toast('PDF 페이지 변환 중… '+n+'/'+N));
+        await ensureTesseract();
+        const parts=[];
+        for(let i=0;i<blobs.length;i++){
+          toast('PDF 글자 추출 중… '+Math.round((i/blobs.length)*100)+'%');
+          const url=URL.createObjectURL(blobs[i]);
+          const r=await Tesseract.recognize(url,'kor+eng',{}); URL.revokeObjectURL(url);
+          const x=(r.data.text||'').trim(); if(x) parts.push(x);
+        }
+        full=parts.join('\n\n').trim();
+      }
+    } else {
+      full=(await file.text()||'').trim();
+    }
+    if(!full){ toastHide(); alert('파일에서 읽을 텍스트가 없습니다.'); return; }
+    p.bodyFull = p.bodyFull ? (p.bodyFull+'\n\n'+full) : full;
+    p.hasFull = true;
+    const _pg=startProgress(pc=>toast('AI 정리 중… '+pc+'%'));
+    let summary=''; try{ summary=await aiSummarize(p.bodyFull); }catch(e){ summary=''; }
+    _pg.done(); toastHide();
+    p.summaryFull = summary || full.slice(0,2000);
+    p.brief = oneLine(summary || full, 60);
+    p.body = p.brief;
+    renderAdminPoolBrief();
+  }catch(err){ toastHide(); alert('파일 처리 실패: '+(err&&err.message?err.message:err)); }
+}
+function renderAdminPoolAudio(){
+  const p=_adminPoolEditing; if(!p) return;
+  const wrap=document.getElementById('ap-audio'); if(!wrap) return;
+  wrap.innerHTML='';
+  if(p.audio){
+    idbGet('images',p.audio).then(rec=>{
+      if(rec&&rec.blob){
+        const a=document.createElement('audio'); a.controls=true; a.style.width='100%'; a.src=blobUrl(rec.blob);
+        wrap.appendChild(a);
+        const del=document.createElement('button'); del.className='btn danger sm wide'; del.style.marginTop='8px';
+        del.textContent='음원 삭제'; del.onclick=removeAdminPoolAudio; wrap.appendChild(del);
+      } else addAdminAudioBtn(wrap);
+    });
+  } else addAdminAudioBtn(wrap);
+}
+function addAdminAudioBtn(wrap){
+  const add=document.createElement('button'); add.className='btn ghost sm wide';
+  add.textContent='＋ 음원 추가'; add.onclick=pickAdminPoolAudio; wrap.appendChild(add);
+}
+function pickAdminPoolAudio(){
+  const inp=document.getElementById('audio-input'); inp.value='';
+  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return;
+    const p=_adminPoolEditing; if(!p) return;
+    const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:f,created:today()});
+    if(p.audio) await idbDel('images',p.audio);
+    p.audio=rid; renderAdminPoolAudio();};
+  inp.click();
+}
+async function removeAdminPoolAudio(){
+  const p=_adminPoolEditing; if(!p) return;
+  if(p.audio){ await idbDel('images',p.audio); p.audio=null; }
+  renderAdminPoolAudio();
+}
+
 async function saveAdminPool(){
   const p=_adminPoolEditing; if(!p) return;
-  const title=(document.getElementById('ap-title').value||'').trim();
+  syncAdminPoolEditorFields();
+  const title=(p.title||'').trim();
   if(!title){ alert('제목을 입력하세요.'); return; }
-  const body=(document.getElementById('ap-body').value||'').trim();
-  const tags=(document.getElementById('ap-tags').value||'').split(',').map(s=>s.trim()).filter(Boolean);
-  const resultEl=document.getElementById('ap-result');
+  const tags=(p._tagsRaw||'').split(',').map(s=>s.trim()).filter(Boolean);
   const item={
     id: p.id || ('pool_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)),
     poolType: p.poolType,
-    title, body, bodyFull: body,
+    title,
+    body: (p.body||'').trim(),
+    bodyFull: (p.bodyFull||p.body||'').trim(),
+    summaryFull: p.summaryFull||'',
+    audio: p.audio||null,
     free: tags, product:[], situation:[], age:[],
-    result: resultEl ? resultEl.value : (p.result||''),
-    published: document.getElementById('ap-published').checked,
+    result: p.result||'',
+    published: !!p.published,
     globalPinned: true, // 참조풀관리에 올라가는 자료는 전부 항상 전역 고정(비용 절감을 위한 고정 방침)
     created: p.created || today()
   };
   const d=await adminCall('adminSavePool', {item});
-  if(d&&d.ok){ toast('✓ 저장했습니다'); setTimeout(toastHide,1500); await reloadAdminPools(); }
+  if(d&&d.ok){
+    toast('✓ 저장했습니다'); setTimeout(toastHide,1500);
+    // 음원 실물(blob)은 이 기기 로컬에만 있으므로, 다른 담당자 화면에서도 재생되도록 클라우드(R2)에 올린다.
+    if(item.audio && typeof fsQueueForOwner==='function') fsQueueForOwner('pool', item);
+    await reloadAdminPools();
+  }
   else alert('저장 실패: '+((d&&d.error)||'알 수 없음'));
 }
 
