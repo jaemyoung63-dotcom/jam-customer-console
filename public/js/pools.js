@@ -549,14 +549,17 @@ function renderPools(){
   if(poolFilter.length) list=list.filter(p=>poolFilter.every(t=>(p.product||[]).includes(t)));
 
   const wrap=document.getElementById('pool-list');
-  if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>+ 버튼으로 추가하세요.</div>'; return; }
-  let html='';
+  if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>자료 등록·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.</div>'; return; }
+  let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 여기서는 이 고객에게 쓸 자료를 <b>선택</b>만 하세요.</div>';
   list.forEach(p=>{
     let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
     const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
     const pin=!!p.pinned;
-    const pinBtn='<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+(pin?'☑ 선택됨':'☐ 선택')+'</span>';
-    html+='<div class="card tap" onclick="openPool(\''+p.id+'\')">'
+    const glob=!!p.globalPinned;
+    const pinBtn=glob
+      ? '<span class="pt" title="관리자가 전체 담당자에게 항상 고정해둔 자료" style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid #888;color:#666;background:#f2f2f2">🔒 항상 포함</span>'
+      : '<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+(pin?'☑ 선택됨':'☐ 선택')+'</span>';
+    html+='<div class="card">'
       +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+' '+pinBtn+'</div>'
       +'<div class="pill-tags">'+tags+'</div>'
       +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';

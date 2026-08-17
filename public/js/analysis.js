@@ -278,12 +278,16 @@ async function runAnalysis(id, confirmations){
         const overlap=poolMatchScore(p,c);
         return {overlap,title:p.title,result:p.result,body:(p.bodyFull||p.body)};
       }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3));
-  const episodesText=poolRefText(c,'episode',4);
-  let catalogText=''; try{ catalogText=await getCatalogText(box); }catch(e){}
+  // 참조풀 텍스트를 "관리자가 전역 고정한 부분"(고객 무관·캐시 재사용)과
+  // "이 고객에게 맞춰 고른 부분"(고객마다 다름·캐시 대상 아님)으로 나눠서 보낸다.
+  const episodesTextFixed=poolFixedText('episode',4);
+  const episodesTextDynamic=poolDynamicText(c,'episode',4);
+  let catalogTextFixed='', catalogTextDynamic='';
+  try{ catalogTextFixed=await getCatalogTextFixed(); catalogTextDynamic=await getCatalogTextDynamic(); }catch(e){}
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">보장 분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,episodesText,catalogText,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,episodesTextFixed,episodesTextDynamic,catalogTextFixed,catalogTextDynamic,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[]; c.analyses.unshift({at:now(), date:today(), data});
@@ -315,13 +319,16 @@ async function runPlanAnalysis(id, confirmations){
     if(b64) items.push({media_type:'image/jpeg', data:b64});
   }
   if(!items.length){ box.innerHTML='<div class="stage-note">설계서 사진을 읽지 못했습니다. 다시 등록해 주세요.</div>'; return; }
-  const episodesText=poolRefText(c,'episode',4);
-  const casesText=poolRefText(c,'case',3);
-  let catalogText=''; try{ catalogText=await getCatalogText(box); }catch(e){}
+  const episodesTextFixed=poolFixedText('episode',4);
+  const episodesTextDynamic=poolDynamicText(c,'episode',4);
+  const casesTextFixed=poolFixedText('case',3);
+  const casesTextDynamic=poolDynamicText(c,'case',3);
+  let catalogTextFixed='', catalogTextDynamic='';
+  try{ catalogTextFixed=await getCatalogTextFixed(); catalogTextDynamic=await getCatalogTextDynamic(); }catch(e){}
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">AI가 설계서를 직접 판독·분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, confirmations:confirmations||'', episodesText, casesText, catalogText, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, confirmations:confirmations||'', episodesTextFixed, episodesTextDynamic, casesTextFixed, casesTextDynamic, catalogTextFixed, catalogTextDynamic, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
@@ -355,35 +362,49 @@ async function getCustPlanText(c, box){
   c.planText=ocr; c.planTextImgN=imgs.length; try{ await idbPut('customers',c); }catch(e){}
   return ocr;
 }
-/* 상품카달로그 참조 텍스트 (이미지 OCR, 풀에 캐시) */
-async function getCatalogText(box){
-  const pin=pools.filter(p=>p.poolType==='catalog' && p.pinned);
-  const cats=pin.length?pin:pools.filter(p=>p.poolType==='catalog');
+/* ===== 참조풀 텍스트 (2026-08-17 개편: 전역고정/고객별 두 부분으로 분리) =====
+   관리자 화면에서 "전역 고정"(globalPinned) 표시된 자료는 고객이 누구든 항상 같은 내용·같은
+   순서로 나간다 → analyze.js에서 이 부분에 프롬프트 캐싱을 걸어 재사용되게 한다.
+   그 외 자료는 예전처럼 고객마다 담당자가 직접 선택(pinned)했거나, 없으면 상품·상황 태그가
+   많이 겹치는 것을 자동으로 골라서(poolMatchScore) 보낸다 — 이 부분은 고객마다 달라지는 게
+   당연하므로 캐시 대상에서 뺀다. */
+function poolItemText(p){ return '['+(p.title||'')+'] '+(((p.bodyFull||p.body)||'').slice(0,700)); }
+/* 상품카달로그 — 전역 고정된 것 / 그 외(고객별 선택 or 자동매칭) */
+async function getCatalogTextFixed(){
+  const cats=pools.filter(p=>p.poolType==='catalog' && p.globalPinned);
   if(!cats.length) return '';
-  const parts=[];
-  for(const cat of cats){
-    const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt;
-    parts.push(t);
-  }
-  return parts.join('\n\n---\n\n').slice(0,6000);
+  return cats.map(cat=>{ const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt; return t; }).join('\n\n---\n\n').slice(0,6000);
 }
-/* 에피소드 참조 텍스트 (고객 태그와 매칭 상위 4) */
+async function getCatalogTextDynamic(){
+  const fixedIds=new Set(pools.filter(p=>p.poolType==='catalog' && p.globalPinned).map(p=>p.id));
+  const rest=pools.filter(p=>p.poolType==='catalog' && !fixedIds.has(p.id));
+  const pin=rest.filter(p=>p.pinned);
+  const cats=pin.length?pin:rest;
+  if(!cats.length) return '';
+  return cats.map(cat=>{ const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt; return t; }).join('\n\n---\n\n').slice(0,6000);
+}
+/* 에피소드·상담사례 매칭 점수(고객 태그와 겹치는 정도) */
 function poolMatchScore(p, c){
   const want=[...(c.product||[]),...(c.situation||[]),(c.age||'')].filter(Boolean);
   const tags=[...(p.free||[]),...(p.product||[]),...(p.situation||[]),...(p.age||[])];
   let n=0; tags.forEach(t=>{ t=String(t); if(want.some(w=>w===t||w.includes(t)||t.includes(w))) n++; });
   return n;
 }
-function getPoolMatchText(c, type, limit){
-  const items=pools.filter(p=>p.poolType===type).map(p=>({p,s:poolMatchScore(p,c)})).sort((a,b)=>b.s-a.s).slice(0,limit||4);
-  if(!items.length) return '';
-  return items.map(m=>'['+(m.p.title||'')+'] '+(((m.p.bodyFull||m.p.body)||'').slice(0,700))).join('\n\n');
+/* 전역 고정된 자료 — 고객 무관, 항상 동일(캐시 재사용 대상) */
+function poolFixedText(type, limit){
+  const items=pools.filter(p=>p.poolType===type && p.globalPinned).slice(0,limit||6);
+  return items.map(poolItemText).join('\n\n');
 }
-/* 체크(pinned) 우선 참조: 해당 타입에 선택된 항목이 있으면 그것만 강제 사용, 없으면 자동 매칭 */
-function poolRefText(c, type, limit){
-  const pin=pools.filter(p=>p.poolType===type && p.pinned);
-  if(pin.length) return pin.slice(0,limit||6).map(p=>'['+(p.title||'')+'] '+(((p.bodyFull||p.body)||'').slice(0,700))).join('\n\n');
-  return getPoolMatchText(c,type,limit);
+/* 이 고객에게 맞춰 고른 자료 — 담당자가 이 고객만을 위해 선택(pinned)한 게 있으면 그것,
+   없으면 자동 매칭. 전역 고정된 자료는 이미 poolFixedText에 들어가므로 여기서는 뺀다(중복 방지). */
+function poolDynamicText(c, type, limit){
+  const fixedIds=new Set(pools.filter(p=>p.poolType===type && p.globalPinned).map(p=>p.id));
+  const rest=pools.filter(p=>p.poolType===type && !fixedIds.has(p.id));
+  const pin=rest.filter(p=>p.pinned);
+  if(pin.length) return pin.slice(0,limit||6).map(poolItemText).join('\n\n');
+  const items=rest.map(p=>({p,s:poolMatchScore(p,c)})).sort((a,b)=>b.s-a.s).slice(0,limit||4);
+  if(!items.length) return '';
+  return items.map(m=>poolItemText(m.p)).join('\n\n');
 }
 function getEpisodesText(c){
   const want=[...(c.product||[]),...(c.situation||[])];

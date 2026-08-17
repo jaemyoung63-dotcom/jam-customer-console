@@ -121,9 +121,15 @@ export async function onRequestPost(context) {
   const coverageText = (payload.coverageText || '').trim();
   const cases = payload.cases || [];
   const planText = (payload.planText || '').trim();
-  const catalogText = (payload.catalogText || '').trim();
-  const episodesText = (payload.episodesText || '').trim();
-  const casesText = (payload.casesText || '').trim();
+  // 2026-08-17: 참조풀 텍스트를 "관리자가 전역 고정한 부분"(Fixed·고객 무관·캐시 재사용 대상)과
+  // "이 고객에게 맞춰 고른 부분"(Dynamic·고객마다 다름·캐시 대상 아님)으로 나눠서 받는다.
+  // 프런트(public/js/analysis.js)가 이미 나눠서 보내준다.
+  const catalogTextFixed = (payload.catalogTextFixed || '').trim();
+  const catalogTextDynamic = (payload.catalogTextDynamic || '').trim();
+  const episodesTextFixed = (payload.episodesTextFixed || '').trim();
+  const episodesTextDynamic = (payload.episodesTextDynamic || '').trim();
+  const casesTextFixed = (payload.casesTextFixed || '').trim();
+  const casesTextDynamic = (payload.casesTextDynamic || '').trim();
   const focusAreas = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
   const excludeAreas = Array.isArray(payload.excludeAreas) ? payload.excludeAreas : [];
 
@@ -296,8 +302,8 @@ export async function onRequestPost(context) {
       '- [추가 제안(연금 등)]에는 설계서가 못 채운 부족 보장과 노후·연금 등 추가로 필요한 준비를 구체적으로 적습니다. 근거 없는 항목은 넣지 마세요.',
       '- 사진에서 확실하지 않은 값(가입금액·담보명·회사 등)은 절대 추측하지 말고, questions 배열에 사용자에게 물어볼 짧고 구체적인 질문으로 담으세요. 확실하지 않은 게 없으면 questions는 빈 배열 [].',
       '- 사용자가 확인해준 정보가 제공되면 그 값을 확정으로 사용하고 다시 묻지 마세요.',
-      (episodesText ? '- 제공된 "설득 에피소드"는 제안 표현의 톤·근거를 잡는 참고용입니다. 자연스럽게 활용하세요.' : ''),
-      (catalogText ? '- 제공된 "상품 카달로그"는 제안 상품의 담보·조건을 정확히 이해하는 참고용입니다. 없는 내용을 지어내지 마세요.' : ''),
+      ((episodesTextFixed || episodesTextDynamic) ? '- 제공된 "설득 에피소드"는 제안 표현의 톤·근거를 잡는 참고용입니다. 자연스럽게 활용하세요.' : ''),
+      ((catalogTextFixed || catalogTextDynamic) ? '- 제공된 "상품 카달로그"는 제안 상품의 담보·조건을 정확히 이해하는 참고용입니다. 없는 내용을 지어내지 마세요.' : ''),
       (focusAreas.length ? '- 다음 담보/영역을 특히 집중해 제안·분석합니다: ' + focusAreas.join(', ') : ''),
       (excludeAreas.length ? '- 다음 담보/영역은 제외합니다(제안·분석에서 다루지 마세요): ' + excludeAreas.join(', ') : '')
     ].filter(Boolean).join('\n');
@@ -314,12 +320,16 @@ export async function onRequestPost(context) {
       (planImages.length ? '# 가입설계서 (첨부된 사진을 직접 읽으세요)' : '# 가입설계서 (새로 제안)'),
       (planImages.length ? '' : planText)
     ].join('\n');
-    // 담당자가 등록해둔 공용 참고자료(참고 상담사례·설득 에피소드·상품 카달로그)는 고객이 바뀌어도
-    // 대개 똑같은 내용이 반복해서 들어오므로, 맨 앞에 캐시 블록으로 따로 떼어 비용을 아낀다.
+    // 관리자가 "전역 고정"해둔 공용 참고자료는 고객이 바뀌어도 항상 똑같은 내용이므로 맨 앞에
+    // 캐시 블록으로 떼어 비용을 아낀다. 이 고객에게 맞춰 자동으로 고른(또는 담당자가 이 고객만을
+    // 위해 선택한) 자료는 고객마다 달라지는 게 정상이라 캐시 블록으로 묶지 않는다.
     const pcontent = [];
-    if (casesText) pcontent.push(cachedBlock('참고할 과거 상담사례', casesText));
-    if (episodesText) pcontent.push(cachedBlock('설득 에피소드 (참고)', episodesText));
-    if (catalogText) pcontent.push(cachedBlock('상품 카달로그 (참고 · 상품 정보)', catalogText));
+    if (casesTextFixed) pcontent.push(cachedBlock('참고할 과거 상담사례 (공통)', casesTextFixed));
+    if (episodesTextFixed) pcontent.push(cachedBlock('설득 에피소드 (참고 · 공통)', episodesTextFixed));
+    if (catalogTextFixed) pcontent.push(cachedBlock('상품 카달로그 (참고 · 공통)', catalogTextFixed));
+    if (casesTextDynamic) pcontent.push({ type: 'text', text: '# 참고할 과거 상담사례 (이 고객 맞춤)\n' + casesTextDynamic });
+    if (episodesTextDynamic) pcontent.push({ type: 'text', text: '# 설득 에피소드 (참고 · 이 고객 맞춤)\n' + episodesTextDynamic });
+    if (catalogTextDynamic) pcontent.push({ type: 'text', text: '# 상품 카달로그 (참고 · 이 고객 맞춤)\n' + catalogTextDynamic });
     pcontent.push({ type: 'text', text: puser });
     planImages.forEach(function (im, i) { pcontent.push({ type: 'text', text: '가입설계서 사진 ' + (i + 1) + ':' }); pcontent.push({ type: 'image', source: { type: 'base64', media_type: im.media_type || 'image/jpeg', data: im.data } }); });
     if (pConfirm) pcontent.push({ type: 'text', text: '사용자가 확인해준 확정 정보(반드시 이 값으로 사용하고 다시 묻지 마세요):\n' + pConfirm });
@@ -374,7 +384,7 @@ export async function onRequestPost(context) {
     '- 참고 사례는 제안 방향을 잡는 참고용입니다. 사례의 결과(성공/보류/실패)를 고려하세요.',
     (focusAreas.length ? '- 다음 담보/영역을 특히 집중 분석하고 우선순위를 높입니다: ' + focusAreas.join(', ') : ''),
     (excludeAreas.length ? '- 다음 담보/영역은 이번 분석에서 제외합니다(요약·영역·상세에서 다루지 마세요): ' + excludeAreas.join(', ') : ''),
-    (catalogText ? '- 제공된 "상품 카달로그"는 상품 담보·조건을 정확히 이해하는 참고용입니다. 없는 내용을 지어내지 마세요.' : '')
+    ((catalogTextFixed || catalogTextDynamic) ? '- 제공된 "상품 카달로그"는 상품 담보·조건을 정확히 이해하는 참고용입니다. 없는 내용을 지어내지 마세요.' : '')
   ].filter(Boolean).join('\n');
 
   const user = [
@@ -390,18 +400,22 @@ export async function onRequestPost(context) {
     caseText,
     ...(((payload.confirmations || '').trim()) ? ['', '# 사용자가 확인해준 확정 정보 (반드시 이 값으로 사용하고 이 항목은 questions에 다시 넣지 마세요)', (payload.confirmations || '').trim()] : [])
   ].join('\n');
-  // 설득 에피소드·상품 카달로그는 담당자가 등록해둔 공용 참고자료라 고객이 바뀌어도 대개
-  // 같은 내용이 반복되므로, 맨 앞 캐시 블록으로 떼어 비용을 아낀다(참고할 과거 상담사례는
-  // 고객마다 골라 보내는 내용이라 캐시 대상에서 제외).
-  const refBlocks = [];
-  if (episodesText) refBlocks.push(cachedBlock('설득 에피소드 (참고)', episodesText));
-  if (catalogText) refBlocks.push(cachedBlock('상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText));
+  // 관리자가 "전역 고정"해둔 설득 에피소드·상품 카달로그는 고객이 바뀌어도 항상 같은 내용이라
+  // 맨 앞 캐시 블록으로 떼어 비용을 아낀다. 이 고객에게 맞춰 자동으로 고른(또는 담당자가 이
+  // 고객만을 위해 선택한) 자료·참고할 과거 상담사례는 고객마다 달라지는 게 정상이라 캐시
+  // 블록으로 묶지 않는다.
+  const refBlocksFixed = [];
+  if (episodesTextFixed) refBlocksFixed.push(cachedBlock('설득 에피소드 (참고 · 공통)', episodesTextFixed));
+  if (catalogTextFixed) refBlocksFixed.push(cachedBlock('상품 카달로그 (참고 자료 · 공통)', catalogTextFixed));
+  const refBlocksDynamic = [];
+  if (episodesTextDynamic) refBlocksDynamic.push({ type: 'text', text: '# 설득 에피소드 (참고 · 이 고객 맞춤)\n' + episodesTextDynamic });
+  if (catalogTextDynamic) refBlocksDynamic.push({ type: 'text', text: '# 상품 카달로그 (참고 자료 · 이 고객 맞춤)\n' + catalogTextDynamic });
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: model, max_tokens: 8000, system: sysCached(system), messages: [{ role: 'user', content: [...refBlocks, { type: 'text', text: user }] }] })
+      body: JSON.stringify({ model: model, max_tokens: 8000, system: sysCached(system), messages: [{ role: 'user', content: [...refBlocksFixed, ...refBlocksDynamic, { type: 'text', text: user }] }] })
     });
     const data = await r.json();
     if (!r.ok) {
