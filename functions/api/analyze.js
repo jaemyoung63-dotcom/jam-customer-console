@@ -78,6 +78,20 @@ function parseModelJson(text) {
   return null;
 }
 
+// ---- 비용 절감: 프롬프트 캐싱 ----
+// 매번 똑같이 반복해서 보내는 긴 글(시스템 지침, 상품 카달로그·설득 에피소드·참고 상담사례 같은
+// 담당자 공용 참고자료)에 "여기까지는 캐시해도 된다"는 표시(cache_control)를 붙이면,
+// 같은 내용이 짧은 시간(TTL) 안에 다시 오면 Anthropic이 그 부분을 다시 읽지 않고 캐시에서
+// 가져와 입력 비용을 정가의 1/10로 깎아준다. 캐시로 표시해도 실제로 짧아서(모델별 최소 토큰
+// 기준 미달) 캐시가 안 걸리면 그냥 평소처럼 처리될 뿐, 손해나 오류는 없다.
+// 참고: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+function sysCached(text) {
+  return [{ type: 'text', text: text, cache_control: { type: 'ephemeral' } }];
+}
+function cachedBlock(label, text) {
+  return { type: 'text', text: '# ' + label + '\n' + text, cache_control: { type: 'ephemeral' } };
+}
+
 export async function onRequestOptions() {
   return new Response('', { status: 200, headers: CORS });
 }
@@ -166,7 +180,7 @@ export async function onRequestPost(context) {
       const rr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: tidyModel, max_tokens: 8000, system: tidySystem, messages: [{ role: 'user', content: content }] })
+        body: JSON.stringify({ model: tidyModel, max_tokens: 8000, system: sysCached(tidySystem), messages: [{ role: 'user', content: content }] })
       });
       const dd = await rr.json();
       if (!rr.ok) {
@@ -225,7 +239,7 @@ export async function onRequestPost(context) {
       const rr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: apModel, max_tokens: 1500, system: apSys, messages: [{ role: 'user', content: apUser }] })
+        body: JSON.stringify({ model: apModel, max_tokens: 1500, system: sysCached(apSys), messages: [{ role: 'user', content: apUser }] })
       });
       const rd = await rr.json();
       if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
@@ -245,7 +259,7 @@ export async function onRequestPost(context) {
       const rr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: sModel, max_tokens: 2600, system: ssys, messages: [{ role: 'user', content: src.slice(0, 16000) }] })
+        body: JSON.stringify({ model: sModel, max_tokens: 2600, system: sysCached(ssys), messages: [{ role: 'user', content: src.slice(0, 16000) }] })
       });
       const rd = await rr.json();
       if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
@@ -298,20 +312,22 @@ export async function onRequestPost(context) {
       ((cov_an.summary || '') + '\n' + (cov_an.detail || '')).trim() || '(없음)',
       '',
       (planImages.length ? '# 가입설계서 (첨부된 사진을 직접 읽으세요)' : '# 가입설계서 (새로 제안)'),
-      (planImages.length ? '' : planText),
-      '',
-      ...(casesText ? ['# 참고할 과거 상담사례', casesText, ''] : []),
-      ...(episodesText ? ['# 설득 에피소드 (참고)', episodesText, ''] : []),
-      ...(catalogText ? ['# 상품 카달로그 (참고 · 상품 정보)', catalogText] : [])
+      (planImages.length ? '' : planText)
     ].join('\n');
-    const pcontent = [{ type: 'text', text: puser }];
+    // 담당자가 등록해둔 공용 참고자료(참고 상담사례·설득 에피소드·상품 카달로그)는 고객이 바뀌어도
+    // 대개 똑같은 내용이 반복해서 들어오므로, 맨 앞에 캐시 블록으로 따로 떼어 비용을 아낀다.
+    const pcontent = [];
+    if (casesText) pcontent.push(cachedBlock('참고할 과거 상담사례', casesText));
+    if (episodesText) pcontent.push(cachedBlock('설득 에피소드 (참고)', episodesText));
+    if (catalogText) pcontent.push(cachedBlock('상품 카달로그 (참고 · 상품 정보)', catalogText));
+    pcontent.push({ type: 'text', text: puser });
     planImages.forEach(function (im, i) { pcontent.push({ type: 'text', text: '가입설계서 사진 ' + (i + 1) + ':' }); pcontent.push({ type: 'image', source: { type: 'base64', media_type: im.media_type || 'image/jpeg', data: im.data } }); });
     if (pConfirm) pcontent.push({ type: 'text', text: '사용자가 확인해준 확정 정보(반드시 이 값으로 사용하고 다시 묻지 마세요):\n' + pConfirm });
     try {
       const pr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: pModel, max_tokens: 8000, system: psys, messages: [{ role: 'user', content: pcontent }] })
+        body: JSON.stringify({ model: pModel, max_tokens: 8000, system: sysCached(psys), messages: [{ role: 'user', content: pcontent }] })
       });
       const pd = await pr.json();
       if (!pr.ok) { const msg = (pd && pd.error && pd.error.message) ? pd.error.message : ('API 오류 (' + pr.status + ')'); return json({ error: msg }, pr.status); }
@@ -372,17 +388,20 @@ export async function onRequestPost(context) {
     '',
     '# 참고할 과거 상담사례',
     caseText,
-    '',
-    ...(episodesText ? ['# 설득 에피소드 (참고)', episodesText, ''] : []),
-    ...(catalogText ? ['# 상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText] : []),
     ...(((payload.confirmations || '').trim()) ? ['', '# 사용자가 확인해준 확정 정보 (반드시 이 값으로 사용하고 이 항목은 questions에 다시 넣지 마세요)', (payload.confirmations || '').trim()] : [])
   ].join('\n');
+  // 설득 에피소드·상품 카달로그는 담당자가 등록해둔 공용 참고자료라 고객이 바뀌어도 대개
+  // 같은 내용이 반복되므로, 맨 앞 캐시 블록으로 떼어 비용을 아낀다(참고할 과거 상담사례는
+  // 고객마다 골라 보내는 내용이라 캐시 대상에서 제외).
+  const refBlocks = [];
+  if (episodesText) refBlocks.push(cachedBlock('설득 에피소드 (참고)', episodesText));
+  if (catalogText) refBlocks.push(cachedBlock('상품 카달로그 (참고 자료 · 상품 정보 정확히 이해용)', catalogText));
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: model, max_tokens: 8000, system: system, messages: [{ role: 'user', content: user }] })
+      body: JSON.stringify({ model: model, max_tokens: 8000, system: sysCached(system), messages: [{ role: 'user', content: [...refBlocks, { type: 'text', text: user }] }] })
     });
     const data = await r.json();
     if (!r.ok) {
