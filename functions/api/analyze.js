@@ -358,9 +358,12 @@ export async function onRequestPost(context) {
 
   if (!coverageText) return json({ error: '보장 텍스트가 비어 있습니다. OCR 또는 직접 입력으로 채운 뒤 분석하세요.' }, 400);
 
-  const caseText = cases.length
+  // 2026-08-17 2차 정정: 과거 상담사례도 다른 참조풀처럼 전역 고정(캐시) 블록 + 활용 지시(제목만) 구조로
+  // 통일한다. 예전에는 cases 배열(본문 그대로, 캐시 대상 아님)을 매번 새로 보냈지만, 참조풀관리에
+  // 올라간 자료는 전부 항상 전역 고정이므로 상담사례 본문도 캐시 블록에 넣어 비용을 아낀다.
+  const legacyCaseText = (!casesTextFixed && cases.length)
     ? cases.map((c, i) => '[사례 ' + (i + 1) + '] ' + (c.title || '') + ' (' + (c.result || '-') + ')\n' + (c.body || '').slice(0, 800)).join('\n\n')
-    : '(없음)';
+    : '';
 
   const system = [
     '당신은 대한민국 보험 보장분석 전문가입니다. 재무설계사(FP)가 고객 상담을 준비하도록 돕습니다.',
@@ -395,19 +398,19 @@ export async function onRequestPost(context) {
     '',
     '# 보장 텍스트 (현재 가입 내용)',
     coverageText,
-    '',
-    '# 참고할 과거 상담사례',
-    caseText,
+    ...(legacyCaseText ? ['', '# 참고할 과거 상담사례', legacyCaseText] : []),
     ...(((payload.confirmations || '').trim()) ? ['', '# 사용자가 확인해준 확정 정보 (반드시 이 값으로 사용하고 이 항목은 questions에 다시 넣지 마세요)', (payload.confirmations || '').trim()] : [])
   ].join('\n');
-  // 관리자가 "전역 고정"해둔 설득 에피소드·상품 카달로그는 고객이 바뀌어도 항상 같은 내용이라
-  // 맨 앞 캐시 블록으로 떼어 비용을 아낀다. 이 고객에게 맞춰 자동으로 고른(또는 담당자가 이
-  // 고객만을 위해 선택한) 자료·참고할 과거 상담사례는 고객마다 달라지는 게 정상이라 캐시
-  // 블록으로 묶지 않는다.
+  // 참조풀관리(관리자 화면)에 올라가는 자료(상담사례·설득 에피소드·상품 카달로그)는 전부 항상
+  // "전역 고정"이라 고객이 바뀌어도 항상 같은 내용 그대로 맨 앞 캐시 블록으로 나가 비용을 아낀다.
+  // 그중 실제로 이 고객 분석에 쓸 것은 담당자가 참조 풀 화면에서 체크(선택)한 것 — 그 표시는
+  // 제목만 담은 짧은 지시문(Dynamic, 고객마다 다름·캐시 대상 아님)으로 뒤에 얹는다.
   const refBlocksFixed = [];
+  if (casesTextFixed) refBlocksFixed.push(cachedBlock('참고할 과거 상담사례 (공통)', casesTextFixed));
   if (episodesTextFixed) refBlocksFixed.push(cachedBlock('설득 에피소드 (참고 · 공통)', episodesTextFixed));
   if (catalogTextFixed) refBlocksFixed.push(cachedBlock('상품 카달로그 (참고 자료 · 공통)', catalogTextFixed));
   const refBlocksDynamic = [];
+  if (casesTextDynamic) refBlocksDynamic.push({ type: 'text', text: '# 참고할 과거 상담사례 (이 고객 맞춤 — 위 공통 목록 중 이 고객 분석에 쓸 것)\n' + casesTextDynamic });
   if (episodesTextDynamic) refBlocksDynamic.push({ type: 'text', text: '# 설득 에피소드 (참고 · 이 고객 맞춤)\n' + episodesTextDynamic });
   if (catalogTextDynamic) refBlocksDynamic.push({ type: 'text', text: '# 상품 카달로그 (참고 자료 · 이 고객 맞춤)\n' + catalogTextDynamic });
 

@@ -550,15 +550,15 @@ function renderPools(){
 
   const wrap=document.getElementById('pool-list');
   if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>자료 등록·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.</div>'; return; }
-  let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 여기서는 이 고객에게 쓸 자료를 <b>선택</b>만 하세요.</div>';
+  let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 🔒 항상 포함 자료는 어차피 모든 고객 분석에 자동으로 들어가지만, 그중 이 고객과 특히 관련있는 걸 <b>선택</b>해두면 AI가 그 자료를 더 눈여겨봅니다.</div>';
   list.forEach(p=>{
     let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
     const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
     const pin=!!p.pinned;
     const glob=!!p.globalPinned;
-    const pinBtn=glob
-      ? '<span class="pt" title="관리자가 전체 담당자에게 항상 고정해둔 자료" style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid #888;color:#666;background:#f2f2f2">🔒 항상 포함</span>'
-      : '<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+(pin?'☑ 선택됨':'☐ 선택')+'</span>';
+    const lockBadge=glob?'<span class="pt" title="관리자가 전체 담당자에게 항상 고정해둔 자료 — 이미 모든 고객 분석에 자동으로 포함돼요" style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid #888;color:#666;background:#f2f2f2">🔒 항상 포함</span> ':'';
+    const toggleLabel=glob?(pin?'☑ 이 고객과 특히 관련':'☐ 특히 관련 표시'):(pin?'☑ 선택됨':'☐ 선택');
+    const pinBtn=lockBadge+'<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+toggleLabel+'</span>';
     html+='<div class="card">'
       +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+' '+pinBtn+'</div>'
       +'<div class="pill-tags">'+tags+'</div>'
@@ -586,7 +586,7 @@ function renderPoolCtx(){
   box.innerHTML='<div style="border:1px solid var(--accent);border-radius:12px;padding:11px 13px;margin-bottom:14px;background:rgba(46,125,50,0.06)">'
     +'<div class="row" style="align-items:center"><span style="font-size:14px;font-weight:700;color:var(--accent)">◉ '+esc(c.name)+' 고객 작업 중</span><span class="spacer"></span>'
     +'<button class="btn ghost sm" onclick="clearWorkingCust()">해제</button></div>'
-    +'<div class="meta" style="margin-top:4px">아래에서 참조할 자료를 <b>선택</b>(체크)하세요. 선택한 '+pn+'개가 이 고객의 보장분석·가입설계에 반영됩니다.</div>'
+    +'<div class="meta" style="margin-top:4px">아래에서 참조할 자료를 <b>선택</b>(체크)하세요 — 지금 '+pn+'개 선택됨. 🔒 항상 포함 자료는 어차피 자동 반영되고, 선택은 "이 고객과 특히 관련"이라는 표시로 AI에게 더 비중있게 전달됩니다. 그 외 일반 자료는 선택한 것만 이 고객의 보장분석·가입설계에 반영됩니다(선택이 없으면 자동으로 비슷한 걸 골라줘요).</div>'
     +'<div class="row" style="margin-top:9px"><button class="btn ghost grow" onclick="openWorkingCust()">← 고객상세로</button><button class="btn primary grow" onclick="poolToAnalysisCarry()">이 고객으로 분석 →</button></div></div>';
 }
 function poolToAnalysis(){ currentCustId=null; go('analysis'); }        // 하단 버튼: 고객 안 물고 감

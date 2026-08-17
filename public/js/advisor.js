@@ -222,9 +222,15 @@ async function doAdminReassignPrompt(fromId, fromName){
 }
 
 /* ---------- 참조풀 관리 (2026-08-17 추가) ----------
-   참조풀(상담사례·에피소드·카달로그·설계서)은 이제 담당자 개인 소유가 아니라 공용(owner='shared')
-   자료다. 여기서 "공개"(published) 표시된 것만 담당자들의 실제 상담·분석에 쓰이고, "전역 고정"
-   (globalPinned) 표시된 것은 고객이 바뀌어도 항상 같은 내용으로 나가 프롬프트 캐싱이 재사용된다.
+   참조풀(상담사례·에피소드·카달로그·아이스브레이크)은 이제 담당자 개인 소유가 아니라 공용(owner='shared')
+   자료다. "공개"(published) 표시된 것만 담당자들의 참조 풀 화면에 뜬다.
+   2026-08-17(2차 정정): 여기 올라가는 자료는 전부 항상 "전역 고정"(globalPinned=true, 캐시 재사용
+   대상)이다 — 항목별로 켜고 끄는 선택지가 아니라, AI 비용을 아끼기 위한 이 화면 전체의 고정된
+   방침이다. 그래서 이 화면엔 전역 고정 체크박스가 없다. 대신 "어떤 자료를 이 고객 분석에 실제로
+   쓸지"는 담당자가 각자의 "참조 풀" 화면(js/pools.js)에서 항목별로 체크하는 것으로 결정한다 —
+   체크된 자료가 "상담사례 매칭"·보장분석 버튼을 눌렀을 때 분석에 활용된다(체크가 없으면 태그가
+   비슷한 자료를 자동으로 골라 쓴다). 즉 "공개"는 노출 여부, 담당자의 체크는 활용 여부, 전역 고정은
+   비용 절감을 위해 늘 켜져 있는 값 — 이렇게 세 가지가 서로 다른 역할이다.
    (참고: 이 화면의 자료 추가·수정은 담당자 화면의 "참조 풀"처럼 오프라인 저장 후 나중에 동기화하는
    방식이 아니라, 저장 버튼을 누르는 즉시 서버로 바로 저장된다 — 관리 빈도가 낮아 그게 더 단순하다.) */
 /* 2026-08-17: 관리자 화면의 참조풀 관리를 담당자 화면의 "참조 풀"(js/pools.js)과 같은 구성으로 맞춤
@@ -250,7 +256,7 @@ function switchAdminPoolType(type){ _adminPoolType=type; renderAdminPools(); }
 function renderAdminPools(){
   const b=document.getElementById('admin-body'); if(!b) return;
   let h=adminTabsHtml();
-  h+='<div class="su-hero"><h3>참조풀 관리</h3><p>여기서 관리하는 자료 중 "공개"된 것만 전체 담당자에게 자동으로 뜨고 실제 상담·분석에 쓰입니다. "전역 고정"은 고객이 바뀌어도 항상 같은 내용으로 나가게 해서 AI 비용(프롬프트 캐싱)을 아낍니다.</p></div>';
+  h+='<div class="su-hero"><h3>참조풀 관리</h3><p>여기서 관리하는 자료는 전부 항상 "전역 고정"(고객이 바뀌어도 같은 내용 그대로 재사용)으로 저장되어 AI 비용을 아낍니다. "공개"된 것만 전체 담당자의 참조 풀 화면에 뜨고, 실제로 어떤 자료를 이 고객 분석에 쓸지는 각 담당자가 참조 풀 화면에서 항목별로 체크해서 정합니다.</p></div>';
 
   if(_adminPoolEditing){
     h+=renderAdminPoolEditorHtml(_adminPoolEditing);
@@ -272,7 +278,7 @@ function renderAdminPools(){
     +'<button class="btn ghost sm" onclick="openAdminPoolEditor(null,\''+type+'\')">＋ 새 '+label+'</button></div>';
   if(!items.length){ h+='<div class="stage-note">등록된 '+label+'이(가) 없습니다.</div>'; }
   items.forEach(p=>{
-    const pub=!!p.published, glob=!!p.globalPinned;
+    const pub=!!p.published;
     const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
     h+='<div class="card" style="margin-bottom:10px">'
       +'<div class="row" style="align-items:center"><div style="font-weight:700;font-size:15px">'+esc(p.title||'(제목 없음)')+'</div><span class="spacer"></span></div>'
@@ -280,7 +286,6 @@ function renderAdminPools(){
       +'<div class="meta" style="margin-top:6px;white-space:pre-wrap;max-height:60px;overflow:hidden">'+esc((p.body||'').slice(0,140))+'</div>'
       +'<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">'
       +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(pub?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'published\',this.checked)">공개(전체 담당자)</label>'
-      +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(glob?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'globalPinned\',this.checked)">전역 고정(캐시)</label>'
       +'</div>'
       +'<div class="row" style="gap:6px;margin-top:8px">'
       +'<button class="btn ghost sm" onclick="openAdminPoolEditor(\''+p.id+'\',\''+type+'\')">편집</button>'
@@ -292,7 +297,7 @@ function renderAdminPools(){
 
 function openAdminPoolEditor(id, type){
   const found=id?_adminPools.find(x=>x.id===id):null;
-  _adminPoolEditing = found ? JSON.parse(JSON.stringify(found)) : {id:null,poolType:type,title:'',body:'',bodyFull:'',free:[],product:[],situation:[],age:[],result:'',published:true,globalPinned:false};
+  _adminPoolEditing = found ? JSON.parse(JSON.stringify(found)) : {id:null,poolType:type,title:'',body:'',bodyFull:'',free:[],product:[],situation:[],age:[],result:'',published:true,globalPinned:true};
   _adminPoolEditing._isNew=!found;
   renderAdminPools();
 }
@@ -317,8 +322,8 @@ function renderAdminPoolEditorHtml(p){
     +resultField
     +'<div class="row" style="gap:14px;margin-top:12px">'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="checkbox" id="ap-published" '+(p.published?'checked':'')+'>공개(전체 담당자)</label>'
-    +'<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="checkbox" id="ap-globalpinned" '+(p.globalPinned?'checked':'')+'>전역 고정(캐시)</label>'
     +'</div>'
+    +'<div class="meta" style="margin-top:6px">이 자료는 저장하면 자동으로 전역 고정(캐시 재사용)됩니다 — 항목별로 끌 수는 없어요.</div>'
     +'<div class="row" style="gap:8px;margin-top:16px">'
     +'<button class="btn ghost grow" onclick="closeAdminPoolEditor()">취소</button>'
     +'<button class="btn primary grow" onclick="saveAdminPool()">저장</button>'
@@ -339,7 +344,7 @@ async function saveAdminPool(){
     free: tags, product:[], situation:[], age:[],
     result: resultEl ? resultEl.value : (p.result||''),
     published: document.getElementById('ap-published').checked,
-    globalPinned: document.getElementById('ap-globalpinned').checked,
+    globalPinned: true, // 참조풀관리에 올라가는 자료는 전부 항상 전역 고정(비용 절감을 위한 고정 방침)
     created: p.created || today()
   };
   const d=await adminCall('adminSavePool', {item});

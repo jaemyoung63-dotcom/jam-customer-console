@@ -270,24 +270,18 @@ async function runAnalysis(id, confirmations){
   if(!(c.coverageText||'').trim()){alert('보장 텍스트가 비어 있어요. 고객 화면에서 OCR 또는 직접 입력으로 채운 뒤 분석하세요.'); return;}
   if(!cloudOn){alert('AI 보장 분석은 로그인 후 사용할 수 있습니다.'); return;}
   const box=document.getElementById('an-result'); box.innerHTML='<div class="stage-note">보장 분석 중입니다… 잠시만 기다려 주세요.</div>';
-  const want=[...(c.product||[]),...(c.situation||[])];
-  const casePin=pools.filter(p=>p.poolType==='case'&&p.pinned);
-  const cases=(casePin.length
-    ? casePin.map(p=>({overlap:poolMatchScore(p,c),title:p.title,result:p.result,body:(p.bodyFull||p.body)}))
-    : pools.filter(p=>p.poolType==='case').map(p=>{
-        const overlap=poolMatchScore(p,c);
-        return {overlap,title:p.title,result:p.result,body:(p.bodyFull||p.body)};
-      }).filter(m=>m.overlap>0).sort((a,b)=>b.overlap-a.overlap).slice(0,3));
-  // 참조풀 텍스트를 "관리자가 전역 고정한 부분"(고객 무관·캐시 재사용)과
-  // "이 고객에게 맞춰 고른 부분"(고객마다 다름·캐시 대상 아님)으로 나눠서 보낸다.
+  // 참조풀 텍스트를 "관리자가 전역 고정한 부분"(고객 무관·캐시 재사용, 본문 전체)과
+  // "이 고객에게 맞춰 고른 부분"(고객마다 다름·캐시 대상 아님, 제목만 담은 활용 지시)으로 나눠서 보낸다.
+  const casesTextFixed=poolFixedText('case',6);
+  const casesTextDynamic=poolDynamicText(c,'case',3);
   const episodesTextFixed=poolFixedText('episode',4);
   const episodesTextDynamic=poolDynamicText(c,'episode',4);
   let catalogTextFixed='', catalogTextDynamic='';
-  try{ catalogTextFixed=await getCatalogTextFixed(); catalogTextDynamic=await getCatalogTextDynamic(); }catch(e){}
+  try{ catalogTextFixed=await getCatalogTextFixed(); catalogTextDynamic=await getCatalogTextDynamic(c); }catch(e){}
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">보장 분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,cases,episodesTextFixed,episodesTextDynamic,catalogTextFixed,catalogTextDynamic,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,casesTextFixed,casesTextDynamic,episodesTextFixed,episodesTextDynamic,catalogTextFixed,catalogTextDynamic,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[]; c.analyses.unshift({at:now(), date:today(), data});
@@ -324,7 +318,7 @@ async function runPlanAnalysis(id, confirmations){
   const casesTextFixed=poolFixedText('case',3);
   const casesTextDynamic=poolDynamicText(c,'case',3);
   let catalogTextFixed='', catalogTextDynamic='';
-  try{ catalogTextFixed=await getCatalogTextFixed(); catalogTextDynamic=await getCatalogTextDynamic(); }catch(e){}
+  try{ catalogTextFixed=await getCatalogTextFixed(); catalogTextDynamic=await getCatalogTextDynamic(c); }catch(e){}
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">AI가 설계서를 직접 판독·분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
@@ -362,24 +356,26 @@ async function getCustPlanText(c, box){
   c.planText=ocr; c.planTextImgN=imgs.length; try{ await idbPut('customers',c); }catch(e){}
   return ocr;
 }
-/* ===== 참조풀 텍스트 (2026-08-17 개편: 전역고정/고객별 두 부분으로 분리) =====
-   관리자 화면에서 "전역 고정"(globalPinned) 표시된 자료는 고객이 누구든 항상 같은 내용·같은
-   순서로 나간다 → analyze.js에서 이 부분에 프롬프트 캐싱을 걸어 재사용되게 한다.
-   그 외 자료는 예전처럼 고객마다 담당자가 직접 선택(pinned)했거나, 없으면 상품·상황 태그가
-   많이 겹치는 것을 자동으로 골라서(poolMatchScore) 보낸다 — 이 부분은 고객마다 달라지는 게
-   당연하므로 캐시 대상에서 뺀다. */
-function poolItemText(p){ return '['+(p.title||'')+'] '+(((p.bodyFull||p.body)||'').slice(0,700)); }
-/* 상품카달로그 — 전역 고정된 것 / 그 외(고객별 선택 or 자동매칭) */
-async function getCatalogTextFixed(){
-  const cats=pools.filter(p=>p.poolType==='catalog' && p.globalPinned);
-  if(!cats.length) return '';
-  return cats.map(cat=>{ const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt; return t; }).join('\n\n---\n\n').slice(0,6000);
+/* ===== 참조풀 텍스트 (2026-08-17 개편, 2026-08-17 2차 정정) =====
+   참조풀관리(관리자 화면)에 올라가는 자료는 전부 항상 "전역 고정"(globalPinned)이다 — 고객이
+   누구든 항상 같은 내용·같은 순서로 통째로 나가서 analyze.js에서 프롬프트 캐싱이 재사용된다
+   (poolFixedText/getCatalogTextFixed). 이게 AI 비용을 아끼는 부분.
+   그와 별개로, "이 자료들 중 실제로 이 고객 분석에 쓸 건 무엇인가"는 담당자가 참조 풀 화면에서
+   항목별로 체크(선택)해서 정한다. 체크된 자료가 있으면 그 제목만 짧게 얹어서(본문은 이미 위 캐시
+   블록에 다 있으므로 중복 전송하지 않음) "이 자료들을 이 고객 분석에 쓰라"고 AI에게 지시하고,
+   체크된 게 없으면 상품·상황 태그가 많이 겹치는 자료를 자동으로 찾아 같은 방식으로 지시한다.
+   이 지시문 자체는 고객마다 달라지므로 캐시 대상이 아니지만(poolDynamicText 등), 제목만 담기
+   때문에 비용에는 거의 영향이 없다. */
+function poolItemText(p){ const r=p.result?(' ('+p.result+')'):''; return '['+(p.title||'')+']'+r+' '+(((p.bodyFull||p.body)||'').slice(0,700)); }
+/* 전역 고정된 자료 — 고객 무관, 항상 동일(캐시 재사용 대상). 참조풀관리에 올라간 건 전부 전역 고정이므로
+   사실상 "공개된 이 종류의 전체 목록"과 같다. */
+function poolFixedText(type, limit){
+  const items=pools.filter(p=>p.poolType===type).slice(0,limit||6);
+  return items.map(poolItemText).join('\n\n');
 }
-async function getCatalogTextDynamic(){
-  const fixedIds=new Set(pools.filter(p=>p.poolType==='catalog' && p.globalPinned).map(p=>p.id));
-  const rest=pools.filter(p=>p.poolType==='catalog' && !fixedIds.has(p.id));
-  const pin=rest.filter(p=>p.pinned);
-  const cats=pin.length?pin:rest;
+/* 상품카달로그 전용(다른 타입보다 본문을 더 길게 허용) */
+async function getCatalogTextFixed(){
+  const cats=pools.filter(p=>p.poolType==='catalog');
   if(!cats.length) return '';
   return cats.map(cat=>{ const ctxt=(cat.bodyFull||cat.body)||''; let t='['+(cat.title||'카달로그')+']'; if(ctxt) t+='\n'+ctxt; return t; }).join('\n\n---\n\n').slice(0,6000);
 }
@@ -390,22 +386,22 @@ function poolMatchScore(p, c){
   let n=0; tags.forEach(t=>{ t=String(t); if(want.some(w=>w===t||w.includes(t)||t.includes(w))) n++; });
   return n;
 }
-/* 전역 고정된 자료 — 고객 무관, 항상 동일(캐시 재사용 대상) */
-function poolFixedText(type, limit){
-  const items=pools.filter(p=>p.poolType===type && p.globalPinned).slice(0,limit||6);
-  return items.map(poolItemText).join('\n\n');
+/* 이 고객 분석에 실제로 쓸 자료를 골라 "제목만" 지시문으로 만든다 — 담당자가 참조 풀 화면에서
+   체크(선택)한 게 있으면 그것을, 없으면 태그가 많이 겹치는 걸 자동으로 골라 같은 형식으로 알려준다.
+   본문은 이미 poolFixedText/getCatalogTextFixed의 캐시 블록에 다 들어있으므로 여기선 제목만 담아
+   비용을 늘리지 않는다. */
+function poolUsageDirective(c, type, limit){
+  const all=pools.filter(p=>p.poolType===type);
+  if(!all.length) return '';
+  const chosen=all.filter(p=>p.pinned).slice(0,limit||6);
+  if(chosen.length) return '※ 위 자료 중 담당자가 이 고객 분석에 쓰도록 선택한 것 — 이 자료를 중심으로 활용하세요: '+chosen.map(p=>'['+(p.title||'')+']').join(', ');
+  const matched=all.map(p=>({p,s:poolMatchScore(p,c)})).filter(m=>m.s>0).sort((a,b)=>b.s-a.s).slice(0,limit||4);
+  if(!matched.length) return '';
+  return '※ 담당자가 따로 선택하지 않아 이 고객의 상품·상황 태그와 겹치는 자료를 자동으로 골랐습니다 — 이 자료를 중심으로 활용하세요: '+matched.map(m=>'['+(m.p.title||'')+']').join(', ');
 }
-/* 이 고객에게 맞춰 고른 자료 — 담당자가 이 고객만을 위해 선택(pinned)한 게 있으면 그것,
-   없으면 자동 매칭. 전역 고정된 자료는 이미 poolFixedText에 들어가므로 여기서는 뺀다(중복 방지). */
-function poolDynamicText(c, type, limit){
-  const fixedIds=new Set(pools.filter(p=>p.poolType===type && p.globalPinned).map(p=>p.id));
-  const rest=pools.filter(p=>p.poolType===type && !fixedIds.has(p.id));
-  const pin=rest.filter(p=>p.pinned);
-  if(pin.length) return pin.slice(0,limit||6).map(poolItemText).join('\n\n');
-  const items=rest.map(p=>({p,s:poolMatchScore(p,c)})).sort((a,b)=>b.s-a.s).slice(0,limit||4);
-  if(!items.length) return '';
-  return items.map(m=>poolItemText(m.p)).join('\n\n');
-}
+/* 이 고객에게 맞춰 고른 자료(제목 지시문) — 이전 이름(poolDynamicText)을 유지해 호출부를 그대로 둔다. */
+function poolDynamicText(c, type, limit){ return poolUsageDirective(c, type, limit); }
+async function getCatalogTextDynamic(c){ return poolUsageDirective(c||{}, 'catalog', 6); }
 function getEpisodesText(c){
   const want=[...(c.product||[]),...(c.situation||[])];
   const eps=pools.filter(p=>p.poolType==='episode').map(p=>{
