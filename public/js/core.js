@@ -169,7 +169,10 @@ async function advisorLogin(id, pw, silent){
     const d=await cloudCall({pw:cloudPW, advisorId:id, advisorPw:pw, action:'advisorLogin'});
     if(d && d.ok){
       let prevId=''; try{ prevId=localStorage.getItem('advisorId')||''; }catch(e){}
-      if(prevId && prevId!==id){ await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images'); }
+      // prevId가 비어있어도(=이 기기에서 처음으로 "담당자 로그인"을 하는 경우) 반드시 비운다.
+      // 다중 담당자 구조로 바뀌기 전, 혹은 로그아웃 후 처음 다시 로그인할 때 이 기기에 남아있던
+      // 예전 자료(다른 담당자 것일 수 있음)가 새 담당자 화면에 섞여 보이는 문제를 막기 위함.
+      if(prevId!==id){ await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images'); }
       advisorId=id; advisorPw=pw; advisorName=(d.advisor&&d.advisor.name)||'';
       try{ localStorage.setItem('advisorId',id); localStorage.setItem('advisorPw',pw); localStorage.setItem('advisorName',advisorName); }catch(e){}
       await mergeCloud(d);
