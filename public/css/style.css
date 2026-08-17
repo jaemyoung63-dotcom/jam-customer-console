@@ -115,7 +115,10 @@
   .login-s{font-size:12.5px; color:var(--ink-mute); line-height:1.6; margin:8px 0 18px;}
   /* 화면 모드(모바일/PC·태블릿) 선택 — 2026-08-17 추가 */
   .view-mode-pick{display:flex; gap:8px; margin:0 0 6px;}
-  .view-mode-pick button{flex:1;}
+  /* min-width:0으로 글자가 버튼 밖으로 밀려나 안 보이는 일이 없게 하고(줄바꿈 폭 계산 정상화),
+     white-space:normal(기본값)로 폭이 모자라면 줄바꿈되게 해서 글자가 잘려서 사라지는 대신
+     두 줄로라도 보이게 한다. */
+  .view-mode-pick button{flex:1; min-width:0; white-space:normal; line-height:1.3; overflow:visible;}
   .view-mode-pick button.active{background:var(--accent); border-color:var(--accent); color:#fff;}
   .view-mode-hint{font-size:11px; color:var(--ink-mute); line-height:1.5; margin:0 0 16px;}
   #login-pw{width:100%; box-sizing:border-box; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; font-size:16px; text-align:center;}
