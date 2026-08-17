@@ -227,8 +227,14 @@ async function doAdminReassignPrompt(fromId, fromName){
    (globalPinned) 표시된 것은 고객이 바뀌어도 항상 같은 내용으로 나가 프롬프트 캐싱이 재사용된다.
    (참고: 이 화면의 자료 추가·수정은 담당자 화면의 "참조 풀"처럼 오프라인 저장 후 나중에 동기화하는
    방식이 아니라, 저장 버튼을 누르는 즉시 서버로 바로 저장된다 — 관리 빈도가 낮아 그게 더 단순하다.) */
-const ADMIN_POOL_TYPES=[['case','상담사례'],['episode','에피소드'],['catalog','카달로그'],['plan','설계서']];
+/* 2026-08-17: 관리자 화면의 참조풀 관리를 담당자 화면의 "참조 풀"(js/pools.js)과 같은 구성으로 맞춤
+   — 4종류(아이스브레이크·상담사례·에피소드·카달로그)를 가로 탭으로 두고, 탭을 눌러야 그 종류의
+   세부 항목이 아래에 나온다. 예전 'plan'(설계서)은 실제로 어떤 화면에서도 만들지 않는 orphan
+   데이터였고(개인정보 유출 사고로 이미 삭제함), 대신 담당자들이 실제로 쓰는 '아이스브레이크'가
+   여기 없어서 관리가 안 됐던 걸 바로잡음. */
+const ADMIN_POOL_TYPES=[['icebreak','아이스브레이크'],['case','상담사례'],['episode','에피소드'],['catalog','카달로그']];
 let _adminPoolEditing=null;   // 지금 편집 중인 항목(없으면 null). {_type,_isNew,...필드}
+let _adminPoolType='case';    // 지금 선택된 탭(종류)
 
 async function reloadAdminPools(){
   const d=await adminCall('adminListPools');
@@ -238,6 +244,8 @@ async function reloadAdminPools(){
   renderAdminPools();
   return true;
 }
+
+function switchAdminPoolType(type){ _adminPoolType=type; renderAdminPools(); }
 
 function renderAdminPools(){
   const b=document.getElementById('admin-body'); if(!b) return;
@@ -250,27 +258,34 @@ function renderAdminPools(){
     return;
   }
 
+  // 담당자 화면의 참조 풀과 같은 가로 탭(seg-toggle) 구성 — 종류를 고르면 그 아래에만 세부 항목이 나온다.
+  h+='<div class="seg-toggle" style="margin-bottom:12px">';
   ADMIN_POOL_TYPES.forEach(([type,label])=>{
-    const items=_adminPools.filter(p=>p.poolType===type);
-    h+='<div class="row" style="align-items:center;margin:16px 0 8px"><div style="font-weight:700">'+label+' ('+items.length+')</div><span class="spacer"></span>'
-      +'<button class="btn ghost sm" onclick="openAdminPoolEditor(null,\''+type+'\')">＋ 새 '+label+'</button></div>';
-    if(!items.length){ h+='<div class="stage-note">등록된 '+label+'이(가) 없습니다.</div>'; return; }
-    items.forEach(p=>{
-      const pub=!!p.published, glob=!!p.globalPinned;
-      const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
-      h+='<div class="card" style="margin-bottom:10px">'
-        +'<div class="row" style="align-items:center"><div style="font-weight:700;font-size:15px">'+esc(p.title||'(제목 없음)')+'</div><span class="spacer"></span></div>'
-        +'<div class="pill-tags" style="margin-top:4px">'+tags+'</div>'
-        +'<div class="meta" style="margin-top:6px;white-space:pre-wrap;max-height:60px;overflow:hidden">'+esc((p.body||'').slice(0,140))+'</div>'
-        +'<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">'
-        +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(pub?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'published\',this.checked)">공개(전체 담당자)</label>'
-        +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(glob?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'globalPinned\',this.checked)">전역 고정(캐시)</label>'
-        +'</div>'
-        +'<div class="row" style="gap:6px;margin-top:8px">'
-        +'<button class="btn ghost sm" onclick="openAdminPoolEditor(\''+p.id+'\',\''+type+'\')">편집</button>'
-        +'<button class="btn danger sm" onclick="doAdminDeletePool(\''+p.id+'\',\''+esc(p.title||'').replace(/'/g,"\\'")+'\')">삭제</button>'
-        +'</div></div>';
-    });
+    const n=_adminPools.filter(p=>p.poolType===type).length;
+    h+='<button class="'+(_adminPoolType===type?'on':'')+'" onclick="switchAdminPoolType(\''+type+'\')">'+label+' ('+n+')</button>';
+  });
+  h+='</div>';
+
+  const type=_adminPoolType, label=(ADMIN_POOL_TYPES.find(t=>t[0]===type)||['case','상담사례'])[1];
+  const items=_adminPools.filter(p=>p.poolType===type);
+  h+='<div class="row" style="align-items:center;margin-bottom:10px"><span class="spacer"></span>'
+    +'<button class="btn ghost sm" onclick="openAdminPoolEditor(null,\''+type+'\')">＋ 새 '+label+'</button></div>';
+  if(!items.length){ h+='<div class="stage-note">등록된 '+label+'이(가) 없습니다.</div>'; }
+  items.forEach(p=>{
+    const pub=!!p.published, glob=!!p.globalPinned;
+    const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+    h+='<div class="card" style="margin-bottom:10px">'
+      +'<div class="row" style="align-items:center"><div style="font-weight:700;font-size:15px">'+esc(p.title||'(제목 없음)')+'</div><span class="spacer"></span></div>'
+      +'<div class="pill-tags" style="margin-top:4px">'+tags+'</div>'
+      +'<div class="meta" style="margin-top:6px;white-space:pre-wrap;max-height:60px;overflow:hidden">'+esc((p.body||'').slice(0,140))+'</div>'
+      +'<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">'
+      +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(pub?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'published\',this.checked)">공개(전체 담당자)</label>'
+      +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(glob?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'globalPinned\',this.checked)">전역 고정(캐시)</label>'
+      +'</div>'
+      +'<div class="row" style="gap:6px;margin-top:8px">'
+      +'<button class="btn ghost sm" onclick="openAdminPoolEditor(\''+p.id+'\',\''+type+'\')">편집</button>'
+      +'<button class="btn danger sm" onclick="doAdminDeletePool(\''+p.id+'\',\''+esc(p.title||'').replace(/'/g,"\\'")+'\')">삭제</button>'
+      +'</div></div>';
   });
   b.innerHTML=h;
 }

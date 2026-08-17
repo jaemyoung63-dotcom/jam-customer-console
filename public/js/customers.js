@@ -6,7 +6,7 @@ function renderCustomers(){
   // 이름 검색 + 마이크(같이 붙여서)
   const micOn=(typeof voiceSupported==='function' && voiceSupported());
   let bar='<div class="row" style="margin-bottom:12px;align-items:center;gap:8px">'
-    +'<div style="position:relative;flex:1;min-width:0"><input class="t" id="cust-search" placeholder="고객 이름으로 찾기" value="'+esc(custSearch)+'" oninput="onCustSearch(this.value)" style="padding-right:32px;width:100%">'
+    +'<div style="position:relative;flex:1;min-width:0"><input class="t" id="cust-search" placeholder="고객 이름으로 찾기" value="'+esc(custSearch)+'" oninput="onCustSearch(this.value)" oncompositionstart="onCustSearchCompositionStart()" oncompositionend="onCustSearchCompositionEnd(this.value)" style="padding-right:32px;width:100%">'
     +'<span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.55;font-size:14px">🔍</span></div>'
     +(micOn?'<button class="btn ghost sm" id="hdr-mic-btn" style="flex-shrink:0" onclick="startListVoiceCommand()">🎤</button>':'')
     +'</div>';
@@ -50,9 +50,18 @@ function renderCustomers(){
   document.getElementById('cust-list').innerHTML=html;
 }
 function setCF(k,v){custFilter[k]=v; renderCustomers();}
-/* 이름 검색: 매번 다시 그리면 입력 커서가 끊기므로, 다시 그린 뒤 포커스·커서 위치를 복원 */
+/* 이름 검색: 매번 다시 그리면 입력 커서가 끊기므로, 다시 그린 뒤 포커스·커서 위치를 복원.
+   한글 등은 자모를 조합해서 완성되는데(예: ㄱ+ㅏ+ㅁ→감), 조합 중에 매 키 입력마다
+   input을 통째로 다시 그려버리면 브라우저가 조합하던 상태를 잃어버려서 글자가
+   깨져 보인다(예: "감"이 "ㄱㅏㅁ"으로). 그래서 조합 중(_imeComposing=true)에는
+   화면을 다시 그리지 않고, 조합이 끝난 뒤(oncompositionend)에만 다시 그린다. */
+let _imeComposing=false;
+function onCustSearchCompositionStart(){ _imeComposing=true; }
+function onCustSearchCompositionEnd(v){ _imeComposing=false; onCustSearch(v); }
 function onCustSearch(v){
-  custSearch=v; renderCustomers();
+  custSearch=v;
+  if(_imeComposing) return;
+  renderCustomers();
   const si=document.getElementById('cust-search');
   if(si){ si.focus(); try{ const p=si.value.length; si.setSelectionRange(p,p); }catch(e){} }
 }
