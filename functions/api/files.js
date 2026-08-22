@@ -8,7 +8,7 @@
 
 ```javascript
 // functions/api/files.js
-import { checkSitePassword, checkAdvisor, ownerBelongsToAdvisor } from '../_lib/advisors.js';
+import { checkSitePassword, checkAdvisor, ownerBelongsToAdvisor } from '../lib/advisors.js';
 
 function json(obj, status) {
   return new Response(JSON.stringify(obj), {
