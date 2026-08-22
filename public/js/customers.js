@@ -175,3 +175,135 @@ async function delTidyEntry(i){
   if(!editingCust||!editingCust.coverageHistory) return;
   if(!confirm('이 정리 기록을 삭제할까요?')) return;
   editingCust.coverageHistory.splice(i,1);
+}
+
+  if(editingCust.coverageHistory){ editingCust.coverageText=editingCust.coverageHistory.text; document.getElementById('c-coverage').value=editingCust.coverageText; }
+  if(editingCust.id) await idbPut('customers',editingCust);
+  refreshCoverageUI();
+}
+
+/* 나이 실시간 역산 알고리즘 */
+function computeAge6(d){
+  if(!/^\d{6}$/.test(d)) return null;
+  let yy=+d.slice(0,2), mm=+d.slice(2,4), dd=+d.slice(4,6);
+  if(mm<1||mm>12||dd<1||dd>31) return null;
+  const now=new Date(), cy2=now.getFullYear()%100;
+  const year=(yy<=cy2)?2000+yy:1900+yy;
+  let age=now.getFullYear()-year;
+  const bd=new Date(year,mm-1,dd);
+  const passed=(now.getMonth()>bd.getMonth())||(now.getMonth()===bd.getMonth()&&now.getDate()>=bd.getDate());
+  if(!passed) age--;
+  return (age>=0&&age<=120)?age:null;
+}
+
+/* 생년월일 6자리 타이핑 감지 함수 예외 필터 처리 */
+function onBirth6(){
+  const rawInput = document.getElementById('c-birth6').value || '';
+  const d = rawInput.replace(/\D/g,'').slice(0,6);
+  document.getElementById('c-birth6').value = d;
+  
+  const age = computeAge6(d);
+  editingCust.birth6 = d;
+  
+  if(age != null && !isNaN(age)){
+    editingCust.ageNum = age;
+    document.getElementById('c-agenum').value = age + '세';
+    const band = age < 30 ? '20대' : age < 40 ? '30대' : age < 50 ? '40대' : age < 60 ? '50대' : '60대+';
+    if(!editingCust.age){ 
+      editingCust.age = band; 
+      document.getElementById('c-age').value = band; 
+    }
+  } else {
+    editingCust.ageNum = null; 
+    document.getElementById('c-agenum').value = '';
+  }
+}
+
+function toggleImageBlock() { }
+function openLightbox(src){ const lb=document.getElementById('lightbox'); const im=document.getElementById('lightbox-img'); if(im) im.src=src; if(lb) lb.classList.add('show'); }
+
+function startProgress(cb){
+  let p=0; try{ cb(0); }catch(e){}
+  const id=setInterval(()=>{ p += Math.max(1, Math.round((92-p)*0.07)); if(p>92) p=92; try{ cb(p); }catch(e){} }, 350);
+  return { done:(final)=>{ clearInterval(id); try{ cb(final==null?100:final); }catch(e){} } };
+}
+
+function qPanel(title, questions, onSubmitAttr){ return ''; }
+function collectAnswers(box){
+  const lines=[]; box.querySelectorAll('.q-answer').forEach(inp=>{ const a=inp.value.trim(); if(a) lines.push('- '+inp.getAttribute('data-q')+' → '+a); });
+  return lines;
+}
+
+function renderTidyQuestions(questions){
+  const box=document.getElementById('tidy-questions'); if(!box) return;
+  if(!questions||!questions.length){ box.innerHTML=''; return; }
+  box.innerHTML=qPanel('확인', questions, 'resubmitTidy()');
+}
+
+function resubmitTidy(){
+  const box=document.getElementById('tidy-questions'); const lines=collectAnswers(box);
+  if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
+  tidyCoverage(lines.join('\n'));
+}
+
+let planQCust=null;
+function renderPlanQuestions(custId, questions){
+  const box=document.getElementById('plan-questions'); if(!box) return; planQCust=custId;
+  if(!questions||!questions.length){ box.innerHTML=''; return; }
+  box.innerHTML=qPanel('확인', questions, 'resubmitPlan()');
+}
+
+function resubmitPlan(){
+  const box=document.getElementById('plan-questions'); const lines=collectAnswers(box);
+  if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
+  if(planQCust) runPlanAnalysis(planQCust, lines.join('\n'));
+}
+
+function enableDrop(el, onFile, filterFn){
+  if(!el||el._dropReady) return; el._dropReady=true;
+  const ok = filterFn || (f => (f.type&&f.type.indexOf('image')===0)||isPdfFile(f));
+  el.addEventListener('dragover',e=>{e.preventDefault(); el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',async e=>{
+    e.preventDefault(); el.classList.remove('drag-over');
+    const files=(e.dataTransfer&&e.dataTransfer.files)?Array.from(e.dataTransfer.files):[];
+    for(const f of files){ if(ok(f)) await onFile(f); }
+  });
+}
+
+async function renderThumbs(){
+  const wrap=document.getElementById('c-thumbs'); if(!wrap) return; wrap.innerHTML='';
+  
+  if (Array.isArray(editingCust.images)) {
+    for(const ref of editingCust.images){
+      try {
+        const rec = await idbGet('images', ref);
+        const d = document.createElement('div'); 
+        d.className = 'thumb';
+        
+        if(rec && rec.blob){ 
+          d.innerHTML = '<img src="'+blobUrl(rec.blob)+'" onclick="event.stopPropagation();openLightbox(this.src)"><span class="k">'+esc(rec.kind||'')+'</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>'; 
+        } else {
+          d.innerHTML = '<span class="k" style="color:var(--danger)">데이터 누수</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>';
+        }
+        wrap.appendChild(d);
+      } catch (imageErr) {
+        console.error("IndexedDB 증권 이미지 로드 실패 코드 스킵:", imageErr);
+      }
+    }
+  }
+  
+  const add=document.createElement('div'); add.className='add-thumb';
+  add.innerHTML='<span style="font-size:22px">＋</span>파일 추가';
+  add.onclick=pickImage;
+  wrap.appendChild(add);
+  
+  const cam=document.createElement('div'); cam.className='add-thumb';
+  cam.innerHTML='<span style="font-size:22px">📷</span>카메라 촬영';
+  cam.onclick=pickCamera;
+  wrap.appendChild(cam);
+  
+  enableDrop(wrap, addImageDirect);
+}
+
+function removeImage(e,ref){e.stopPropagation(); editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}

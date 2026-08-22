@@ -202,3 +202,171 @@ async function genApScripts(){
     try{
       const res=await fetch('/api/analyze',{
         method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region}, material:apMaterialText(c,k)})
+      });
+      const data=await res.json();
+      if(!res.ok){ throw new Error(data.error||('HTTP '+res.status)); }
+      const txt=(data.text||'').trim();
+      if(txt){ 
+        c.ap.scripts[k]=txt; 
+        if(data._usage) addUsage(data._usage,'AP 멘트'); 
+        done++; 
+      } else { 
+        fail++; 
+      }
+    }catch(err){ 
+      console.error("AI 멘트 개별 API 에러:", err);
+      fail++; 
+    }
+  }
+  
+  _isApGenerating = false; // 트랜잭션 락 해제
+  if(btn){ btn.disabled=false; btn.textContent='🤖 체크된 단계 상담 멘트 생성'; }
+  
+  await idbPut('customers',c); 
+  customers=await idbAll('customers');
+  if(prog){ prog.textContent='완료 · 생성 '+done+'개'+(fail?(' · 실패 '+fail+'개'):'')+'. 각 단계 탭에서 확인하세요.'; }
+  renderAP();
+}
+
+async function saveAP(){
+  const c=customers.find(x=>x.id===apCustId); 
+  if(!c){ go('customers'); return; }
+  c.ap=c.ap||{scripts:{}}; 
+  c.ap.savedAt=now(); 
+  c.apSaved=true;
+  await idbPut('customers',c); 
+  customers=await idbAll('customers');
+  toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); 
+  setTimeout(toastHide,2200);
+  go('customers');
+}
+
+let lastPlan=null;
+function renderPlanResult(d, date){
+  d=rescueResult(d);
+  const box=document.getElementById('an-plan-result'); 
+  if(!box) return; 
+  lastPlan=d; 
+  let h='';
+  if(date) h+='<div class="meta" style="margin:0 2px 8px">가입설계 분석일 '+esc(date)+'</div>';
+  const rate=Math.max(0,Math.min(100, Math.round(Number(d.shortfallRate)||0)));
+  const col=rate>=60?'var(--no)':(rate>=30?'var(--hold)':'var(--ok)');
+  h+='<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><span style="font-size:14px">잔여 부족율</span><span class="spacer"></span><span style="font-size:26px;font-weight:700;color:'+col+'">'+rate+'%</span></div>';
+  h+='<div style="height:12px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+rate+'%;background:'+col+'"></div></div></div>';
+  if(d.summary) h+='<div class="card"><div style="font-size:14px;line-height:1.7;color:var(--ink-soft)">'+bulletize(d.summary)+'</div></div>';
+  h+='<div class="btn-grid">';
+  if(hasLines(d.planDetail)) h+='<button class="btn primary" onclick="showPlanDetail()">상세 분석</button>';
+  if(pools.some(p=>p.poolType==='episode')) h+='<button class="btn ghost" onclick="showEpisodes()">🗣 참고 에피소드</button>';
+  if(d._raw) h+='<button class="btn ghost" onclick="showRaw(\'plan\')">원문 보기</button>';
+  h+='</div>';
+  box.innerHTML=h;
+}
+
+function renderPlanWithHistory(c, idx){
+  const list=(c.planAnalyses&&c.planAnalyses.length)?c.planAnalyses:[];
+  const entry=list[idx]; 
+  if(!entry) return;
+  
+  renderPlanResult(entry.data, entry.at||entry.date);
+  let hh='<label class="f">가입설계 기록 ('+list.length+')</label>';
+  
+  const cards=list.map((e,i)=>{
+    const active=i===idx; 
+    const d=e.data||{};
+    
+    let detailText = '';
+    if(Array.isArray(d.planDetail)) {
+      const found = d.planDetail.find(x => x && !/^\[.*\]$/.test(String(x).trim()));
+      detailText = found ? found : '';
+    }
+    
+    const sm=oneLine('부족율 '+(d.shortfallRate!=null?d.shortfallRate+'%':'-')+' · '+(d.summary || detailText));
+    return '<div class="card" style="padding:9px 11px;'+(active?'border-color:var(--accent);':'')+'"><div class="row" style="align-items:center">'
+      +'<div style="flex:1;min-width:0" onclick="showPlanEntry(\''+c.id+'\','+i+')"><div style="font-size:12.5px;font-weight:600">'+esc(e.at||e.date||'')+(active?' · 보는 중':'')+'</div><div class="meta" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(sm)+'</div></div>'
+      +'<button class="btn ghost sm" style="margin-left:8px" onclick="showPlanEntry(\''+c.id+'\','+i+')">보기</button>'
+      +'<button class="btn danger sm" style="margin-left:6px" onclick="delPlanEntry(\''+c.id+'\','+i+')">삭제</button></div></div>';
+  });
+  
+  hh+=histBlock(cards,'planhist');
+  const ar = document.getElementById('an-plan-result');
+  if(ar) ar.insertAdjacentHTML('beforeend', hh);
+}
+
+function showPlanEntry(custId, idx){ const c=customers.find(x=>x.id===custId); if(c) renderPlanWithHistory(c, idx); }
+async function delPlanEntry(custId, i){
+  const c=customers.find(x=>x.id===custId); if(!c) return;
+  if(!confirm('이 가입설계 기록을 삭제할까요?')) return;
+  c.planAnalyses=c.planAnalyses||[]; 
+  c.planAnalyses.splice(i,1);
+  await idbPut('customers',c); 
+  customers=await idbAll('customers'); 
+  renderAnalysis();
+}
+
+function showDifference(){ const d=lastPlan||{}; openSubPage('보장분석 vs 가입설계 · 핵심 차이', linesBlock(d.difference)); }
+function showAfterGaps(){ const d=lastPlan||{}; openSubPage('가입설계 이후 추가 보완', linesBlock(d.afterPlanGaps)); }
+function showRecommend(){
+  const d=lastPlan||{}; 
+  let h='';
+  (d.recommend||[]).forEach((x,i,arr)=>{h+='<div class="row" style="padding:10px 4px;'+(i<arr.length-1?'border-bottom:1px solid var(--line);':'')+'"><span class="badge b-seg" style="min-width:24px;text-align:center">'+(i+1)+'</span><span style="font-size:15px;margin-left:10px">'+hlText(esc(x))+'</span></div>';});
+  openSubPage('보완·추가 제안', h||'<div class="stage-note">내용이 없습니다.</div>');
+}
+function showPlanDetail(){ const d=lastPlan||{}; openSubPage('가입설계 상세 분석', linesBlock(d.planDetail)); }
+function toggleDetail(){const e=document.getElementById('an-detail'); if(e) e.style.display=e.style.display==='none'?'block':'none';}
+
+function ttsResult(){
+  if(!lastAnalysis) return;
+  if(!('speechSynthesis' in window)){alert('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return;}
+  let t=(lastAnalysis.summary||'')+' ';
+  (lastAnalysis.priorities||[]).forEach((p,i)=>{t+='보강 '+(i+1)+', '+p+'. ';});
+  speechSynthesis.cancel(); 
+  const u=new SpeechSynthesisUtterance(t); 
+  u.lang='ko-KR'; 
+  speechSynthesis.speak(u);
+}
+
+function ttsDemo(name){
+  if(!('speechSynthesis' in window)){alert('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return;}
+  const text=name+' 고객님은 현재 보장 자료를 바탕으로 볼 때, 사망 보장은 확보되어 있으나 진단·입원 영역에 공백이 있습니다. '
+    +'만기가 다가오는 상품에서 확보되는 여유 보험료를 새로운 보장으로 전환하는 방향을 제안드립니다. '
+    +'이것은 예시 음원이며, 실제 분석 결과가 연결되면 이 자리에서 전체 내용을 읽어드립니다.';
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text); 
+  u.lang='ko-KR'; 
+  u.rate=1.0;
+  speechSynthesis.speak(u);
+}
+
+function openSheet(id){document.getElementById(id).classList.add('show'); document.body.style.overflow='hidden';}
+function closeSheet(id){document.getElementById(id).classList.remove('show'); document.body.style.overflow='';}
+function fillSelect(id,items,val){const s=document.getElementById(id); if(items){s.innerHTML='<option value="">-</option>'; items.forEach(i=>{const o=document.createElement('option'); o.value=i; o.textContent=i; s.appendChild(o);});} s.value=val||'';}
+function esc(s){return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) closeSheet(o.id);}));
+
+(async function init(){
+  await openDB();
+  if(typeof fsInit==='function') await fsInit();
+  { const oc=document.getElementById('s-custdetail'); if(oc) oc.addEventListener('input', scheduleCustAutosave); }
+  { const op=document.getElementById('ov-pool'); if(op) op.addEventListener('input', schedulePoolAutosave); }
+  customers=await idbAll('customers');
+  pools=await idbAll('pools');
+  pools.forEach(p=>{ p.pinned=false; });
+  
+  let saved=''; 
+  try{ saved=localStorage.getItem('cloudPW')||''; }catch(e){}
+  if(saved){
+    const ok=await cloudLogin(saved, true);
+    if(ok){
+      const aok=await trySilentAdvisorLogin();
+      if(aok){ goHome(); } else if(typeof showAdvisorPicker==='function'){ showAdvisorPicker(); } else { goHome(); }
+    } else { showLogin(); }
+  } else { showLogin(); }
+  
+  setTimeout(function(){
+    const sp=document.getElementById('splash');
+    if(sp){ sp.classList.add('hide'); setTimeout(function(){ if(sp&&sp.parentNode) sp.parentNode.removeChild(sp); }, 900); }
+  }, 3000);
+})();
