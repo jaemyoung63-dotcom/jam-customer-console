@@ -1,13 +1,17 @@
-/* =========================================================================
-   고객 관리 UI 및 비동기 트랜잭션 예외 처리 강화 모듈 (1·2단계)
-   ========================================================================= */
+/* =========================================================
+   고객 (1·2단계)
+========================================================= */
 function renderCustomers(){
   header('고객', customers.length+'명 · 방문예정·상담·계약 관리', null);
   ensureCustToolbar();
   renderCustFilterChips();
   renderCustResults();
 }
-
+/* 검색창(input)은 화면에 처음 들어올 때 딱 한 번만 만든다. 한글 등은 자모를 조합해서
+   완성되는데(예: ㄱ+ㅏ+ㅁ→감), 글자를 치는 도중에 이 input을 통째로 다시 만들어(지웠다 새로
+   그려서) 바꿔치기하면 브라우저가 "지금 조합 중이던 칸"을 잃어버려서 글자가 깨져 보인다
+   (예: "감"이 "ㄱㅏㅁ"으로 따로 남음). 그래서 검색어가 바뀌어도 이 input 자체는 절대
+   다시 만들지 않고(ensureCustToolbar에서 이미 있으면 건너뜀), 그 아래 결과 목록만 새로 그린다. */
 function ensureCustToolbar(){
   if(document.getElementById('cust-search')) return;
   const micOn=(typeof voiceSupported==='function' && voiceSupported());
@@ -20,7 +24,6 @@ function ensureCustToolbar(){
   bar+='<div class="chips" id="cust-src-chips" style="margin-bottom:14px;"></div>';
   const box=document.getElementById('cust-toolbar'); if(box) box.innerHTML=bar;
 }
-
 function renderCustFilterChips(){
   let segHtml='';
   ['전체',...SEGMENTS].forEach(s=>{ segHtml+='<div class="chip'+(custFilter.seg===s?' on':'')+'" onclick="setCF(\'seg\',\''+s+'\')">'+s+'</div>'; });
@@ -29,12 +32,12 @@ function renderCustFilterChips(){
   SOURCES.forEach(([v,l])=>{ srcHtml+='<div class="chip'+(custFilter.src===v?' on':'')+'" onclick="setCF(\'src\',\''+v+'\')">'+l+'</div>'; });
   const srcEl=document.getElementById('cust-src-chips'); if(srcEl) srcEl.innerHTML=srcHtml;
 }
-
 function renderCustResults(){
   let list = customers.slice().sort((a,b)=>b.updated.localeCompare(a.updated));
   if(custFilter.seg!=='전체') list=list.filter(c=>c.seg===custFilter.seg);
   if(custFilter.src!=='전체') list=list.filter(c=>c.source===custFilter.src);
   if((custSearch||'').trim()) list=list.filter(c=>(c.name||'').includes(custSearch.trim()));
+
   let html='';
   if(list.length===0){
     html += (custSearch||'').trim()
@@ -50,25 +53,33 @@ function renderCustResults(){
       const apBtn = c.apSaved ? '<button class="btn primary sm" style="margin-left:8px;flex-shrink:0" onclick="event.stopPropagation();openAP(\''+c.id+'\')">AP</button>' : '';
       html+='<div class="card tap" onclick="openCustomer(\''+c.id+'\')">'
         +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+src+apBtn+'</div>'
-        +'<div class="meta">'+(c.age?c.age+' · ':'')+(c.region?esc(c.region):'지역 미입력')+(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')+'</div>'
-        +(tags?'<div class="pill-tags">'+tags+'</div>':'')+'</div>';
+        +'<div class="meta">'+(c.age?c.age+' · ':'')+(c.region?esc(c.region):'지역 미입력')
+        +(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')+'</div>'
+        +(tags?'<div class="pill-tags">'+tags+'</div>':'')
+        +'</div>';
     });
   }
-  html+='<div class="divider"></div><button class="btn primary wide add-btn" onclick="openCustomer(null)">＋ 고객 추가</button>';
+  html+='<div class="divider"></div>';
+  html+='<button class="btn primary wide add-btn" onclick="openCustomer(null)">＋ 고객 추가</button>';
   html+='<div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="document.getElementById(\'import-cust-input\').click()">불러오기(복원)</button></div>';
   const box=document.getElementById('cust-results'); if(box) box.innerHTML=html;
 }
-
 function setCF(k,v){custFilter[k]=v; renderCustFilterChips(); renderCustResults();}
 let _imeComposing=false;
 function onCustSearchCompositionStart(){ _imeComposing=true; }
 function onCustSearchCompositionEnd(v){ _imeComposing=false; onCustSearch(v); }
-function onCustSearch(v){ custSearch=v; if(_imeComposing) return; renderCustResults(); }
+function onCustSearch(v){
+  custSearch=v;
+  if(_imeComposing) return;
+  renderCustResults(); // 검색창(input)은 절대 건드리지 않고, 결과 목록만 새로 그린다
+}
 
 async function openCustomer(id){
   const c = id ? customers.find(x=>x.id===id) : {id:null,source:'db',seg:'방문예정',product:[],situation:[],images:[]};
   editingCust = JSON.parse(JSON.stringify(c));
-  if(appMode==='connected') { currentCustId = id ? id : null; }
+  /* 상담·분석(연결) 모드에서 고객을 선택하면 "작업 고객"으로 물고 간다 —
+     이후 하단 탭(분석·상담·참조풀)으로 옮겨가도 이 고객 정보가 계속 뜨게 하기 위함(navGo()에서 유지). */
+  if(appMode==='connected' && id) currentCustId=id;
   header(id?'고객 상세':'고객 등록', c.name?('◉ '+c.name+(c.region?' · '+c.region:'')):'');
   document.getElementById('cust-title').textContent = id?'고객 상세':'고객 등록';
   document.getElementById('c-delete').style.display = id?'flex':'none';
@@ -89,13 +100,17 @@ async function openCustomer(id){
   await renderThumbs();
   custStep(1);
   refreshCoverageUI();
+  /* 고객상세는 "팝업 창"이 아니라 고객 화면 안의 하위 화면 — 다른 화면(.screen)들과 같은 방식으로 전환.
+     단, 하단 탭은 계속 "고객"이 켜져 있게 둠(여전히 고객 섹션 안이라는 뜻). freeUrls()는 일부러 안 부름 —
+     방금 renderThumbs()가 만든 이미지 미리보기 URL이 곧바로 지워지면 사진이 깨져 보이기 때문.
+     header()는 위에서 이미 새로 그렸으므로 여기서 다시 지우지 않음. */
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
   document.getElementById('s-custdetail').classList.add('active');
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('on'));
   const tb=document.getElementById('tab-customers'); if(tb) tb.classList.add('on');
   window.scrollTo(0,0);
 }
-
+/* ===== 고객 다단계 이동 (2단계) ===== */
 function custStep(n){
   for(let i=1;i<=2;i++){ const el=document.getElementById('cstep-'+i); if(el) el.style.display=(i===n)?'block':'none'; }
   const sb=document.getElementById('cust-stepbar');
@@ -109,21 +124,23 @@ function custStep(n){
   }
   window.scrollTo(0,0);
 }
-
-function refreshCoverageUI(){ renderTidyHistory(); }
+function refreshCoverageUI(){
+  renderTidyHistory();
+}
 function showCoverageResult(){
   const ta=document.getElementById('c-coverage'); const mm=document.getElementById('c-memo');
   if(ta && editingCust && editingCust.coverageText && !(ta.value||'').trim()) ta.value=editingCust.coverageText;
   if(mm && editingCust && editingCust.memo!=null && !(mm.value||'').trim()) mm.value=editingCust.memo;
-  resetCovSave(); openSheet('ov-coverage');
+  resetCovSave();
+  openSheet('ov-coverage');
 }
-
+/* 기록 목록: 최대 3개만 표시, 나머지는 '이전기록' 버튼으로 펼침 */
 function histBlock(cards, idPrefix){
   if(cards.length<=3) return cards.join('');
-  return cards.slice(0,3).join('')+'<div id="'+idPrefix+'-more" style="display:none">'+cards.slice(3).join('')+'</div>'
+  return cards.slice(0,3).join('')
+    +'<div id="'+idPrefix+'-more" style="display:none">'+cards.slice(3).join('')+'</div>'
     +'<button class="btn ghost sm wide" style="margin-top:6px" onclick="var m=document.getElementById(\''+idPrefix+'-more\');m.style.display=\'block\';this.style.display=\'none\'">이전기록 '+(cards.length-3)+'개 더 보기</button>';
 }
-
 function renderTidyHistory(){
   const wrap=document.getElementById('tidy-history'); if(!wrap) return;
   const list=(editingCust&&editingCust.coverageHistory)?editingCust.coverageHistory:[];
@@ -137,14 +154,110 @@ function renderTidyHistory(){
       +'<button class="btn danger sm" style="margin-left:6px" onclick="delTidyEntry('+i+')">삭제</button></div></div>');
   wrap.innerHTML=h+histBlock(cards,'tidyhist');
 }
-
-function openTidyEntry(i){ const list=(editingCust&&editingCust.coverageHistory)||[]; const e=list[i]; if(!e) return; document.getElementById('c-coverage').value=e.text||''; openSheet('ov-coverage'); }
-async function delTidyEntry(i){
-  if(!editingCust||!editingCust.coverageHistory) return; if(!confirm('이 정리 기록을 삭제할까요?')) return;
-  editingCust.coverageHistory.splice(i,1);
-  if(editingCust.coverageHistory){ editingCust.coverageText=editingCust.coverageHistory.text; document.getElementById('c-coverage').value=editingCust.coverageText; }
-  if(editingCust.id) await idbPut('customers',editingCust); refreshCoverageUI();
+function openTidyEntry(i){
+  const list=(editingCust&&editingCust.coverageHistory)||[]; const e=list[i]; if(!e) return;
+  document.getElementById('c-coverage').value=e.text||'';
+  openSheet('ov-coverage');
 }
-
+async function delTidyEntry(i){
+  if(!editingCust||!editingCust.coverageHistory) return;
+  if(!confirm('이 정리 기록을 삭제할까요?')) return;
+  editingCust.coverageHistory.splice(i,1);
+  if(editingCust.coverageHistory[0]){ editingCust.coverageText=editingCust.coverageHistory[0].text; document.getElementById('c-coverage').value=editingCust.coverageText; }
+  if(editingCust.id) await idbPut('customers',editingCust);
+  refreshCoverageUI();
+}
 function computeAge6(d){
   if(!/^\d{6}$/.test(d)) return null;
+  let yy=+d.slice(0,2), mm=+d.slice(2,4), dd=+d.slice(4,6);
+  if(mm<1||mm>12||dd<1||dd>31) return null;
+  const now=new Date(), cy2=now.getFullYear()%100;
+  const year=(yy<=cy2)?2000+yy:1900+yy;
+  let age=now.getFullYear()-year;
+  const bd=new Date(year,mm-1,dd);
+  const passed=(now.getMonth()>bd.getMonth())||(now.getMonth()===bd.getMonth()&&now.getDate()>=bd.getDate());
+  if(!passed) age--;
+  return (age>=0&&age<=120)?age:null;
+}
+function onBirth6(){
+  const d=document.getElementById('c-birth6').value.replace(/\D/g,'').slice(0,6);
+  document.getElementById('c-birth6').value=d;
+  const age=computeAge6(d);
+  editingCust.birth6=d;
+  if(age!=null){
+    editingCust.ageNum=age;
+    document.getElementById('c-agenum').value=age+'세';
+    const band=age<30?'20대':age<40?'30대':age<50?'40대':age<60?'50대':'60대+';
+    if(!editingCust.age){ editingCust.age=band; document.getElementById('c-age').value=band; }
+  } else {
+    editingCust.ageNum=null; document.getElementById('c-agenum').value='';
+  }
+}
+function toggleImageBlock(){ /* DB·지인 동일 포맷 — 이미지/보장 단계 항상 표시 */ }
+function openLightbox(src){ const lb=document.getElementById('lightbox'); const im=document.getElementById('lightbox-img'); if(im) im.src=src; if(lb) lb.classList.add('show'); }
+function startProgress(cb){
+  let p=0; try{ cb(0); }catch(e){}
+  const id=setInterval(()=>{ p += Math.max(1, Math.round((92-p)*0.07)); if(p>92) p=92; try{ cb(p); }catch(e){} }, 350);
+  return { done:(final)=>{ clearInterval(id); try{ cb(final==null?100:final); }catch(e){} } };
+}
+/* ===== 불명확 확인 질문 UI ===== */
+function qPanel(title, questions, onSubmitAttr){
+  return '';   // '확인이 필요한 항목' 패널 사용 안 함 (요청으로 삭제)
+}
+function collectAnswers(box){
+  const lines=[]; box.querySelectorAll('.q-answer').forEach(inp=>{ const a=inp.value.trim(); if(a) lines.push('- '+inp.getAttribute('data-q')+' → '+a); });
+  return lines;
+}
+function renderTidyQuestions(questions){
+  const box=document.getElementById('tidy-questions'); if(!box) return;
+  if(!questions||!questions.length){ box.innerHTML=''; return; }
+  box.innerHTML=qPanel('확인', questions, 'resubmitTidy()');
+}
+function resubmitTidy(){
+  const box=document.getElementById('tidy-questions'); const lines=collectAnswers(box);
+  if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
+  tidyCoverage(lines.join('\n'));
+}
+let planQCust=null;
+function renderPlanQuestions(custId, questions){
+  const box=document.getElementById('plan-questions'); if(!box) return; planQCust=custId;
+  if(!questions||!questions.length){ box.innerHTML=''; return; }
+  box.innerHTML=qPanel('확인', questions, 'resubmitPlan()');
+}
+function resubmitPlan(){
+  const box=document.getElementById('plan-questions'); const lines=collectAnswers(box);
+  if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
+  if(planQCust) runPlanAnalysis(planQCust, lines.join('\n'));
+}
+function enableDrop(el, onFile, filterFn){
+  if(!el||el._dropReady) return; el._dropReady=true;
+  const ok = filterFn || (f => (f.type&&f.type.indexOf('image')===0)||isPdfFile(f));
+  el.addEventListener('dragover',e=>{e.preventDefault(); el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',async e=>{
+    e.preventDefault(); el.classList.remove('drag-over');
+    const files=(e.dataTransfer&&e.dataTransfer.files)?Array.from(e.dataTransfer.files):[];
+    for(const f of files){ if(ok(f)) await onFile(f); }
+  });
+}
+async function renderThumbs(){
+  const wrap=document.getElementById('c-thumbs'); if(!wrap) return; wrap.innerHTML='';
+  for(const ref of (editingCust.images||[])){
+    const rec=await idbGet('images',ref);
+    const d=document.createElement('div'); d.className='thumb';
+    if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'" onclick="event.stopPropagation();openLightbox(this.src)"><span class="k">'+(rec.kind||'')+'</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>'; }
+    else d.innerHTML='<span class="k">없음</span>';
+    wrap.appendChild(d);
+  }
+  const add=document.createElement('div'); add.className='add-thumb';
+  add.innerHTML='<span style="font-size:22px">＋</span>파일 추가';
+  add.onclick=pickImage;
+  wrap.appendChild(add);
+  const cam=document.createElement('div'); cam.className='add-thumb';
+  cam.innerHTML='<span style="font-size:22px">📷</span>카메라 촬영';
+  cam.onclick=pickCamera;
+  wrap.appendChild(cam);
+  enableDrop(wrap, addImageDirect);
+}
+function removeImage(e,ref){e.stopPropagation(); editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}
+
