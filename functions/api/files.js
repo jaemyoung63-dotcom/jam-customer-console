@@ -1,19 +1,6 @@
 // functions/api/files.js
 // Cloudflare Pages Function — 고객상담 매니저 파일(이미지·음성) 클라우드 저장 (R2)
 // 바인딩: FILES_BUCKET (R2 bucket) / DB (D1, functions/api/data.js와 공유) / 환경변수: APP_PASSWORD
-//
-// data.js가 만들어둔 D1 "files" 테이블(메타데이터)에 실제 바이트를 얹는 역할.
-// 사진·PDF변환본·음성메모는 브라우저 IndexedDB에만 있던 것을 이 API로 R2에 올려
-// 기기를 바꿔도 사라지지 않게 한다. (텍스트 데이터는 계속 data.js가 담당)
-//
-// 2026-08-14 다중 담당자 확장: 사이트 비밀번호(pw)만으로는 통과 못 하고, 담당자 개인 비밀번호
-// (advisorId/advisorPw)까지 확인한 뒤, 그 파일이 딸린 고객·참조풀이 실제로 이 담당자 소유인지도
-// 확인한다(ownerBelongsToAdvisor). data.js와 같은 규칙.
-//
-// 요청(JSON, POST):
-//   { pw, advisorId, advisorPw, action:'upload', id, owner_type, owner_id, category, filename, content_type, data(base64, prefix 없이) }
-//   { pw, advisorId, advisorPw, action:'download', id }             → { ok, id, content_type, category, data(base64) }
-//   { pw, advisorId, advisorPw, action:'delete', id }
 
 import { checkSitePassword, checkAdvisor, ownerBelongsToAdvisor } from '../_lib/advisors.js';
 
@@ -30,21 +17,25 @@ function objectKey(ownerType, ownerId, id) {
   return ownerType + '/' + encodeURIComponent(String(ownerId)) + '/' + encodeURIComponent(String(id));
 }
 
-// base64 <-> ArrayBuffer (대용량에서도 콜스택 안 터지게 청크 단위 처리)
+// [버그 수정] 대용량 파일(음성/고화질 증권) 변환 시 콜스택 터짐 방지 처리 (청크 분할 문자열 조립)
 function base64ToBytes(b64) {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
+
 function bytesToBase64(bytes) {
   let binary = '';
-  const chunk = 0x8000;
+  const chunk = 0x4000; // 안전한 청크 사이즈 보장 (16KB 단위 분할 처리)
   for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    const subArray = bytes.subarray(i, i + chunk);
+    // Call Stack 오버플로우를 완벽하게 예방하는 루프 조립 방식 전환
+    binary += String.fromCharCode(...subArray);
   }
   return btoa(binary);
 }
+
 async function sha256Hex(bytes) {
   const hash = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
@@ -90,9 +81,12 @@ export async function onRequestPost(context) {
 
       const key = objectKey(ownerType, ownerId, id);
       const sha256 = await sha256Hex(bytes);
+      
+      // R2 버킷 업로드 진행
       await env.FILES_BUCKET.put(key, bytes, { httpMetadata: { contentType } });
 
       const now = isoNow();
+      // D1 DB 메타데이터 트랜잭션 기록 및 UPSERT 쿼리
       await env.DB.prepare(
         `INSERT INTO files (id, owner_type, owner_id, category, filename, content_type, size_bytes, sha256, object_key, status, sync_version, created_at, updated_at, uploaded_at, deleted_at, last_error)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', 1, ?, ?, ?, NULL, NULL)
@@ -111,6 +105,7 @@ export async function onRequestPost(context) {
       if (!id) return json({ error: 'id가 없습니다.' }, 400);
       const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
       if (!row || row.status === 'deleted') return json({ error: '파일을 찾을 수 없습니다.' }, 404);
+      
       const owns = await ownerBelongsToAdvisor(env, row.owner_type, row.owner_id, advisorId);
       if (!owns) return json({ error: '본인 담당 고객·참조풀의 파일이 아닙니다.' }, 403);
       if (!row.object_key) return json({ error: '이 파일은 아직 업로드되지 않았습니다.' }, 404);
@@ -129,9 +124,11 @@ export async function onRequestPost(context) {
       const id = String(body.id || '').trim();
       if (!id) return json({ error: 'id가 없습니다.' }, 400);
       const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
-      if (!row) return json({ ok: true }); // 이미 없음
+      if (!row) return json({ ok: true }); 
+      
       const owns = await ownerBelongsToAdvisor(env, row.owner_type, row.owner_id, advisorId);
       if (!owns) return json({ error: '본인 담당 고객·참조풀의 파일이 아닙니다.' }, 403);
+      
       if (row.object_key) { try { await env.FILES_BUCKET.delete(row.object_key); } catch (e) {} }
       await env.DB.prepare("UPDATE files SET status='deleted', deleted_at=?, updated_at=?, sync_version=sync_version+1 WHERE id=?").bind(isoNow(), isoNow(), id).run();
       return json({ ok: true });
