@@ -246,7 +246,7 @@ async function renderThumbs(){
     const rec=await idbGet('images',ref);
     const d=document.createElement('div'); d.className='thumb';
     if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'" onclick="event.stopPropagation();openLightbox(this.src)"><span class="k">'+(rec.kind||'')+'</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>'; }
-    else d.innerHTML='<span class="k">없음</span>';
+    else d.innerHTML='<span class="k">없음</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>';
     wrap.appendChild(d);
   }
   const add=document.createElement('div'); add.className='add-thumb';
