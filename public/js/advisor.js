@@ -437,7 +437,18 @@ async function aiOrganizePool(text, poolTypeLabel, audioBase64){
   const body={pw:cloudPW, adminPw:_adminPw, mode:'organize_pool', text, poolTypeLabel};
   if(audioBase64) body.audioBase64=audioBase64;
   const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-  const data=await res.json();
+  // 서버(Cloudflare)가 시간 초과·과부하 등으로 죽으면 우리 코드가 아니라 Cloudflare가 자체
+  // 오류 페이지(HTML, "<!DOCTYPE..."로 시작)를 대신 돌려줄 때가 있다 — 이걸 그냥 res.json()으로
+  // 파싱하면 "Unexpected token '<'"처럼 알아보기 힘든 오류가 뜨므로, 먼저 글자로 받아서
+  // JSON인지 확인하고 아니면 사람이 이해할 수 있는 메시지로 바꿔준다.
+  const raw=await res.text();
+  let data;
+  try{ data=JSON.parse(raw); }
+  catch(e){
+    throw new Error('서버 응답이 올바르지 않습니다(정상적인 결과가 아니라 오류 페이지가 돌아왔어요). '
+      +'음원 파일이 너무 크거나 길어서 처리 시간이 오래 걸려 서버 쪽에서 중간에 끊겼을 가능성이 높습니다. '
+      +'음원을 더 짧게 나누거나, 음원 없이 텍스트만 넣고 다시 시도해보세요. (상태 코드 '+res.status+')');
+  }
   if(!res.ok) throw new Error(data.error||'정리 실패');
   if(typeof addUsage==='function') addUsage(data._usage,'참조풀 정리');
   return data;
@@ -453,6 +464,12 @@ async function organizeAdminPool(){
     try{
       const rec=await idbGet('images',p.audio);
       if(rec&&rec.blob){
+        // 음성인식(Whisper)은 음원이 크면(대략 4~5MB, 몇 분 이상) 서버 쪽 처리 시간·용량 제한에
+        // 걸려 실패하기 쉽다는 게 실제로 보고된 사례라, 미리 알려주고 계속할지 물어본다.
+        if(rec.blob.size > 4*1024*1024){
+          const mb=(rec.blob.size/1024/1024).toFixed(1);
+          if(!confirm('음원 파일이 꽤 커요(약 '+mb+'MB). 이런 경우 음성인식이 시간 초과로 실패할 수 있어요.\n\n그래도 시도해볼까요? (실패하면 음원을 더 짧게 나눠서 다시 시도해주세요)')) return;
+        }
         const dataUrl=await blobToDataURL(rec.blob);
         const comma=dataUrl.indexOf(','); audioBase64=comma>=0?dataUrl.slice(comma+1):'';
       }
