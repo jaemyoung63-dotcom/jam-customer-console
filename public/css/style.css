@@ -119,7 +119,7 @@
      white-space:normal(기본값)로 폭이 모자라면 줄바꿈되게 해서 글자가 잘려서 사라지는 대신
      두 줄로라도 보이게 한다. */
   .view-mode-pick button{flex:1; min-width:0; white-space:normal; line-height:1.3; overflow:visible;}
-  .view-mode-pick button.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .view-mode-pick button.btn.active{background:var(--accent); border-color:var(--accent); color:#fff;}
   .view-mode-hint{font-size:11px; color:var(--ink-mute); line-height:1.5; margin:0 0 16px;}
   #login-pw{width:100%; box-sizing:border-box; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px; font-size:16px; text-align:center;}
   #login-pw:focus{outline:none; border-color:var(--accent);}
