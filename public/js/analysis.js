@@ -211,7 +211,7 @@ function addAnPlanImageDirect(id,file){
       img.onerror=()=>{alert('이미지를 열 수 없습니다. HEIC 등은 JPG로 저장해 올려주세요.'); res();};
       img.onload=()=>{
         try{
-          const MAX=1500; let w=img.width,h=img.height;
+          const MAX=1568; let w=img.width,h=img.height;
           if(Math.max(w,h)>MAX){const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r);}
           const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
           cv.getContext('2d').drawImage(img,0,0,w,h);
@@ -221,7 +221,7 @@ function addAnPlanImageDirect(id,file){
             c.planImages=c.planImages||[]; c.planImages.push(rid);
             c.planText=''; c.planTextImgN=-1;
             await idbPut('customers',c); await renderAnPlanThumbs(c); res();
-          },'image/jpeg',0.72);
+          },'image/jpeg',0.9);
         }catch(err){ alert('이미지 처리 오류: '+(err&&err.message?err.message:err)); res(); }
       };
       img.src=reader.result;
@@ -309,7 +309,7 @@ async function runPlanAnalysis(id, confirmations){
   for(let i=0;i<imgs.length;i++){
     box.innerHTML='<div class="stage-note">설계서 사진 준비 중… '+(i+1)+'/'+imgs.length+'</div>';
     const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
-    let b64=''; try{ b64=await blobToScaledBase64(rec.blob,1500,0.72); }catch(e){}
+    let b64=''; try{ b64=await blobToScaledBase64(rec.blob,1568,0.92); }catch(e){}
     if(b64) items.push({media_type:'image/jpeg', data:b64});
   }
   if(!items.length){ box.innerHTML='<div class="stage-note">설계서 사진을 읽지 못했습니다. 다시 등록해 주세요.</div>'; return; }
