@@ -266,15 +266,20 @@ export async function onRequestPost(context) {
       if (!context.env.AI) {
         return json({ error: '음성인식을 쓰려면 Cloudflare Pages 프로젝트에 "Workers AI" 바인딩(변수명 AI)을 추가하고 다시 배포해야 합니다. (Settings → Functions → Bindings → Add → Workers AI)' }, 400);
       }
+      // 서버 쪽 크기 안전장치: 너무 큰 음원은 Cloudflare 함수의 메모리·시간 한계에 걸려
+      // 실패하므로, 모델을 부르기 전에 미리 막고 안내한다. (base64 길이로 원본 크기 대략 추정)
+      const approxBytes = Math.floor(audioBase64.length * 3 / 4);
+      if (approxBytes > 20 * 1024 * 1024) {
+        return json({ error: '음원이 너무 큽니다(약 ' + Math.round(approxBytes / (1024 * 1024)) + 'MB). 앱 내장 받아쓰기는 짧은 음원용이에요. 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꾼 뒤 ①번 칸에 붙여넣어 주세요.' }, 400);
+      }
       try {
-        const binary = atob(audioBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const whisperRes = await context.env.AI.run('@cf/openai/whisper', { audio: Array.from(bytes) });
+        // 신형 모델(whisper-large-v3-turbo)은 base64 문자열을 그대로 받는다 —
+        // 예전처럼 바이트 배열로 바꾸지 않아 메모리 부담도 줄고, 더 긴 음원도 다룬다.
+        const whisperRes = await context.env.AI.run('@cf/openai/whisper-large-v3-turbo', { audio: audioBase64 });
         transcript = (whisperRes && whisperRes.text) ? String(whisperRes.text).trim() : '';
-        if (!transcript) return json({ error: '음성에서 글자를 읽어내지 못했습니다. 음원 길이가 너무 길거나 인식이 어려운 음질일 수 있어요.' }, 400);
+        if (!transcript) return json({ error: '음성에서 글자를 읽어내지 못했습니다. 음원이 너무 길어 중간에 끊겼거나, 인식이 어려운 음질일 수 있어요. 더 짧게 나눠보거나 휴대폰 음성녹음 앱으로 글로 바꿔 넣어주세요.' }, 400);
       } catch (err) {
-        return json({ error: '음성인식 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+        return json({ error: '음성인식 실패: ' + (err && err.message ? err.message : String(err)) + ' — 음원이 크면 실패할 수 있어요. 더 짧게 나눠보거나 휴대폰 음성녹음 앱을 이용해 주세요.' }, 500);
       }
     }
     if (transcript) src = src ? (src + '\n\n[음원 인식 내용]\n' + transcript) : transcript;

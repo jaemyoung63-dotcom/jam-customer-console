@@ -354,9 +354,9 @@ function renderAdminPoolEditorHtml(p){
     +'<div class="thumbs" id="ap-thumbs"></div>'
     +'</div>'
 
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택) <span style="font-weight:400">· 올려서 들어보기 전용 (1개만 유지)</span></div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택) <span style="font-weight:400">· 올리면 "AI로 정리" 때 받아쓰기해서 함께 정리돼요 (1개만 · 짧은 음원용)</span></div>'
     +'<div id="ap-audio"></div>'
-    +'<div class="meta" style="margin-top:4px">여기 음원은 <b>들어보기 전용</b>이에요. 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꾼 뒤, 그 텍스트(.txt)를 위 ①번 칸에 넣어주세요.</div>'
+    +'<div class="meta" style="margin-top:4px">음원을 올리고 "AI로 정리"를 누르면 <b>AI가 받아쓰기</b>해서 함께 정리돼요. 단 <b>짧은 음원용</b>이에요 — 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꿔 ①번 칸에 넣는 게 더 안정적이에요.</div>'
 
     +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다) <span style="font-weight:400">· AI 정리 후 자동으로 채워지며, 직접 고쳐도 돼요</span></div>'
     +'<input class="t" id="ap-tags" value="'+esc([...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].join(', '))+'" placeholder="예: 종신보험, 은퇴설계, 40대 (AI로 정리를 누르면 자동으로 채워져요)">'
@@ -404,7 +404,7 @@ async function handleAdminPoolDropFile(file){
   const isAudio=(file.type&&file.type.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(file.name||'');
   if(isAudio){
     // 음원은 이 ①번 칸에서 받지 않는다 — 아래 "음원" 칸에서 올려 듣기 전용으로만 쓴다.
-    alert('음원 파일은 여기(①번 텍스트 칸)가 아니라, 아래 "음원" 칸의 [＋ 음원 추가]로 넣어주세요.\n\n음원은 올려서 들어보기 전용이에요. 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꾼 뒤, 그 텍스트(.txt)를 여기에 넣으세요.');
+    alert('음원 파일은 여기(①번 텍스트 칸)가 아니라, 아래 "음원" 칸의 [＋ 음원 추가]로 넣어주세요.\n\n음원을 올리면 "AI로 정리" 때 받아쓰기해서 함께 정리돼요(짧은 음원용). 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꿔 여기에 넣는 게 더 안정적이에요.');
     return;
   }
   await appendAdminPoolText(file);
@@ -493,17 +493,39 @@ async function aiOrganizePool(text, poolTypeLabel, audioBase64){
   if(typeof addUsage==='function') addUsage(data._usage,'참조풀 정리');
   return data;
 }
-/* AI 정리는 ①번 칸의 텍스트만 사용한다. 음원은 "들어보기 전용"이라 AI 정리에 넣지 않는다.
-   긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꿔 ①번 칸에 넣는 흐름을 쓴다. */
+/* "AI로 정리"는 ①번 칸의 텍스트를 정리한다. 아래 음원 칸에 음원이 붙어 있으면,
+   먼저 AI(Whisper)로 받아쓰기해서 그 내용까지 함께 정리한다. 음원은 짧은 것 전용이라
+   너무 크면 미리 경고하고, 긴 상담 녹음은 휴대폰 음성녹음 앱을 안내한다. */
 async function organizeAdminPool(){
   const p=_adminPoolEditing; if(!p) return;
   syncAdminPoolEditorFields();
   const src=(p.rawText||'').trim();
-  if(!src){ alert('먼저 ①번 칸에 텍스트를 넣어주세요. (음원은 들어보기 전용이라 AI 정리에는 쓰이지 않아요 — 긴 녹음은 휴대폰 음성녹음 앱으로 글로 바꿔 넣어주세요)'); return; }
+
+  // 첨부된 음원이 있으면 base64로 바꿔 함께 보낸다. 크기 검사로 실패를 미리 막는다.
+  let audioBase64='';
+  if(p.audio){
+    try{
+      const rec=await idbGet('images',p.audio);
+      if(rec&&rec.blob){
+        const mb=rec.blob.size/(1024*1024);
+        if(mb>20){
+          alert('음원이 너무 큽니다(약 '+mb.toFixed(1)+'MB). 앱 내장 받아쓰기는 짧은 음원용이에요.\n\n긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꾼 뒤, 그 텍스트를 ①번 칸에 넣고 정리해주세요.');
+          return;
+        }
+        if(mb>5){
+          if(!confirm('이 음원은 좀 큰 편이에요(약 '+mb.toFixed(1)+'MB). 받아쓰기가 실패하거나 앞부분만 인식될 수 있어요.\n\n그래도 진행할까요? (긴 녹음은 휴대폰 음성녹음 앱을 추천해요)')) return;
+        }
+        const durl=await blobToDataURL(rec.blob);
+        audioBase64=String(durl).split(',')[1]||'';
+      }
+    }catch(e){ /* 음원을 못 읽으면 텍스트만으로 진행 */ }
+  }
+
+  if(!src && !audioBase64){ alert('①번 칸에 텍스트를 넣거나, 아래 음원 칸에 음원을 올려주세요. (음원을 올리면 AI가 받아쓰기해서 함께 정리해요)'); return; }
   const label=(ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
-  const _pg=startProgress(pc=>toast('AI로 정리 중… '+pc+'%'));
+  const _pg=startProgress(pc=>toast((audioBase64?'음원 받아쓰기·정리 중… ':'AI로 정리 중… ')+pc+'%'));
   try{
-    const r=await aiOrganizePool(src, label, '');
+    const r=await aiOrganizePool(src, label, audioBase64);
     _pg.done(); toastHide();
     const keyword=(r.titleKeyword||'').trim();
     p.title=(today()+' · '+label+(keyword?(' · '+keyword):'')).trim();
@@ -512,6 +534,7 @@ async function organizeAdminPool(){
     if(Array.isArray(r.tags) && r.tags.length){ p.free=r.tags; p.product=[]; p.situation=[]; p.age=[]; delete p._tagsRaw; }
     if(r.transcript) p.rawText = p.rawText ? (p.rawText+'\n\n[음원 인식 내용]\n'+r.transcript) : ('[음원 인식 내용]\n'+r.transcript);
     renderAdminPools();
+    toast(r.transcript?'✓ 음원 받아쓰기·정리 완료':'✓ AI 정리 완료'); setTimeout(toastHide,2000);
   }catch(err){ _pg.done(); toastHide(); alert('AI 정리 실패: '+(err&&err.message?err.message:err)); }
 }
 
