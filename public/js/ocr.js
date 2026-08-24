@@ -35,11 +35,11 @@ async function pdfToImageBlobs(file, onProgress){
     if(onProgress) onProgress(n,maxPages);
     const page=await pdf.getPage(n);
     const vp0=page.getViewport({scale:1});
-    const scale=Math.min(1500/vp0.width, 2.2);
+    const scale=Math.min(1568/vp0.width, 2.2);
     const vp=page.getViewport({scale});
     const cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
     await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
-    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.72));
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.9));
     if(blob) out.push(blob);
   }
   return out;
@@ -134,7 +134,7 @@ async function tidyCoverage(confirmations){
     for(let i=0;i<n;i++){
       prog.textContent='사진 준비 중… '+(i+1)+'/'+n;
       const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
-      let b64=''; try{ b64=await blobToScaledBase64(rec.blob, 1500, 0.72); }catch(e){}
+      let b64=''; try{ b64=await blobToScaledBase64(rec.blob, 1568, 0.92); }catch(e){}
       if(b64) items.push({kind:(rec.kind||'기타'), media_type:'image/jpeg', data:b64});
     }
     if(!items.length){ prog.textContent='사진을 읽지 못했습니다. 다시 등록해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
@@ -199,7 +199,7 @@ function addImageDirect(file){
       img.onerror=()=>{alert('이미지를 열 수 없습니다. HEIC 등은 JPG로 저장해 올려주세요.'); res();};
       img.onload=()=>{
         try{
-          const MAX=1500; let w=img.width,h=img.height;
+          const MAX=1568; let w=img.width,h=img.height;
           if(Math.max(w,h)>MAX){const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r);}
           const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
           cv.getContext('2d').drawImage(img,0,0,w,h);
@@ -208,7 +208,7 @@ function addImageDirect(file){
             await idbPut('images',{id:rid,kind,blob,created:today()});
             editingCust.images=editingCust.images||[]; editingCust.images.push(rid);
             await renderThumbs(); res();
-          },'image/jpeg',0.72);
+          },'image/jpeg',0.9);
         }catch(err){ alert('이미지 처리 중 오류: '+(err&&err.message?err.message:err)); res(); }
       };
       img.src=reader.result;
@@ -226,7 +226,7 @@ function startRedact(file){
     img.onerror=()=>alert('이미지를 열 수 없습니다. HEIC 등 일부 형식은 지원되지 않을 수 있어요. JPG/PNG로 시도해 주세요.');
     img.onload=()=>{
       try{
-        const MAX=1600; let w=img.width,h=img.height;
+        const MAX=1568; let w=img.width,h=img.height;
         if(!w||!h){alert('이미지 크기를 인식하지 못했습니다.'); return;}
         if(Math.max(w,h)>MAX){const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r);}
         const canvas=document.getElementById('redcanvas'); canvas.width=w; canvas.height=h;
@@ -278,7 +278,7 @@ function redSave(){
     editingCust.images=editingCust.images||[]; editingCust.images.push(rid);
     closeSheet('ov-redact'); renderThumbs();
     if(redQueue.length) setTimeout(processNextRedact, 200);
-  },'image/jpeg',0.82);
+  },'image/jpeg',0.9);
 }
 
 function pickDoc(){
