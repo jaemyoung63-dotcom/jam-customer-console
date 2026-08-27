@@ -170,6 +170,70 @@ function initMasks(){ MASK_FIELDS.forEach(function(f){
   ov.textContent = inp.value ? f[1](inp.value) : '';
 }); }
 try{ initMasks(); }catch(e){}
+
+/* ===== 지도 · 자동차 소요시간 (카카오맵) =====
+   지도 표시·주소→좌표(지오코딩)는 JavaScript 키로 브라우저에서, 자동차 소요시간은
+   REST 키가 필요해 서버(/api/directions)로 보낸다. SDK는 처음 열 때만 불러온다(지연 로딩). */
+var KAKAO_JS_KEY='8e104d55c5268f324f7aa0319e3cddbb';
+function ensureKakaoMaps(cb){
+  if(window.kakao && window.kakao.maps && window.kakao.maps.services){ cb(); return; }
+  if(window._kakaoLoading){ var t=setInterval(function(){ if(window.kakao&&window.kakao.maps&&window.kakao.maps.services){ clearInterval(t); cb(); } },120); return; }
+  window._kakaoLoading=true;
+  var s=document.createElement('script');
+  s.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey='+KAKAO_JS_KEY+'&libraries=services&autoload=false';
+  s.onload=function(){ kakao.maps.load(function(){ cb(); }); };
+  s.onerror=function(){ alert('지도를 불러오지 못했어요.\n\n카카오 개발자 콘솔에서 이 앱의 [플랫폼 → Web]에 https://jam-customer-console.pages.dev 를 등록했는지, 그리고 인터넷 연결을 확인해 주세요.'); };
+  document.head.appendChild(s);
+}
+var _kmap=null, _kmarkers=[];
+function openMapSheet(){
+  var addr=(document.getElementById('c-address')&&document.getElementById('c-address').value.trim())||'';
+  var detail=(document.getElementById('c-address-detail')&&document.getElementById('c-address-detail').value.trim())||'';
+  var d=document.getElementById('map-dest'); if(d) d.value=(addr+(detail?(' '+detail):'')).trim();
+  openSheet('ov-map');
+  ensureKakaoMaps(function(){
+    var mapDiv=document.getElementById('map');
+    if(!_kmap){ _kmap=new kakao.maps.Map(mapDiv,{center:new kakao.maps.LatLng(37.5665,126.9780),level:6}); }
+    setTimeout(function(){ if(_kmap) _kmap.relayout(); },200);
+  });
+}
+function _geocode(addr){
+  return new Promise(function(res){
+    var g=new kakao.maps.services.Geocoder();
+    g.addressSearch(addr, function(result, status){
+      if(status===kakao.maps.services.Status.OK && result[0]){ res({x:parseFloat(result[0].x), y:parseFloat(result[0].y)}); }
+      else res(null);
+    });
+  });
+}
+function calcRoute(){
+  var oAddr=(document.getElementById('map-origin').value||'').trim();
+  var dAddr=(document.getElementById('map-dest').value||'').trim();
+  var out=document.getElementById('map-result');
+  if(!oAddr||!dAddr){ out.textContent='출발지와 도착지 주소를 모두 입력하세요.'; return; }
+  out.textContent='주소를 좌표로 변환 중…';
+  ensureKakaoMaps(function(){
+    Promise.all([_geocode(oAddr),_geocode(dAddr)]).then(function(r){
+      var o=r[0], d=r[1];
+      if(!o||!d){ out.textContent='주소를 찾지 못했어요. 도로명·동 이름으로 더 정확히 입력해 보세요.'; return; }
+      _kmarkers.forEach(function(m){ m.setMap(null); }); _kmarkers=[];
+      var po=new kakao.maps.LatLng(o.y,o.x), pd=new kakao.maps.LatLng(d.y,d.x);
+      _kmarkers.push(new kakao.maps.Marker({map:_kmap,position:po}));
+      _kmarkers.push(new kakao.maps.Marker({map:_kmap,position:pd}));
+      var bounds=new kakao.maps.LatLngBounds(); bounds.extend(po); bounds.extend(pd); _kmap.setBounds(bounds);
+      out.textContent='자동차 경로 계산 중…';
+      fetch('/api/directions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({origin:{x:o.x,y:o.y},destination:{x:d.x,y:d.y}})})
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if(data.error){ out.textContent='소요시간: '+data.error; return; }
+          var min=Math.round((data.duration||0)/60), km=((data.distance||0)/1000).toFixed(1);
+          var hh=Math.floor(min/60), mm=min%60;
+          var t=hh>0?(hh+'시간 '+mm+'분'):(mm+'분');
+          out.textContent='🚗 자동차 약 '+t+' · '+km+'km';
+        }).catch(function(){ out.textContent='소요시간 계산 중 오류가 났어요. 잠시 후 다시 시도해 주세요.'; });
+    });
+  });
+}
 /* ===== 고객 다단계 이동 (2단계) ===== */
 function custStep(n){
   for(let i=1;i<=2;i++){ const el=document.getElementById('cstep-'+i); if(el) el.style.display=(i===n)?'block':'none'; }

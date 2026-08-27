@@ -151,6 +151,7 @@
         <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearch()">🔍 주소 찾기</button>
       </div>
       <input class="t" id="c-address-detail" placeholder="상세주소 (동·호수 등)" style="margin-top:8px">
+      <button class="btn ghost sm wide" style="margin-top:8px" onclick="openMapSheet()">🗺️ 지도로 찾기 · 자동차 소요시간</button>
       <label class="f">진행 단계</label>
       <div class="chips" id="cust-seg"></div>
       <label class="f">상품 관심</label>
@@ -292,6 +293,22 @@
     <div class="row"><h2>저장소 관리</h2><span class="spacer"></span>
       <button class="btn ghost sm" onclick="closeSheet('ov-storage')">닫기</button></div>
     <div id="storage-body"></div>
+  </div>
+</div>
+
+<!-- ===== 팝업: 지도·자동차 소요시간 ===== -->
+<div class="overlay" id="ov-map">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="row"><h2>🗺️ 지도 · 소요시간</h2><span class="spacer"></span>
+      <button class="btn ghost sm" onclick="closeSheet('ov-map')">닫기</button></div>
+    <label class="f">출발지</label>
+    <input class="t" id="map-origin" placeholder="출발 주소 (예: 부산 서면역)">
+    <label class="f">도착지</label>
+    <input class="t" id="map-dest" placeholder="도착 주소">
+    <button class="btn btn-blue wide" style="margin-top:10px" onclick="calcRoute()">🚗 경로·소요시간 계산</button>
+    <div id="map-result" class="meta" style="margin-top:8px"></div>
+    <div id="map" style="width:100%;height:300px;border-radius:12px;margin-top:10px;background:var(--paper)"></div>
   </div>
 </div>
 
