@@ -119,10 +119,15 @@
       <label class="f">이름</label>
       <div class="row" style="gap:8px;align-items:center">
         <input class="t grow" id="c-name" placeholder="이름" style="margin:0">
+        <select class="t" id="c-gender" style="margin:0;flex:0 0 auto;width:auto"><option value="">성별</option><option>남</option><option>여</option></select>
         <button class="btn ghost sm" style="white-space:nowrap" onclick="openProfileSheet()">📇 신상정보</button>
       </div>
-      <label class="f">전화번호</label>
-      <input class="t" id="c-phone" type="tel" inputmode="tel" placeholder="예: 010-1234-5678">
+      <div class="row" style="gap:10px">
+        <div class="grow"><label class="f">전화번호</label>
+          <input class="t" id="c-phone" type="tel" inputmode="tel" placeholder="예: 010-1234-5678"></div>
+        <div class="grow"><label class="f">직업</label>
+          <input class="t" id="c-job" placeholder="예: 회사원"></div>
+      </div>
       <div class="row" style="gap:10px;">
         <div class="grow"><label class="f">주민번호 앞 6자리 <span style="font-weight:400;color:var(--ink-mute)">· 나이 자동계산</span></label>
           <input class="t" id="c-birth6" inputmode="numeric" maxlength="6" placeholder="예: 850312" oninput="onBirth6()"></div>
@@ -137,6 +142,12 @@
       </div>
       <label class="f">지역</label>
       <input class="t" id="c-region" placeholder="예: 부산 해운대구">
+      <label class="f">주소 <span style="font-weight:400;color:var(--ink-mute)">· 동·도로명 일부만 입력하고 [주소 찾기]를 누르세요</span></label>
+      <div class="row" style="gap:8px;align-items:center">
+        <input class="t grow" id="c-address" placeholder="예: 판교역로 166 / 해운대구 우동" style="margin:0">
+        <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearch()">🔍 주소 찾기</button>
+      </div>
+      <input class="t" id="c-address-detail" placeholder="상세주소 (동·호수 등)" style="margin-top:8px">
       <label class="f">진행 단계</label>
       <div class="chips" id="cust-seg"></div>
       <label class="f">상품 관심</label>

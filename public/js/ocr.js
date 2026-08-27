@@ -336,6 +336,10 @@ function readCustFields(){
   editingCust.name=document.getElementById('c-name').value.trim();
   editingCust.phone=document.getElementById('c-phone').value.trim();
   editingCust.region=document.getElementById('c-region').value.trim();
+  var _g=document.getElementById('c-gender'); if(_g) editingCust.gender=_g.value;
+  var _j=document.getElementById('c-job'); if(_j) editingCust.job=_j.value.trim();
+  var _a=document.getElementById('c-address'); if(_a) editingCust.address=_a.value.trim();
+  var _ad=document.getElementById('c-address-detail'); if(_ad) editingCust.addressDetail=_ad.value.trim();
   editingCust.memo=document.getElementById('c-memo').value.trim();
   editingCust.coverageText=document.getElementById('c-coverage').value.trim();
   editingCust.age=document.getElementById('c-age').value;

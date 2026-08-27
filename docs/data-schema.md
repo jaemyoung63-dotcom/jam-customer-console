@@ -29,6 +29,10 @@ Cloudflare D1(`customers`/`pools` 테이블)에 JSON 통짜로 동기화. 테이
 | `name` | string | 이름 |
 | `phone` | string | 전화번호 (2026-08-27 추가 — FP 업무·성장 플랫폼과 연동해서 문자·카카오톡 발송 기능을 만들기 위한 전제조건으로 추가함. 형식 검증은 안 함, 입력한 그대로 저장) |
 | `region` | string | 지역 |
+| `gender` | string | 성별 ('남'/'여'/빈값, 2026-08-27 추가) |
+| `job` | string | 직업 (2026-08-27 추가) |
+| `address` | string | 주소 (카카오 우편번호 서비스로 검색 — 도로명 우선. 2026-08-27 추가) |
+| `addressDetail` | string | 상세주소(동·호수 등, 2026-08-27 추가) |
 | `birth6` | string(6자리) | 생년월일 YYMMDD |
 | `ageNum` | number\|null | `birth6`에서 계산된 만 나이 |
 | `age` | string | `AGES` 중 하나(연령대) — `ageNum` 계산 시 자동 채워짐 |

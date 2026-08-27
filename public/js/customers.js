@@ -87,6 +87,10 @@ async function openCustomer(id){
   document.getElementById('c-name').value=c.name||'';
   document.getElementById('c-phone').value=c.phone||'';
   document.getElementById('c-region').value=c.region||'';
+  { const _g=document.getElementById('c-gender'); if(_g) _g.value=c.gender||''; }
+  { const _j=document.getElementById('c-job'); if(_j) _j.value=c.job||''; }
+  { const _a=document.getElementById('c-address'); if(_a) _a.value=c.address||''; }
+  { const _ad=document.getElementById('c-address-detail'); if(_ad) _ad.value=c.addressDetail||''; }
   document.getElementById('c-memo').value=c.memo||'';
   document.getElementById('c-coverage').value=c.coverageText||'';
   document.getElementById('c-birth6').value=c.birth6||'';
@@ -111,6 +115,30 @@ async function openCustomer(id){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('on'));
   const tb=document.getElementById('tab-customers'); if(tb) tb.classList.add('on');
   window.scrollTo(0,0);
+}
+/* ===== 주소 찾기 (카카오/다음 우편번호 서비스) =====
+   일부만 입력해도 도로명·지번으로 찾아준다. 스크립트는 처음 누를 때만 불러온다(지연 로딩). */
+function ensureDaumPostcode(cb){
+  if((window.daum&&window.daum.Postcode)||(window.kakao&&window.kakao.Postcode)){ cb(); return; }
+  const s=document.createElement('script');
+  s.src='https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+  s.onload=function(){ cb(); };
+  s.onerror=function(){ alert('주소 검색 서비스를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); };
+  document.head.appendChild(s);
+}
+function openAddrSearch(){
+  ensureDaumPostcode(function(){
+    const P=(window.daum&&window.daum.Postcode)?window.daum.Postcode:(window.kakao&&window.kakao.Postcode);
+    if(!P){ alert('주소 검색을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+    new P({ oncomplete:function(data){
+      const addr=data.roadAddress||data.address||'';
+      const aEl=document.getElementById('c-address'); if(aEl) aEl.value=addr;
+      // 지역 칸이 비어 있으면 시/도 + 시군구로 자동으로 채워준다.
+      const rEl=document.getElementById('c-region');
+      if(rEl && !(rEl.value||'').trim()){ rEl.value=((data.sido||'')+' '+(data.sigungu||'')).trim(); }
+      const dEl=document.getElementById('c-address-detail'); if(dEl) dEl.focus();
+    } }).open();
+  });
 }
 /* ===== 고객 다단계 이동 (2단계) ===== */
 function custStep(n){
