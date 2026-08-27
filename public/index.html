@@ -124,7 +124,7 @@
       </div>
       <div class="row" style="gap:10px">
         <div class="grow"><label class="f">전화번호</label>
-          <input class="t" id="c-phone" type="tel" inputmode="tel" placeholder="예: 010-1234-5678"></div>
+          <div class="mask-wrap"><input class="t" id="c-phone" type="tel" inputmode="tel" placeholder="예: 010-1234-5678"><span class="mask-ov" id="mask-c-phone"></span></div></div>
         <div class="grow"><label class="f">직업</label>
           <input class="t" id="c-job" placeholder="예: 회사원"></div>
       </div>
@@ -134,6 +134,9 @@
         <div class="grow"><label class="f">만 나이</label>
           <input class="t" id="c-agenum" placeholder="자동" readonly style="background:var(--paper)"></div>
       </div>
+      <label class="f">주민번호 뒷자리 <span style="font-weight:400;color:var(--ink-mute)">· 성별 자리(첫 숫자)만 보이고 나머지는 가려져요</span></label>
+      <div class="mask-wrap"><input class="t" id="c-rrn-back" inputmode="numeric" maxlength="7" placeholder="뒷 7자리 입력"><span class="mask-ov" id="mask-c-rrn-back"></span></div>
+      <div class="meta" style="margin-top:4px">계속보험금발행 및 입금-참조</div>
       <div class="row" style="gap:10px;">
         <div class="grow"><label class="f">연령대</label>
           <select class="t" id="c-age"></select></div>
@@ -144,7 +147,7 @@
       <input class="t" id="c-region" placeholder="예: 부산 해운대구">
       <label class="f">주소 <span style="font-weight:400;color:var(--ink-mute)">· 동·도로명 일부만 입력하고 [주소 찾기]를 누르세요</span></label>
       <div class="row" style="gap:8px;align-items:center">
-        <input class="t grow" id="c-address" placeholder="예: 판교역로 166 / 해운대구 우동" style="margin:0">
+        <div class="mask-wrap grow" style="flex:1"><input class="t" id="c-address" placeholder="예: 판교역로 166 / 해운대구 우동" style="margin:0;width:100%;box-sizing:border-box"><span class="mask-ov" id="mask-c-address"></span></div>
         <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearch()">🔍 주소 찾기</button>
       </div>
       <input class="t" id="c-address-detail" placeholder="상세주소 (동·호수 등)" style="margin-top:8px">

@@ -340,6 +340,7 @@ function readCustFields(){
   var _j=document.getElementById('c-job'); if(_j) editingCust.job=_j.value.trim();
   var _a=document.getElementById('c-address'); if(_a) editingCust.address=_a.value.trim();
   var _ad=document.getElementById('c-address-detail'); if(_ad) editingCust.addressDetail=_ad.value.trim();
+  var _rb=document.getElementById('c-rrn-back'); if(_rb) editingCust.rrnBack=_rb.value.replace(/\D/g,'').slice(0,7);
   editingCust.memo=document.getElementById('c-memo').value.trim();
   editingCust.coverageText=document.getElementById('c-coverage').value.trim();
   editingCust.age=document.getElementById('c-age').value;

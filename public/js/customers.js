@@ -91,6 +91,8 @@ async function openCustomer(id){
   { const _j=document.getElementById('c-job'); if(_j) _j.value=c.job||''; }
   { const _a=document.getElementById('c-address'); if(_a) _a.value=c.address||''; }
   { const _ad=document.getElementById('c-address-detail'); if(_ad) _ad.value=c.addressDetail||''; }
+  { const _rb=document.getElementById('c-rrn-back'); if(_rb) _rb.value=c.rrnBack||''; }
+  try{ initMasks(); refreshMasks(); }catch(e){}
   document.getElementById('c-memo').value=c.memo||'';
   document.getElementById('c-coverage').value=c.coverageText||'';
   document.getElementById('c-birth6').value=c.birth6||'';
@@ -140,6 +142,34 @@ function openAddrSearch(){
     } }).open();
   });
 }
+/* ===== 민감정보 마스킹 (전화·주소·주민번호 뒷자리) =====
+   입력값(input.value)은 절대 건드리지 않고, 위에 덮는 오버레이 글자만 가린다 → 저장은 항상 원본.
+   마우스를 올리거나(hover) 칸을 누르면(focus) 원본이 보인다. */
+function maskPhone(v){ v=(v||'').trim(); if(!v) return '';
+  var p=v.split('-');
+  if(p.length===3) return p[0]+'-****-'+p[2];
+  var d=v.replace(/\D/g,''); if(d.length<7) return v;
+  return d.slice(0,3)+'-****-'+d.slice(-4);
+}
+function maskAddr(v){ v=(v||'').trim(); if(!v) return ''; if(v.length<=6) return v; return v.slice(0,6)+' ****'; }
+function maskRrnBack(v){ v=(v||'').replace(/\D/g,''); if(!v) return ''; return v.slice(0,1)+'******'; }
+var MASK_FIELDS=[['c-phone',maskPhone],['c-address',maskAddr],['c-rrn-back',maskRrnBack]];
+function refreshMasks(){ MASK_FIELDS.forEach(function(f){
+  var inp=document.getElementById(f[0]); var ov=document.getElementById('mask-'+f[0]);
+  if(!inp||!ov||ov.classList.contains('reveal')) return;
+  ov.textContent = inp.value ? f[1](inp.value) : '';
+}); }
+function initMasks(){ MASK_FIELDS.forEach(function(f){
+  var inp=document.getElementById(f[0]); var ov=document.getElementById('mask-'+f[0]);
+  if(!inp||!ov||ov._wired) return; ov._wired=true;
+  ov.addEventListener('mouseenter', function(){ ov.classList.add('reveal'); });
+  ov.addEventListener('mouseleave', function(){ if(document.activeElement!==inp){ ov.classList.remove('reveal'); refreshMasks(); } });
+  ov.addEventListener('click', function(){ ov.classList.add('reveal'); inp.focus(); });
+  inp.addEventListener('focus', function(){ ov.classList.add('reveal'); });
+  inp.addEventListener('blur', function(){ ov.classList.remove('reveal'); refreshMasks(); });
+  ov.textContent = inp.value ? f[1](inp.value) : '';
+}); }
+try{ initMasks(); }catch(e){}
 /* ===== 고객 다단계 이동 (2단계) ===== */
 function custStep(n){
   for(let i=1;i<=2;i++){ const el=document.getElementById('cstep-'+i); if(el) el.style.display=(i===n)?'block':'none'; }

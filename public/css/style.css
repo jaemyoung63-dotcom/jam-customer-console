@@ -291,6 +291,14 @@
   }
   input.t:focus, textarea.t:focus, select.t:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);}
   textarea.t{resize:vertical; min-height:76px; line-height:1.55;}
+  /* 민감정보 마스킹: 입력칸 위에 덮는 오버레이. 마우스 올리거나 칸을 누르면 원본이 보임. */
+  .mask-wrap{position:relative; width:100%;}
+  .mask-ov{position:absolute; inset:0; display:flex; align-items:center; box-sizing:border-box;
+    padding:11px 12px; font-size:15px; color:var(--ink); letter-spacing:.5px;
+    background:var(--card); border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+    cursor:text; user-select:none;}
+  .mask-ov:empty{display:none;}
+  .mask-ov.reveal{opacity:0; pointer-events:none;}
 
   .thumbs{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
   .thumb{position:relative; width:58px; height:58px; border-radius:9px; overflow:hidden; border:1px solid var(--line); background:var(--paper); cursor:zoom-in;}

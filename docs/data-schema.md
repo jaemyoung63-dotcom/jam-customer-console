@@ -33,6 +33,7 @@ Cloudflare D1(`customers`/`pools` 테이블)에 JSON 통짜로 동기화. 테이
 | `job` | string | 직업 (2026-08-27 추가) |
 | `address` | string | 주소 (카카오 우편번호 서비스로 검색 — 도로명 우선. 2026-08-27 추가) |
 | `addressDetail` | string | 상세주소(동·호수 등, 2026-08-27 추가) |
+| `rrnBack` | string | 주민번호 뒷 7자리(숫자만). 화면에는 성별 자리(첫 숫자)만 보이고 나머지는 마스킹. 민감정보 — 평문 저장이므로 취급 주의. 2026-08-27 추가 |
 | `birth6` | string(6자리) | 생년월일 YYMMDD |
 | `ageNum` | number\|null | `birth6`에서 계산된 만 나이 |
 | `age` | string | `AGES` 중 하나(연령대) — `ageNum` 계산 시 자동 채워짐 |
