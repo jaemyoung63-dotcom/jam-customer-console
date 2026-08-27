@@ -296,26 +296,29 @@
   </div>
 </div>
 
-<!-- ===== 팝업: 지도·자동차 소요시간 ===== -->
-<div class="overlay" id="ov-map">
-  <div class="sheet">
-    <div class="handle"></div>
-    <div class="row"><h2>🗺️ 지도 · 소요시간</h2><span class="spacer"></span>
-      <button class="btn ghost sm" onclick="closeSheet('ov-map')">닫기</button></div>
+<!-- ===== 전체화면: 지도·자동차 소요시간 ===== -->
+<div id="ov-map" style="display:none;position:fixed;inset:0;z-index:200;background:var(--paper);flex-direction:column">
+  <div class="row" style="padding:12px 14px;align-items:center;border-bottom:1px solid var(--line);background:var(--card)">
+    <h2 style="margin:0;font-size:17px">🗺️ 지도 · 소요시간</h2><span class="spacer"></span>
+    <button class="btn ghost sm" onclick="closeMapFull()">닫기</button>
+  </div>
+  <div style="padding:12px 14px;overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch">
     <label class="f">출발지</label>
     <div class="row" style="gap:8px;align-items:center">
       <input class="t grow" id="map-origin" placeholder="주소 또는 장소(역·건물명)" style="margin:0">
       <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearchInto('map-origin')">🔍 찾기</button>
     </div>
-    <label class="f">도착지</label>
+    <div id="map-waypoints"></div>
+    <button class="btn ghost sm wide" style="margin-top:8px" onclick="addWaypointRow()">＋ 경유지 추가</button>
+    <label class="f" style="margin-top:10px">도착지</label>
     <div class="row" style="gap:8px;align-items:center">
       <input class="t grow" id="map-dest" placeholder="주소 또는 장소(역·건물명)" style="margin:0">
       <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearchInto('map-dest')">🔍 찾기</button>
     </div>
     <button class="btn btn-blue wide" style="margin-top:10px" onclick="calcRoute()">🚗 경로·소요시간 계산</button>
     <div id="map-result" class="meta" style="margin-top:8px"></div>
-    <div id="map" style="width:100%;height:300px;border-radius:12px;margin-top:10px;background:var(--paper)"></div>
   </div>
+  <div id="map" style="flex:1;min-height:220px;background:var(--paper)"></div>
 </div>
 
 <!-- ===== 팝업: 고객 신상정보(참조용) ===== -->

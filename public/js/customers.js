@@ -196,17 +196,33 @@ function ensureKakaoMaps(cb){
   s.onerror=function(){ alert('지도를 불러오지 못했어요.\n\n카카오 개발자 콘솔에서 이 앱의 [플랫폼 → Web]에 https://jam-customer-console.pages.dev 를 등록했는지, 그리고 인터넷 연결을 확인해 주세요.'); };
   document.head.appendChild(s);
 }
-var _kmap=null, _kmarkers=[];
+var _kmap=null, _kmarkers=[], _kpolyline=null, _wpSeq=0;
 function openMapSheet(){
   var addr=(document.getElementById('c-address')&&document.getElementById('c-address').value.trim())||'';
   var detail=(document.getElementById('c-address-detail')&&document.getElementById('c-address-detail').value.trim())||'';
   var d=document.getElementById('map-dest'); if(d) d.value=(addr+(detail?(' '+detail):'')).trim();
-  openSheet('ov-map');
+  var ov=document.getElementById('ov-map'); if(ov) ov.style.display='flex';
+  document.body.style.overflow='hidden';
   ensureKakaoMaps(function(){
     var mapDiv=document.getElementById('map');
     if(!_kmap){ _kmap=new kakao.maps.Map(mapDiv,{center:new kakao.maps.LatLng(37.5665,126.9780),level:6}); }
-    setTimeout(function(){ if(_kmap) _kmap.relayout(); },200);
+    setTimeout(function(){ if(_kmap) _kmap.relayout(); },250);
   });
+}
+function closeMapFull(){
+  var ov=document.getElementById('ov-map'); if(ov) ov.style.display='none';
+  document.body.style.overflow='';
+}
+function addWaypointRow(){
+  var wrap=document.getElementById('map-waypoints'); if(!wrap) return;
+  var id='map-wp-'+(++_wpSeq);
+  var row=document.createElement('div');
+  row.className='row'; row.style.cssText='gap:6px;align-items:center;margin-top:8px';
+  row.innerHTML='<span class="meta" style="flex:0 0 auto">경유</span>'
+    +'<input class="t grow" id="'+id+'" placeholder="경유지 주소·장소" style="margin:0">'
+    +'<button class="btn ghost sm" style="flex:0 0 auto" onclick="openAddrSearchInto(\''+id+'\')">🔍</button>'
+    +'<button class="btn danger sm" style="flex:0 0 auto" onclick="this.parentNode.remove()">×</button>';
+  wrap.appendChild(row);
 }
 function _geocode(addr){
   return new Promise(function(res){
@@ -226,26 +242,35 @@ function calcRoute(){
   var oAddr=(document.getElementById('map-origin').value||'').trim();
   var dAddr=(document.getElementById('map-dest').value||'').trim();
   var out=document.getElementById('map-result');
-  if(!oAddr||!dAddr){ out.textContent='출발지와 도착지 주소를 모두 입력하세요.'; return; }
+  if(!oAddr||!dAddr){ out.textContent='출발지와 도착지를 모두 입력하세요.'; return; }
+  var wpAddrs=[];
+  var wpEls=document.querySelectorAll('#map-waypoints input');
+  Array.prototype.forEach.call(wpEls, function(el){ var v=(el.value||'').trim(); if(v) wpAddrs.push(v); });
   out.textContent='주소를 좌표로 변환 중…';
   ensureKakaoMaps(function(){
-    Promise.all([_geocode(oAddr),_geocode(dAddr)]).then(function(r){
-      var o=r[0], d=r[1];
-      if(!o||!d){ out.textContent='주소를 찾지 못했어요. 도로명·동 이름으로 더 정확히 입력해 보세요.'; return; }
+    var tasks=[_geocode(oAddr)].concat(wpAddrs.map(_geocode)).concat([_geocode(dAddr)]);
+    Promise.all(tasks).then(function(pts){
+      if(pts.some(function(p){ return !p; })){ out.textContent='주소 일부를 찾지 못했어요. [찾기]로 정확히 골라주세요.'; return; }
+      var o=pts[0], d=pts[pts.length-1], wps=pts.slice(1, pts.length-1);
       _kmarkers.forEach(function(m){ m.setMap(null); }); _kmarkers=[];
-      var po=new kakao.maps.LatLng(o.y,o.x), pd=new kakao.maps.LatLng(d.y,d.x);
-      _kmarkers.push(new kakao.maps.Marker({map:_kmap,position:po}));
-      _kmarkers.push(new kakao.maps.Marker({map:_kmap,position:pd}));
-      var bounds=new kakao.maps.LatLngBounds(); bounds.extend(po); bounds.extend(pd); _kmap.setBounds(bounds);
+      var bounds=new kakao.maps.LatLngBounds();
+      pts.forEach(function(p){ var ll=new kakao.maps.LatLng(p.y,p.x); _kmarkers.push(new kakao.maps.Marker({map:_kmap,position:ll})); bounds.extend(ll); });
+      _kmap.setBounds(bounds);
       out.textContent='자동차 경로 계산 중…';
-      fetch('/api/directions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({origin:{x:o.x,y:o.y},destination:{x:d.x,y:d.y}})})
+      fetch('/api/directions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({origin:{x:o.x,y:o.y},destination:{x:d.x,y:d.y},waypoints:wps.map(function(p){ return {x:p.x,y:p.y}; })})})
         .then(function(res){ return res.json(); })
         .then(function(data){
           if(data.error){ out.textContent='소요시간: '+data.error; return; }
+          if(_kpolyline){ _kpolyline.setMap(null); _kpolyline=null; }
+          if(Array.isArray(data.path) && data.path.length){
+            var line=data.path.map(function(p){ return new kakao.maps.LatLng(p.y,p.x); });
+            _kpolyline=new kakao.maps.Polyline({path:line, strokeWeight:6, strokeColor:'#1E86F0', strokeOpacity:0.9, strokeStyle:'solid'});
+            _kpolyline.setMap(_kmap);
+          }
           var min=Math.round((data.duration||0)/60), km=((data.distance||0)/1000).toFixed(1);
           var hh=Math.floor(min/60), mm=min%60;
           var t=hh>0?(hh+'시간 '+mm+'분'):(mm+'분');
-          out.textContent='🚗 자동차 약 '+t+' · '+km+'km';
+          out.textContent='🚗 자동차 약 '+t+' · '+km+'km'+(wps.length?(' · 경유 '+wps.length+'곳'):'');
         }).catch(function(){ out.textContent='소요시간 계산 중 오류가 났어요. 잠시 후 다시 시도해 주세요.'; });
     });
   });
