@@ -1,4 +1,4 @@
-# 고객상담관리 앱 — 작업 현황 메모 (2026-08-24 기준)
+# 고객상담관리 앱 — 작업 현황 메모 (2026-08-28 기준)
 
 새 대화를 여셨다면 이 메모부터 참고하면 지금까지 상황을 빠르게 파악할 수 있어요.
 
@@ -83,9 +83,42 @@ jam-customer-console/
 - `public/js/ocr.js` ← 보장분석 이미지 해상도·품질 상향
 - `public/js/analysis.js` ← 가입설계 이미지 해상도·품질 상향
 
+## 앱10 세션에서 한 것 (2026-08-28) — 기능 대거 추가
+
+### 음성인식(Whisper)
+- 음원 → AI 받아쓰기 "다시 켬": 관리자 참조풀 "AI로 정리" 때 첨부 음원을 Whisper로 받아쓰기해 함께 정리(앱9에서 듣기전용으로 껐던 걸 되돌림). `advisor.js organizeAdminPool`.
+- 모델 신형 교체: `@cf/openai/whisper` → `@cf/openai/whisper-large-v3-turbo`(base64 직접 전달, 더 긴 음원 가능). 20MB↑ 서버 차단. `analyze.js organize_pool`.
+- 크기 경고(5MB soft/20MB block)·실패 경고·성공 토스트 추가. 긴 상담녹음은 여전히 휴대폰 음성녹음 권장(짧은 음원용).
+- 전제: Cloudflare Pages에 Workers AI 바인딩(변수명 `AI`) — 설정 완료 확인함.
+
+### 가입설계 — 사전심사 칸
+- 가입설계 이미지 위에 "사전심사(질병·부담보)" textarea(`c.planPreScreen`). "가입설계 분석" 시 설계서 이미지 + 사전심사 내용 함께 분석. `analysis.js`, `analyze.js plan`, `prompts.js planSystem`.
+
+### 고객 필드 추가 + 프롬프트 반영
+- 전화번호(phone, eb4c9d7). 이름 우측 성별(`c-gender`), 전화 우측 직업(`c-job`), 지역 아래 주소(`c-address`)+상세주소(`c-address-detail`).
+- 주소 찾기 = 카카오 우편번호 서비스(무료·키불필요). `openAddrSearch`/`openAddrSearchInto`.
+- **성별·직업을 보장분석·가입설계·상담멘트(analyze/plan/ap) 프롬프트에 반영. 성별 미상 시 남성 가정 금지 규칙 추가.** (전엔 성별이 없어 AI가 남성으로 가정하던 문제 해결)
+- 마스킹: 전화·주소·주민번호를 평소 가리고 hover/터치로 보기(오버레이 방식, 저장은 항상 원본). `mask-wrap`/`mask-ov`.
+- 주민번호는 한 칸(`c-rrn`)으로 통합, **`000000-0******`** 표시(앞6+성별1자리만 보임). 앞6으로 만나이 자동계산. 저장 시 birth6/rrnBack로 분리 보관. `onRrn`.
+- ⚠️ 주민번호 뒷자리(`rrnBack`) 평문 저장 — 민감정보 취급 주의. `docs/data-schema.md`에 문서화.
+
+### 지도 · 자동차 소요시간 (신규)
+- 고객 주소칸 아래 "🗺️ 지도로 찾기" → **전체화면** 지도(시트 아님). `#ov-map`, `openMapSheet`/`closeMapFull`.
+- 카카오맵 SDK(services)로 지도·주소→좌표(지오코딩)+역/건물명 키워드 폴백(`_geocode`).
+- 출발/도착/경유지(＋경유지 추가) 각각 주소 찾기 버튼. 구간별 시간·거리 표시 + **구간마다 다른 색 경로선(polyline)**.
+- 자동차 경로 = Cloudflare Function `functions/api/directions.js`(카카오모빌리티 여러경유지 API, env `KAKAO_REST_KEY` 필요).
+- 카카오내비 버튼: JS SDK로 **도착지 안내**. 경유지는 웹 연동 불가(카카오 미지원) → 도착지만(사용자와 1번안 확정).
+
+### 카카오 개발자 설정 (완료)
+- 카카오 앱: **jam-customer-console (ID 1559026)**. JavaScript 키 `8e104d55c5268f324f7aa0319e3cddbb`(코드에 하드코딩, 공개용·도메인제한).
+- **플랫폼 키 → JavaScript 키 → 수정 → "JavaScript SDK 도메인"**에 `https://jam-customer-console.pages.dev` 등록(← 지도 뜨는 핵심). 카카오맵 사용 ON.
+- REST API 키는 Cloudflare 환경변수 **`KAKAO_REST_KEY`(Secret)**에 넣음(자동차 소요시간용) — 설정 완료.
+
+### ⚠️ 알아둘 것 (git 잠금)
+- 이 코워크 마운트는 파일 삭제(unlink)가 막혀 있어, 커밋 때 생기는 `.git/index.lock`·`HEAD.lock`이 자동으로 안 지워져 다음 커밋을 막음. → 커밋 전 lock을 이름변경(mv)으로 치우고 커밋하는 방식으로 처리해 왔음. `.git`에 `*.disabled`·`trash.*`·`.old` 찌꺼기 쌓여도 git엔 무해. GitHub Desktop이 "another process running" 뜨면 `.git\index.lock` 파일 삭제하면 됨.
+
 ## 아직 남은 것 / 확인 필요
-- **GitHub 푸시 필요** — 위 4개 파일(prompts.js, advisor.js, ocr.js, analysis.js)을 덮어쓰고 커밋·푸시해야 실제 사이트 반영. 앱8 변경사항 푸시 여부도 함께 확인.
-- **루트 files.js 삭제** — 우회 패치 버전. 폴더 정리 위해 삭제 권장(삭제 전 첫 줄이 `## 🛠️ 2단계`인지 확인).
-- **이미지 개선 효과 실측** — 배포 후 실제 보장급부 사진으로 "AI 정리·분석" 다시 해보고 숫자·담보명 정확도가 나아졌는지 확인.
-- **코워크(Cowork) 전환 시도 중** — 파일을 직접 다루려면 Claude Desktop 설정 → Cowork 탭 → "새 작업을 클라우드에서 실행" 끄고 → 앱 완전 재시작 → 새 코워크 세션에서 `jam-customer-console` 폴더 연결. (일반 채팅에서는 Claude가 PC 폴더에 직접 접근 불가)
-- 관련 기존 대화들(고객상담관리 앱1·3·5·6·7·8, System initialization, Cloudflare Worker 깃허브 연동)을 이 프로젝트로 옮기면 한눈에 모아볼 수 있음.
+- **GitHub Desktop에서 Push 확인** — 로컬 최신 커밋은 `57ae06a`. 안 올라간 게 있으면 Push origin. (배포는 Cloudflare Pages 자동)
+- **배포 후 실측 테스트**: ①음원 받아쓰기(짧은 음원) ②사전심사 반영 ③성별 넣고 분석 시 여성 기준으로 나오는지 ④전화·주소·주민번호 마스킹(hover/터치) ⑤주민번호 통합칸 `000000-0******` + 만나이 ⑥지도 전체화면·경유지·구간시간·색선·카카오내비.
+- (기존) 앱8 이미지·정독 개선 실측 — 실제 보장급부 사진으로 숫자·담보명 정확도 확인.
+- 같은 폴더를 다른 Claude 세션·툴이 동시에 만지면 커밋 충돌 위험 — **한 곳에서만** 작업 권장.
