@@ -134,7 +134,7 @@ async function genApScripts(){
     if(prog){ prog.style.display='block'; prog.textContent='AI 대면 멘트 생성 중… ('+(i+1)+'/'+cks.length+' · '+stageName[k]+')'; }
     try{
       const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region}, material:apMaterialText(c,k)})});
+        body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region,gender:c.gender||'',job:c.job||''}, material:apMaterialText(c,k)})});
       const data=await res.json();
       if(!res.ok){ throw new Error(data.error||('HTTP '+res.status)); }
       const txt=(data.text||'').trim();

@@ -289,7 +289,7 @@ async function runAnalysis(id, confirmations){
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">보장 분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,products:c.product,situations:c.situation},coverageText:c.coverageText,casesTextFixed,casesTextDynamic,episodesTextFixed,episodesTextDynamic,catalogTextFixed,catalogTextDynamic,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, customer:{name:c.name,age:c.age,region:c.region,gender:c.gender||'',job:c.job||'',products:c.product,situations:c.situation},coverageText:c.coverageText,casesTextFixed,casesTextDynamic,episodesTextFixed,episodesTextDynamic,catalogTextFixed,catalogTextDynamic,focusAreas:c.focusAreas||[],excludeAreas:c.excludeAreas||[],confirmations:confirmations||''})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.analyses=c.analyses||[]; c.analyses.unshift({at:now(), date:today(), data});
@@ -334,7 +334,7 @@ async function runPlanAnalysis(id, confirmations){
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">AI가 설계서를 직접 판독·분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, preScreen:preScreen, confirmations:confirmations||'', episodesTextFixed, episodesTextDynamic, casesTextFixed, casesTextDynamic, catalogTextFixed, catalogTextDynamic, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region,gender:c.gender||'',job:c.job||''}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, preScreen:preScreen, confirmations:confirmations||'', episodesTextFixed, episodesTextDynamic, casesTextFixed, casesTextDynamic, catalogTextFixed, catalogTextDynamic, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});

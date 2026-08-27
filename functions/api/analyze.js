@@ -325,7 +325,7 @@ export async function onRequestPost(context) {
     const psys = buildPlanSystem({ focusAreas, excludeAreas, episodesTextFixed, episodesTextDynamic, catalogTextFixed, catalogTextDynamic });
     const puser = [
       '# 고객 정보',
-      '이름: ' + (customer.name || '-') + ' / 연령: ' + (customer.age || '-') + ' / 지역: ' + (customer.region || '-'),
+      '이름: ' + (customer.name || '-') + ' / 성별: ' + (customer.gender || '(미상)') + ' / 연령: ' + (customer.age || '-') + ' / 직업: ' + (customer.job || '(미상)') + ' / 지역: ' + (customer.region || '-'),
       '',
       '# 보장 텍스트 (현재 가입 내용)',
       cov || '(없음)',
@@ -386,7 +386,7 @@ export async function onRequestPost(context) {
 
   const user = [
     '# 고객 정보',
-    '이름: ' + (customer.name || '-') + ' / 연령: ' + (customer.age || '-') + ' / 지역: ' + (customer.region || '-'),
+    '이름: ' + (customer.name || '-') + ' / 성별: ' + (customer.gender || '(미상)') + ' / 연령: ' + (customer.age || '-') + ' / 직업: ' + (customer.job || '(미상)') + ' / 지역: ' + (customer.region || '-'),
     '상품 관심: ' + ((customer.products || []).join(', ') || '-'),
     '상담 상황: ' + ((customer.situations || []).join(', ') || '-'),
     '',
