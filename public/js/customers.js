@@ -142,6 +142,17 @@ function openAddrSearch(){
     } }).open();
   });
 }
+/* 특정 입력칸(지도 시트의 출발/도착 등)에 카카오 우편번호로 주소를 찾아 넣는다. */
+function openAddrSearchInto(inputId){
+  ensureDaumPostcode(function(){
+    var P=(window.daum&&window.daum.Postcode)?window.daum.Postcode:(window.kakao&&window.kakao.Postcode);
+    if(!P){ alert('주소 검색을 초기화하지 못했어요.'); return; }
+    new P({ oncomplete:function(data){
+      var el=document.getElementById(inputId); if(el) el.value=(data.roadAddress||data.address||'');
+    } }).open();
+  });
+}
+
 /* ===== 민감정보 마스킹 (전화·주소·주민번호 뒷자리) =====
    입력값(input.value)은 절대 건드리지 않고, 위에 덮는 오버레이 글자만 가린다 → 저장은 항상 원본.
    마우스를 올리거나(hover) 칸을 누르면(focus) 원본이 보인다. */
@@ -201,8 +212,13 @@ function _geocode(addr){
   return new Promise(function(res){
     var g=new kakao.maps.services.Geocoder();
     g.addressSearch(addr, function(result, status){
-      if(status===kakao.maps.services.Status.OK && result[0]){ res({x:parseFloat(result[0].x), y:parseFloat(result[0].y)}); }
-      else res(null);
+      if(status===kakao.maps.services.Status.OK && result[0]){ res({x:parseFloat(result[0].x), y:parseFloat(result[0].y)}); return; }
+      // 주소로 안 잡히면(역·건물명·상호 등) 키워드 장소검색으로 재시도한다.
+      var ps=new kakao.maps.services.Places();
+      ps.keywordSearch(addr, function(data, st2){
+        if(st2===kakao.maps.services.Status.OK && data[0]){ res({x:parseFloat(data[0].x), y:parseFloat(data[0].y)}); }
+        else res(null);
+      });
     });
   });
 }

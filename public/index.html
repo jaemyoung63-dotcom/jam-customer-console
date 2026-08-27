@@ -303,9 +303,15 @@
     <div class="row"><h2>🗺️ 지도 · 소요시간</h2><span class="spacer"></span>
       <button class="btn ghost sm" onclick="closeSheet('ov-map')">닫기</button></div>
     <label class="f">출발지</label>
-    <input class="t" id="map-origin" placeholder="출발 주소 (예: 부산 서면역)">
+    <div class="row" style="gap:8px;align-items:center">
+      <input class="t grow" id="map-origin" placeholder="주소 또는 장소(역·건물명)" style="margin:0">
+      <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearchInto('map-origin')">🔍 찾기</button>
+    </div>
     <label class="f">도착지</label>
-    <input class="t" id="map-dest" placeholder="도착 주소">
+    <div class="row" style="gap:8px;align-items:center">
+      <input class="t grow" id="map-dest" placeholder="주소 또는 장소(역·건물명)" style="margin:0">
+      <button class="btn ghost sm" style="white-space:nowrap;flex:0 0 auto" onclick="openAddrSearchInto('map-dest')">🔍 찾기</button>
+    </div>
     <button class="btn btn-blue wide" style="margin-top:10px" onclick="calcRoute()">🚗 경로·소요시간 계산</button>
     <div id="map-result" class="meta" style="margin-top:8px"></div>
     <div id="map" style="width:100%;height:300px;border-radius:12px;margin-top:10px;background:var(--paper)"></div>
