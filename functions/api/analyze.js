@@ -319,6 +319,7 @@ export async function onRequestPost(context) {
     const cov_an = payload.coverageAnalysis || {};
     const planImages = Array.isArray(payload.planImages) ? payload.planImages : [];
     const pConfirm = (payload.confirmations || '').trim();
+    const preScreen = (payload.preScreen || '').trim();
     if (!planText && planImages.length === 0) return json({ error: '가입설계서 자료가 없습니다. 설계서 사진을 등록한 뒤 실행하세요.' }, 400);
     const pModel = context.env.VISION_MODEL || model;
     const psys = buildPlanSystem({ focusAreas, excludeAreas, episodesTextFixed, episodesTextDynamic, catalogTextFixed, catalogTextDynamic });
@@ -332,6 +333,7 @@ export async function onRequestPost(context) {
       '# 이미 수행한 보장 분석',
       ((cov_an.summary || '') + '\n' + (cov_an.detail || '')).trim() || '(없음)',
       '',
+      ...(preScreen ? ['# 사전심사 (가입설계 중 파악된 고객의 질병 이력·부담보 등 인수 조건 — 반드시 반영)', preScreen, ''] : []),
       (planImages.length ? '# 가입설계서 (첨부된 사진을 직접 읽으세요)' : '# 가입설계서 (새로 제안)'),
       (planImages.length ? '' : planText)
     ].join('\n');

@@ -148,6 +148,8 @@ function renderAnalysis(){
     html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(3)">\ub2e4\uc74c: \uac00\uc785\uc124\uacc4 \u203a</button>';
   } else {
     html+='<div class="row"><button class="btn ghost sm grow" onclick="anStepGo(1)">\u2039 \uc0c1\ub2f4\uc0ac\ub840(1\ub2e8\uacc4)</button><button class="btn ghost sm grow" onclick="anStepGo(2)">\u2039 \ubcf4\uc7a5\ubd84\uc11d(2\ub2e8\uacc4)</button></div>';
+    html+='<label class="f" style="margin-top:12px">\uc0ac\uc804\uc2ec\uc0ac <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \uc9c8\ubcd1\u00b7\ubd80\ub2f4\ubcf4 \ub4f1 (\uac00\uc785\uc124\uacc4 \ubd84\uc11d\uc5d0 \ud568\uaed8 \ubc18\uc601\ub3fc\uc694)</span></label>';
+    html+='<textarea id="an-plan-prescreen" class="t" rows="4" style="width:100%;box-sizing:border-box" placeholder="\uac00\uc785\uc124\uacc4 \uc911 \ud30c\uc545\ud55c \uace0\uac1d \uc0ac\uc804\uc2ec\uc0ac \ub0b4\uc6a9\uc744 \uc801\uc73c\uc138\uc694.&#10;\uc608: \uace0\ud608\uc555\uc57d \ubcf5\uc6a9, 3\ub144 \uc804 \uac11\uc0c1\uc120\uc554 \uc218\uc220 \uc774\ub825, \u25b3\u25b3\ub2f4\ubcf4 \ubd80\ub2f4\ubcf4 \uc870\uac74 \ub4f1" onchange="savePlanPreScreen(\''+c.id+'\', this.value)">'+esc(c.planPreScreen||'')+'</textarea>';
     html+='<label class="f" style="margin-top:12px">\uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0 <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \uc5ec\ub7ec \uc7a5 \ub4f1\ub85d</span></label>';
     html+='<div class="thumbs" id="an-plan-thumbs"></div>';
     const canPlan=hasAnalysis && (c.planImages&&c.planImages.length);
@@ -199,6 +201,12 @@ function pickAnPlanCamera(id){
     for(const f of fs){ await addAnPlanImageDirect(id,f); } renderAnalysis();
   };
   inp.click();
+}
+/* 사전심사(질병·부담보 등) 칸 저장 — 칸에서 포커스가 빠질 때(onchange) 고객에 저장한다. */
+async function savePlanPreScreen(id,val){
+  const c=customers.find(x=>x.id===id); if(!c) return;
+  c.planPreScreen=(val||'').slice(0,4000);
+  await idbPut('customers',c);
 }
 function addAnPlanImageDirect(id,file){
   if(isPdfFile(file)){ const c=customers.find(x=>x.id===id); if(!c) return Promise.resolve(); c.planImages=c.planImages||[]; return addPdfInto(file, c.planImages, '설계서', ()=>renderAnPlanThumbs(c), c); }
@@ -304,6 +312,10 @@ async function runPlanAnalysis(id, confirmations){
   if(!cloudOn){alert('AI 가입설계 분석은 로그인 후 사용할 수 있습니다.'); return;}
   const box=document.getElementById('an-plan-result'); box.innerHTML='<div class="stage-note">가입설계 분석 준비 중…</div>';
   const pq=document.getElementById('plan-questions'); if(pq) pq.innerHTML='';
+  // 사전심사(질병·부담보 등) — 화면 칸의 최신 값을 읽어 고객에 저장하고, 분석에 함께 보낸다.
+  const _preEl=document.getElementById('an-plan-prescreen');
+  const preScreen=_preEl?((_preEl.value||'').trim()):((c.planPreScreen||'').trim());
+  if(_preEl){ c.planPreScreen=preScreen; await idbPut('customers',c); }
   // 가입설계서 사진 → base64 (AI 비전 직접 판독)
   const imgs=(c.planImages||[]).slice(0,12); const items=[];
   for(let i=0;i<imgs.length;i++){
@@ -322,7 +334,7 @@ async function runPlanAnalysis(id, confirmations){
   const _pg=startProgress(p=>{ box.innerHTML='<div class="stage-note">AI가 설계서를 직접 판독·분석 중… '+p+'%</div>'; });
   try{
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, confirmations:confirmations||'', episodesTextFixed, episodesTextDynamic, casesTextFixed, casesTextDynamic, catalogTextFixed, catalogTextDynamic, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'plan', customer:{name:c.name,age:c.age,region:c.region}, coverageText:c.coverageText||'', coverageAnalysis:{summary:cov.summary||'',detail:cov.detail||''}, planImages:items, preScreen:preScreen, confirmations:confirmations||'', episodesTextFixed, episodesTextDynamic, casesTextFixed, casesTextDynamic, catalogTextFixed, catalogTextDynamic, focusAreas:c.focusAreas||[], excludeAreas:c.excludeAreas||[]})});
     const data=await res.json(); _pg.done();
     if(!res.ok){box.innerHTML='<div class="stage-note">가입설계 분석 실패: '+esc(data.error||'알 수 없는 오류')+'</div>'; return;}
     c.planAnalyses=c.planAnalyses||[]; c.planAnalyses.unshift({at:now(), date:today(), data});
