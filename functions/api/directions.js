@@ -58,16 +58,18 @@ export async function onRequestPost(context) {
     if (!route) return json({ error: '경로 결과가 비어 있습니다.' }, 400);
     if (route.result_code !== 0) return json({ error: route.result_msg || '경로를 찾지 못했습니다. (출발·도착이 너무 가깝거나 도로가 없을 수 있어요)' }, 400);
 
-    // 도로 경로 좌표(vertexes: [x,y,x,y,...])를 이어붙여 지도에 그릴 path로 만든다.
-    const path = [];
-    (route.sections || []).forEach(function (sec) {
+    // 구간(section)별로 소요시간·거리·도로 경로좌표를 나눠 반환한다.
+    // 구간 순서 = 출발→경유1, 경유1→경유2, …, 경유N→도착. (구간 수 = 경유지 수 + 1)
+    const sections = (route.sections || []).map(function (sec) {
+      const p = [];
       (sec.roads || []).forEach(function (rd) {
         const v = rd.vertexes || [];
-        for (let i = 0; i + 1 < v.length; i += 2) path.push({ x: v[i], y: v[i + 1] });
+        for (let i = 0; i + 1 < v.length; i += 2) p.push({ x: v[i], y: v[i + 1] });
       });
+      return { duration: sec.duration, distance: sec.distance, path: p };
     });
 
-    return json({ duration: route.summary.duration, distance: route.summary.distance, path: path });
+    return json({ duration: route.summary.duration, distance: route.summary.distance, sections: sections });
   } catch (err) {
     return json({ error: '길찾기 요청 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
   }

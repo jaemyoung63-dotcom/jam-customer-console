@@ -196,7 +196,10 @@ function ensureKakaoMaps(cb){
   s.onerror=function(){ alert('지도를 불러오지 못했어요.\n\n카카오 개발자 콘솔에서 이 앱의 [플랫폼 → Web]에 https://jam-customer-console.pages.dev 를 등록했는지, 그리고 인터넷 연결을 확인해 주세요.'); };
   document.head.appendChild(s);
 }
-var _kmap=null, _kmarkers=[], _kpolyline=null, _wpSeq=0;
+var _kmap=null, _kmarkers=[], _kpolylines=[], _wpSeq=0, _lastRoute=null;
+var ROUTE_COLORS=['#1E86F0','#E0533D','#10A87F','#8B5CF6','#F59E0B','#EC4899','#0EA5E9','#84CC16'];
+function fmtMin(secval){ var min=Math.round((secval||0)/60), hh=Math.floor(min/60), mm=min%60; return hh>0?(hh+'시간 '+mm+'분'):(mm+'분'); }
+function _short(s){ s=(s||'').trim(); return s.length>14 ? s.slice(0,14)+'…' : s; }
 function openMapSheet(){
   var addr=(document.getElementById('c-address')&&document.getElementById('c-address').value.trim())||'';
   var detail=(document.getElementById('c-address-detail')&&document.getElementById('c-address-detail').value.trim())||'';
@@ -261,18 +264,51 @@ function calcRoute(){
         .then(function(res){ return res.json(); })
         .then(function(data){
           if(data.error){ out.textContent='소요시간: '+data.error; return; }
-          if(_kpolyline){ _kpolyline.setMap(null); _kpolyline=null; }
-          if(Array.isArray(data.path) && data.path.length){
-            var line=data.path.map(function(p){ return new kakao.maps.LatLng(p.y,p.x); });
-            _kpolyline=new kakao.maps.Polyline({path:line, strokeWeight:6, strokeColor:'#1E86F0', strokeOpacity:0.9, strokeStyle:'solid'});
-            _kpolyline.setMap(_kmap);
-          }
-          var min=Math.round((data.duration||0)/60), km=((data.distance||0)/1000).toFixed(1);
-          var hh=Math.floor(min/60), mm=min%60;
-          var t=hh>0?(hh+'시간 '+mm+'분'):(mm+'분');
-          out.textContent='🚗 자동차 약 '+t+' · '+km+'km'+(wps.length?(' · 경유 '+wps.length+'곳'):'');
+          // 이전 경로선 제거
+          _kpolylines.forEach(function(pl){ pl.setMap(null); }); _kpolylines=[];
+          var secs=data.sections||[];
+          var names=[oAddr].concat(wpAddrs).concat([dAddr]);
+          var html='🚗 <b>총 '+fmtMin(data.duration)+' · '+(((data.distance||0)/1000).toFixed(1))+'km</b>';
+          secs.forEach(function(sec,i){
+            var color=ROUTE_COLORS[i%ROUTE_COLORS.length];
+            if(sec.path&&sec.path.length){
+              var line=sec.path.map(function(p){ return new kakao.maps.LatLng(p.y,p.x); });
+              var pl=new kakao.maps.Polyline({path:line, strokeWeight:6, strokeColor:color, strokeOpacity:0.9, strokeStyle:'solid'});
+              pl.setMap(_kmap); _kpolylines.push(pl);
+            }
+            html+='<div style="margin-top:4px;font-size:12.5px;display:flex;align-items:center">'
+              +'<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:'+color+';margin-right:6px;flex:0 0 auto"></span>'
+              +'<span>'+esc(_short(names[i]||''))+' → '+esc(_short(names[i+1]||''))+' : '+fmtMin(sec.duration)+' · '+(((sec.distance||0)/1000).toFixed(1))+'km</span></div>';
+          });
+          out.innerHTML=html;
+          // 카카오내비용 목적지·경유지 저장
+          _lastRoute={ dest:{x:d.x,y:d.y}, destName:dAddr, vias: wps.map(function(p,i){ return {x:p.x,y:p.y,name:wpAddrs[i]}; }) };
         }).catch(function(){ out.textContent='소요시간 계산 중 오류가 났어요. 잠시 후 다시 시도해 주세요.'; });
     });
+  });
+}
+/* 카카오내비 앱으로 안내 시작 (휴대폰에 카카오내비 설치 필요). 카카오 JS SDK를 지연 로딩한다. */
+function ensureKakaoSdk(cb){
+  if(window.Kakao && window.Kakao.Navi){ try{ if(!window.Kakao.isInitialized()) window.Kakao.init(KAKAO_JS_KEY); }catch(e){} cb(); return; }
+  if(window._kakaoSdkLoading){ var t=setInterval(function(){ if(window.Kakao&&window.Kakao.Navi){ clearInterval(t); try{ if(!window.Kakao.isInitialized()) window.Kakao.init(KAKAO_JS_KEY); }catch(e){} cb(); } },120); return; }
+  window._kakaoSdkLoading=true;
+  var s=document.createElement('script');
+  s.src='https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js';
+  s.onload=function(){ try{ if(!window.Kakao.isInitialized()) window.Kakao.init(KAKAO_JS_KEY); }catch(e){} cb(); };
+  s.onerror=function(){ alert('카카오내비 연결 모듈을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'); };
+  document.head.appendChild(s);
+}
+function openNavi(){
+  if(!_lastRoute){ alert('먼저 "경로·소요시간 계산"을 눌러 경로를 만든 뒤 이용하세요.'); return; }
+  ensureKakaoSdk(function(){
+    try{
+      var opt={ name:(_lastRoute.destName||'도착지'), x:_lastRoute.dest.x, y:_lastRoute.dest.y, coordType:'wgs84' };
+      if(_lastRoute.vias && _lastRoute.vias.length){
+        opt.viaList=_lastRoute.vias.slice(0,3).map(function(v,i){ return { name:(v.name||('경유'+(i+1))), x:v.x, y:v.y, coordType:'wgs84' }; });
+        if(_lastRoute.vias.length>3) toast&&toast('카카오내비는 경유지 3곳까지만 안내돼요 (앞 3곳만 반영)');
+      }
+      window.Kakao.Navi.start(opt);
+    }catch(e){ alert('카카오내비 실행에 실패했어요. 휴대폰에 카카오내비 앱이 설치돼 있는지 확인해 주세요. (PC에서는 실행되지 않습니다)'); }
   });
 }
 /* ===== 고객 다단계 이동 (2단계) ===== */
