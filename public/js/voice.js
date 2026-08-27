@@ -117,7 +117,7 @@ function vfHandleBirth6(text){
   if(voiceSkip(text)) return '생년월일은 건너뛸게요';
   const digits=voiceExtractDigits(text).slice(0,6);
   if(digits.length!==6) return null;
-  document.getElementById('c-birth6').value=digits; onBirth6();
+  { var _el=document.getElementById('c-rrn'); if(_el){ var _back=_el.value.replace(/\D/g,'').slice(6); _el.value=digits+(_back?('-'+_back):''); onRrn(); } }
   return '생년월일 6자리: '+digits;
 }
 function vfHandleProfile(text){

@@ -340,12 +340,10 @@ function readCustFields(){
   var _j=document.getElementById('c-job'); if(_j) editingCust.job=_j.value.trim();
   var _a=document.getElementById('c-address'); if(_a) editingCust.address=_a.value.trim();
   var _ad=document.getElementById('c-address-detail'); if(_ad) editingCust.addressDetail=_ad.value.trim();
-  var _rb=document.getElementById('c-rrn-back'); if(_rb) editingCust.rrnBack=_rb.value.replace(/\D/g,'').slice(0,7);
+  var _rrn=document.getElementById('c-rrn'); if(_rrn){ var _raw=_rrn.value.replace(/\D/g,'').slice(0,13); editingCust.birth6=_raw.slice(0,6); editingCust.rrnBack=_raw.slice(6,13); editingCust.ageNum=computeAge6(editingCust.birth6); }
   editingCust.memo=document.getElementById('c-memo').value.trim();
   editingCust.coverageText=document.getElementById('c-coverage').value.trim();
   editingCust.age=document.getElementById('c-age').value;
-  editingCust.birth6=(document.getElementById('c-birth6').value||'').replace(/\D/g,'').slice(0,6);
-  editingCust.ageNum=computeAge6(editingCust.birth6);
   editingCust.grade=document.getElementById('c-grade').value;
 }
 async function saveCustomerCore(){

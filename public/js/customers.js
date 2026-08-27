@@ -91,11 +91,10 @@ async function openCustomer(id){
   { const _j=document.getElementById('c-job'); if(_j) _j.value=c.job||''; }
   { const _a=document.getElementById('c-address'); if(_a) _a.value=c.address||''; }
   { const _ad=document.getElementById('c-address-detail'); if(_ad) _ad.value=c.addressDetail||''; }
-  { const _rb=document.getElementById('c-rrn-back'); if(_rb) _rb.value=c.rrnBack||''; }
   try{ initMasks(); refreshMasks(); }catch(e){}
   document.getElementById('c-memo').value=c.memo||'';
   document.getElementById('c-coverage').value=c.coverageText||'';
-  document.getElementById('c-birth6').value=c.birth6||'';
+  { const _rrn=document.getElementById('c-rrn'); if(_rrn){ const _b=(c.birth6||''); const _bk=(c.rrnBack||''); _rrn.value=(_b+(_bk?('-'+_bk):'')); } }
   document.getElementById('c-agenum').value=c.ageNum?(c.ageNum+'세'):'';
   fillSelect('c-age',AGES,c.age); fillSelect('c-grade',null,c.grade);
   chipGroup(document.getElementById('cust-source'),SOURCES,editingCust.source,false,v=>{editingCust.source=v; toggleImageBlock();});
@@ -163,8 +162,8 @@ function maskPhone(v){ v=(v||'').trim(); if(!v) return '';
   return d.slice(0,3)+'-****-'+d.slice(-4);
 }
 function maskAddr(v){ v=(v||'').trim(); if(!v) return ''; if(v.length<=6) return v; return v.slice(0,6)+' ****'; }
-function maskRrnBack(v){ v=(v||'').replace(/\D/g,''); if(!v) return ''; return v.slice(0,1)+'******'; }
-var MASK_FIELDS=[['c-phone',maskPhone],['c-address',maskAddr],['c-rrn-back',maskRrnBack]];
+function maskRrn(v){ var raw=(v||'').replace(/\D/g,''); if(!raw) return ''; var b6=raw.slice(0,6), back=raw.slice(6); return back ? (b6+'-'+back.slice(0,1)+'******') : b6; }
+var MASK_FIELDS=[['c-phone',maskPhone],['c-address',maskAddr],['c-rrn',maskRrn]];
 function refreshMasks(){ MASK_FIELDS.forEach(function(f){
   var inp=document.getElementById(f[0]); var ov=document.getElementById('mask-'+f[0]);
   if(!inp||!ov||ov.classList.contains('reveal')) return;
@@ -379,6 +378,23 @@ function computeAge6(d){
   const passed=(now.getMonth()>bd.getMonth())||(now.getMonth()===bd.getMonth()&&now.getDate()>=bd.getDate());
   if(!passed) age--;
   return (age>=0&&age<=120)?age:null;
+}
+/* 주민번호 한 칸 입력: 숫자만 남기고 6자리 뒤 하이픈 자동, 앞 6자리로 나이 자동계산. */
+function onRrn(){
+  var el=document.getElementById('c-rrn'); if(!el) return;
+  var raw=el.value.replace(/\D/g,'').slice(0,13);
+  el.value = raw.length>6 ? (raw.slice(0,6)+'-'+raw.slice(6)) : raw;
+  var b6=raw.slice(0,6);
+  editingCust.birth6=b6; editingCust.rrnBack=raw.slice(6,13);
+  var age=computeAge6(b6);
+  if(age!=null){
+    editingCust.ageNum=age;
+    document.getElementById('c-agenum').value=age+'세';
+    var band=age<30?'20대':age<40?'30대':age<50?'40대':age<60?'50대':'60대+';
+    if(!editingCust.age){ editingCust.age=band; var ae=document.getElementById('c-age'); if(ae) ae.value=band; }
+  } else {
+    editingCust.ageNum=null; document.getElementById('c-agenum').value='';
+  }
 }
 function onBirth6(){
   const d=document.getElementById('c-birth6').value.replace(/\D/g,'').slice(0,6);
