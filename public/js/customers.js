@@ -54,6 +54,7 @@ function renderCustResults(){
       html+='<div class="card tap" onclick="openCustomer(\''+c.id+'\')">'
         +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+src+apBtn+'</div>'
         +'<div class="meta">'+(c.age?c.age+' · ':'')+(c.region?esc(c.region):'지역 미입력')
+        +(c.phone?' · '+esc(c.phone):'')
         +(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')+'</div>'
         +(tags?'<div class="pill-tags">'+tags+'</div>':'')
         +'</div>';
@@ -84,6 +85,7 @@ async function openCustomer(id){
   document.getElementById('cust-title').textContent = id?'고객 상세':'고객 등록';
   document.getElementById('c-delete').style.display = id?'flex':'none';
   document.getElementById('c-name').value=c.name||'';
+  document.getElementById('c-phone').value=c.phone||'';
   document.getElementById('c-region').value=c.region||'';
   document.getElementById('c-memo').value=c.memo||'';
   document.getElementById('c-coverage').value=c.coverageText||'';

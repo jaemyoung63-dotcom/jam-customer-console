@@ -334,6 +334,7 @@ async function importDoc(file){
 
 function readCustFields(){
   editingCust.name=document.getElementById('c-name').value.trim();
+  editingCust.phone=document.getElementById('c-phone').value.trim();
   editingCust.region=document.getElementById('c-region').value.trim();
   editingCust.memo=document.getElementById('c-memo').value.trim();
   editingCust.coverageText=document.getElementById('c-coverage').value.trim();
