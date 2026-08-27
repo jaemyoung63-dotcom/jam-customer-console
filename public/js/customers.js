@@ -301,12 +301,12 @@ function openNavi(){
   if(!_lastRoute){ alert('먼저 "경로·소요시간 계산"을 눌러 경로를 만든 뒤 이용하세요.'); return; }
   ensureKakaoSdk(function(){
     try{
-      var opt={ name:(_lastRoute.destName||'도착지'), x:_lastRoute.dest.x, y:_lastRoute.dest.y, coordType:'wgs84' };
-      if(_lastRoute.vias && _lastRoute.vias.length){
-        opt.viaList=_lastRoute.vias.slice(0,3).map(function(v,i){ return { name:(v.name||('경유'+(i+1))), x:v.x, y:v.y, coordType:'wgs84' }; });
-        if(_lastRoute.vias.length>3) toast&&toast('카카오내비는 경유지 3곳까지만 안내돼요 (앞 3곳만 반영)');
+      // 카카오내비 웹(JS) 연동은 도착지 1곳만 지원한다(경유지는 앱 SDK에만 있음).
+      if(_lastRoute.vias && _lastRoute.vias.length && typeof toast==='function'){
+        toast('카카오내비는 도착지까지 안내돼요. 경유지는 위 지도의 경로·구간시간으로 확인하세요.');
+        if(typeof toastHide==='function') setTimeout(toastHide,2800);
       }
-      window.Kakao.Navi.start(opt);
+      window.Kakao.Navi.start({ name:(_lastRoute.destName||'도착지'), x:_lastRoute.dest.x, y:_lastRoute.dest.y, coordType:'wgs84' });
     }catch(e){ alert('카카오내비 실행에 실패했어요. 휴대폰에 카카오내비 앱이 설치돼 있는지 확인해 주세요. (PC에서는 실행되지 않습니다)'); }
   });
 }
