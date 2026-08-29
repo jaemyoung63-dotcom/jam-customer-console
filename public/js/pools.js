@@ -532,7 +532,6 @@ function setPoolType(t){
   renderPools();
 }
 function renderPools(){
-  renderCostMeter();
   ensurePinsForCustomer(currentCustId);
   renderPoolCtx();
   const L=POOL_LABEL[poolType]||POOL_LABEL.case;
@@ -628,7 +627,7 @@ function poolToAnalysis(){ currentCustId=null; go('analysis'); }        // 하�
 function poolToAnalysisCarry(){ go('analysis'); }                        // 배너 버튼: 작업고객 물고 감
 /* 하단 탭 이동: 상담·분석(연결) 모드에서는 "작업 고객"을 그대로 물고 간다(이름물고가기).
    자료 준비(별도) 모드에서는 예전처럼 탭을 옮기면 작업 고객을 해제한다. */
-function navGo(s){ if(appMode!=='connected'){ currentCustId=null; } go(s); }
+function navGo(s){ go(s); }
 function openWorkingCust(){
   if(currentCustId && customers.some(c=>c.id===currentCustId)){ openCustomer(currentCustId); }
   else { go('customers'); toast('작업 고객이 없어요. 고객을 먼저 선택하세요.'); setTimeout(toastHide,1400); }

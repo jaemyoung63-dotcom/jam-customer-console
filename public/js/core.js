@@ -380,7 +380,6 @@ const oneLine=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length
 let customers=[], pools=[], curScreen='customers';
 let lastAnalysis=null;
 let currentCustId=null;   // 고객상세→참조풀→분석으로 이어지는 '작업 고객'
-let appMode='';           // '' | 'connected'(연결 진행) | 'separate'(별도 진행)
 let pinnedOwner=null;     // 현재 선택(pinned)이 어느 고객의 것인지
 /* 작업 고객이 바뀌면 그 고객이 저장해둔 선택(pinnedPools)으로 복원. 새 고객이면 초기화 */
 function ensurePinsForCustomer(custId){
@@ -407,10 +406,8 @@ function blobUrl(b){const u=URL.createObjectURL(b); objectUrls.push(u); return u
 function header(title,sub,micFn){
   const old=document.querySelector('header.top'); if(old) old.remove();
   const h=document.createElement('header'); h.className='top';
-  const ml = appMode==='connected' ? '상담·분석' : (appMode==='separate' ? '자료 준비' : '');
-  const mb = ml ? '<span class="mode-badge mb-'+appMode+'">'+ml+'</span>' : '';
   const mic = micFn ? '<button class="mic-btn" id="hdr-mic-btn" aria-label="음성 명령" title="음성으로 고객 찾기·추가">🎤</button>' : '';
-  h.innerHTML='<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button><div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic+mb;
+  h.innerHTML='<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button><div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic;
   document.getElementById('app').prepend(h);
   if(micFn){ const mb2=document.getElementById('hdr-mic-btn'); if(mb2) mb2.onclick=micFn; }
 }
@@ -442,7 +439,7 @@ function go(s){
 }
 function goHome(){
   curScreen='home'; freeUrls();
-  document.body.removeAttribute('data-mode'); appMode=''; currentCustId=null;
+  currentCustId=null;
   const oldHdr=document.querySelector('header.top'); if(oldHdr) oldHdr.remove();
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
   const home=document.getElementById('s-home'); if(home) home.classList.add('active');
@@ -462,9 +459,10 @@ function updateCloudUI(){
   if(lo) lo.style.display = cloudOn ? 'inline' : 'none';
   if(sw) sw.style.display = (cloudOn && advisorId) ? 'inline' : 'none';
 }
-/* 첫 화면 두 창 */
-function enterConnected(){ appMode='connected'; document.body.setAttribute('data-mode','connected'); currentCustId=null; go('customers'); }
-function enterSeparate(){ appMode='separate'; document.body.setAttribute('data-mode','separate'); currentCustId=null; go('customers'); }
+/* 홈 화면 "시작하기" — 예전엔 "자료 준비"/"상담·분석" 두 모드로 나뉘어 있었으나(2026-08-29 앱12
+   세션에서 통합), 실제로는 똑같은 고객 화면으로 갔고 차이는 고객 선택 유지 여부·버튼 몇 개 숨김뿐이라
+   실사용(이어서 작업)과 안 맞아 하나로 합쳤다. 이제 고객 선택은 항상 유지되고, 추가·삭제 버튼도 항상 보인다. */
+function enterCustomers(){ currentCustId=null; go('customers'); }
 // 2026-08-17: 참조풀은 이제 공용(관리자 화면에서만 추가·수정)이라, 이 화면(+ 버튼)에서는
 // 더 이상 새 자료를 추가하지 않는다 — 안내만 띄운다.
 function onFab(){ if(curScreen==='customers') openCustomer(null); else if(curScreen==='pools'){ toast('참조풀 자료 추가·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.'); setTimeout(toastHide,2200); } }

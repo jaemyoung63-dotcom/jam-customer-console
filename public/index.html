@@ -32,7 +32,6 @@
 
   <!-- ===== 풀 관리 ===== -->
   <div class="screen" id="s-pools">
-    <div id="cost-meter" style="margin-bottom:14px"></div>
     <div id="pool-ctx"></div>
     <div class="seg-toggle">
       <button id="pt-icebreak" onclick="setPoolType('icebreak')">아이스브레이크</button>
@@ -72,21 +71,14 @@
         <div class="meta" style="text-align:center;margin-top:4px">이 기기에만 있는 고객·참조 자료를 클라우드로 올립니다 (한 번만).</div>
       </div>
       <button class="btn ghost sm wide" onclick="pcBackupAll()">💾 PC로 전체 백업 (고객·참조·분석)</button>
-      <div class="usage-title">시작할 방식을 골라주세요</div>
+      <div class="usage-title">고객상담, 여기서 시작하세요</div>
       <div class="usage-windows">
-        <div class="usage-win uw-separate" onclick="enterSeparate()">
-          <div class="uw-badge">자료 준비</div>
-          <div class="uw-icons"><span class="ui">◐</span><span class="ui">▤</span></div>
-          <div class="uw-words"><span>고객 추가</span><span>정보 입력</span><span>참조 자료</span></div>
-          <div class="uw-go">준비 시작 ›</div>
-          <div class="uw-sub">고객·자료를 먼저 등록해 두는 곳</div>
-        </div>
-        <div class="usage-win uw-connected" onclick="enterConnected()">
-          <div class="uw-badge">상담·분석</div>
+        <div class="usage-win uw-connected" onclick="enterCustomers()">
+          <div class="uw-badge">시작하기</div>
           <div class="uw-icons"><span class="ui">◐</span><span class="ar">→</span><span class="ui">▤</span><span class="ar">→</span><span class="ui">✦</span></div>
-          <div class="uw-words"><span>자료 정리</span><span>보장분석</span><span>가입설계</span></div>
-          <div class="uw-go">상담 시작 ›</div>
-          <div class="uw-sub">등록된 자료로 정리·분석하는 곳</div>
+          <div class="uw-words"><span>고객 추가·정보 입력</span><span>정리·보장분석</span><span>가입설계·상담</span></div>
+          <div class="uw-go">시작 ›</div>
+          <div class="uw-sub">고객 등록부터 분석·상담까지 한 곳에서 이어서</div>
         </div>
       </div>
       <div class="home-row2">

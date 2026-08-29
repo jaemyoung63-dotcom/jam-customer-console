@@ -185,23 +185,9 @@
   .su-cost td{border:1px solid var(--line); padding:7px 9px;} .su-cost td:first-child{font-weight:700; background:#F7F9FB; white-space:nowrap;}
   .ug-os{background:#F4F8FC; border:1px solid #D8E6F2; border-radius:11px; padding:11px 13px; margin-top:10px;}
   .ug-os-t{font-size:13.5px; font-weight:800; color:#0C6FA8; margin-bottom:5px;}
-  /* 모드별 배경색: 자료준비=블루, 상담·분석=민트 — 헤더·탭까지 이어져 '지금 어느 방식인지' 유지
-     2026-08-14: 두 색의 차이가 잘 안 느껴진다는 피드백으로 (1)배경 채도 강화 (2)상단 헤더에 색상 강조 줄 (3)하단 탭바 색 강화, 세 가지를 함께 적용 */
-  body[data-mode="connected"]{background:#D3F3E5;}
-  body[data-mode="separate"]{background:#D6EBFB;}
-  body[data-mode="connected"] header.top{background:#D3F3E5; border-bottom:3px solid #10A87F;}
-  body[data-mode="separate"] header.top{background:#D6EBFB; border-bottom:3px solid #0FA0DC;}
-  body[data-mode="connected"] nav.tabs{background:#C3EDDC; border-top:3px solid #10A87F;}
-  body[data-mode="separate"] nav.tabs{background:#C7E4F9; border-top:3px solid #0FA0DC;}
-  body[data-mode="connected"] nav.tabs button.on{color:#0B7A5C; background:rgba(16,168,127,.16); border-radius:10px;}
-  body[data-mode="separate"] nav.tabs button.on{color:#0A6E96; background:rgba(15,160,220,.16); border-radius:10px;}
-  .mode-badge{font-size:11.5px; font-weight:800; padding:4px 11px; border-radius:12px; color:#fff; white-space:nowrap; align-self:center; box-shadow:0 3px 8px rgba(0,0,0,.14);}
-  .mb-connected{background:#10A87F;} .mb-separate{background:#0FA0DC;}
-  /* ＋추가 버튼은 '자료준비'에서만 / 연결흐름 버튼은 '상담·분석'에서만 */
-  body[data-mode="connected"] .add-btn{display:none !important;}
-  body[data-mode="separate"] .flow-btn{display:none !important;}
-  /* 삭제 버튼은 '자료 준비'에서만 — '상담·분석' 흐름 중에는 실수로 고객을 지우지 않도록 숨김 */
-  body[data-mode="connected"] #c-delete{display:none !important;}
+  /* 2026-08-29(앱12): '자료 준비'/'상담·분석' 모드 구분을 없앴다(실사용은 이어서 하는 흐름인데
+     모드에 따라 추가·이동 버튼이 숨겨져 오히려 방해였음). 그때 쓰던 모드별 배경·버튼숨김 CSS 삭제.
+     고객 삭제는 confirm() 경고가 이미 있어 버튼을 굳이 숨기지 않아도 안전하다. */
   .home-card{display:flex; align-items:center; gap:16px; background:var(--card); border:1px solid var(--line); border-radius:20px; padding:20px 18px; box-shadow:0 6px 20px rgba(14,114,224,.07); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease;}
   .home-card:active{transform:scale(.98);}
   .home-card .hc-ic{width:54px; height:54px; border-radius:16px; background:linear-gradient(150deg,#1E86F0,#0A55B8); color:#fff; display:flex; align-items:center; justify-content:center; font-size:25px; flex-shrink:0; box-shadow:0 6px 14px rgba(14,114,224,.25);}

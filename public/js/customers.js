@@ -80,7 +80,7 @@ async function openCustomer(id){
   editingCust = JSON.parse(JSON.stringify(c));
   /* 상담·분석(연결) 모드에서 고객을 선택하면 "작업 고객"으로 물고 간다 —
      이후 하단 탭(분석·상담·참조풀)으로 옮겨가도 이 고객 정보가 계속 뜨게 하기 위함(navGo()에서 유지). */
-  if(appMode==='connected' && id) currentCustId=id;
+  if(id) currentCustId=id;
   header(id?'고객 상세':'고객 등록', c.name?('◉ '+c.name+(c.region?' · '+c.region:'')):'');
   document.getElementById('cust-title').textContent = id?'고객 상세':'고객 등록';
   document.getElementById('c-delete').style.display = id?'flex':'none';

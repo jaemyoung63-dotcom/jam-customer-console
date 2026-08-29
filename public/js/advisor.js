@@ -109,6 +109,7 @@ function renderAdminList(d){
   const advisors=d.advisors||[];
   const unowned=d.unowned||{customers:0,pools:0};
   let h=adminTabsHtml();
+  h+='<div id="cost-meter" style="margin-bottom:14px"></div>';
   h+='<div class="su-hero"><h3>담당자 관리</h3><p>담당자 계정을 추가·수정·삭제합니다. 이름만 알면 로그인할 수 있으니, 비밀번호는 본인에게 따로 알려주세요.</p></div>';
 
   if(d.needsSetup){
@@ -149,6 +150,7 @@ function renderAdminList(d){
     });
   }
   b.innerHTML=h;
+  renderCostMeter();
 }
 
 async function doCopyAiKeyVarName(id, name){
@@ -256,11 +258,13 @@ function switchAdminPoolType(type){ _adminPoolType=type; renderAdminPools(); }
 function renderAdminPools(){
   const b=document.getElementById('admin-body'); if(!b) return;
   let h=adminTabsHtml();
+  h+='<div id="cost-meter" style="margin-bottom:14px"></div>';
   h+='<div class="su-hero"><h3>참조풀 관리</h3><p>여기서 관리하는 자료는 전부 항상 "전역 고정"(고객이 바뀌어도 같은 내용 그대로 재사용)으로 저장되어 AI 비용을 아낍니다. "공개"된 것만 전체 담당자의 참조 풀 화면에 뜨고, 실제로 어떤 자료를 이 고객 분석에 쓸지는 각 담당자가 참조 풀 화면에서 항목별로 체크해서 정합니다.</p></div>';
 
   if(_adminPoolEditing){
     h+=renderAdminPoolEditorHtml(_adminPoolEditing);
     b.innerHTML=h;
+    renderCostMeter();
     renderAdminPoolAudio();
     renderAdminPoolThumbs();
     renderAdminPoolFileList();
@@ -301,6 +305,7 @@ function renderAdminPools(){
       +'</div></div>';
   });
   b.innerHTML=h;
+  renderCostMeter();
 }
 
 function openAdminPoolEditor(id, type){
