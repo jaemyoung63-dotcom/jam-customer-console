@@ -209,7 +209,10 @@ async function savePlanPreScreen(id,val){
   await idbPut('customers',c);
 }
 function addAnPlanImageDirect(id,file){
-  if(isPdfFile(file)){ const c=customers.find(x=>x.id===id); if(!c) return Promise.resolve(); c.planImages=c.planImages||[]; return addPdfInto(file, c.planImages, '설계서', ()=>renderAnPlanThumbs(c), c); }
+  const c0=customers.find(x=>x.id===id); if(!c0) return Promise.resolve();
+  c0.planImages=c0.planImages||[];
+  if(overImageCap(c0.planImages)) return Promise.resolve();
+  if(isPdfFile(file)){ return addPdfInto(file, c0.planImages, '설계서', ()=>renderAnPlanThumbs(c0), c0); }
   return new Promise(res=>{
     const c=customers.find(x=>x.id===id); if(!c){res();return;}
     const reader=new FileReader();

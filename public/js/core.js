@@ -67,6 +67,17 @@ const SEGMENTS=['방문예정','상담','계약'];
 const SOURCES=[['db','DB 고객'],['acq','지인 고객']];
 const RESULTS=[['성공','ok'],['보류','hold'],['실패','no']];
 const IMG_KINDS=['보장급부','내보장자산','기타'];
+/* AI 분석(정리·분석/가입설계 분석)에 실제로 보내는 사진은 앞쪽 12장까지만이라, 그 이상
+   등록해도 뒤쪽은 조용히 무시되던 문제를 막기 위해 등록 자체를 12장에서 막는다. */
+const IMG_CAP=12;
+function overImageCap(arr){
+  if(arr && arr.length>=IMG_CAP){
+    toast('사진은 최대 '+IMG_CAP+'장까지만 등록할 수 있어요(AI가 실제로 분석하는 장수와 맞춤). 필요 없는 사진을 먼저 지워주세요.');
+    setTimeout(toastHide,3000);
+    return true;
+  }
+  return false;
+}
 
 /* ---------- IndexedDB ---------- */
 let db;

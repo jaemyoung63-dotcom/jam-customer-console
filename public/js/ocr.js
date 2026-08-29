@@ -85,11 +85,16 @@ async function addPdfInto(file, arr, kind, renderFn, saveObj){
   try{
     toast('PDF 여는 중…');
     const blobs=await pdfToImageBlobs(file, (n,N)=>toast('PDF 페이지 변환 중… '+n+'/'+N));
-    for(const b of blobs){ const rid=uid(); await idbPut('images',{id:rid,kind:kind||'기타',blob:b,created:today()}); arr.push(rid); }
+    let skipped=0;
+    for(const b of blobs){
+      if(arr.length>=IMG_CAP){ skipped++; continue; }
+      const rid=uid(); await idbPut('images',{id:rid,kind:kind||'기타',blob:b,created:today()}); arr.push(rid);
+    }
     if(saveObj){ try{ await idbPut('customers',saveObj); }catch(e){} }
     toastHide();
     if(renderFn) await renderFn();
     if(!blobs.length) alert('PDF에서 페이지를 읽지 못했습니다.');
+    else if(skipped) alert('사진은 최대 '+IMG_CAP+'장까지만 등록할 수 있어요. PDF의 '+skipped+'페이지는 추가되지 않았습니다.');
   }catch(err){ toastHide(); alert('PDF 처리 실패: '+(err&&err.message?err.message:err)); }
 }
 async function runOCR(){
@@ -190,7 +195,9 @@ function pickCamera(){
 }
 function addImageDirect(file){
   const kind=editingCust.docKind||'보장급부';
-  if(isPdfFile(file)){ editingCust.images=editingCust.images||[]; return addPdfInto(file, editingCust.images, kind, renderThumbs, null); }
+  editingCust.images=editingCust.images||[];
+  if(overImageCap(editingCust.images)) return Promise.resolve();
+  if(isPdfFile(file)){ return addPdfInto(file, editingCust.images, kind, renderThumbs, null); }
   return new Promise(res=>{
     const reader=new FileReader();
     reader.onerror=()=>{alert('사진을 읽지 못했습니다.'); res();};
@@ -272,10 +279,14 @@ function redClear(){if(redState){redState.rects=[]; redDraw(); updateRedCount();
 function redTop(){if(redState){redState.rects.push({x:0,y:0,w:redState.w,h:Math.round(redState.h*0.22)}); redDraw(); updateRedCount();}}
 function redSave(){
   redState.drawing=null; redDraw();
+  editingCust.images=editingCust.images||[];
+  const overCap=overImageCap(editingCust.images);
   redState.canvas.toBlob(async(blob)=>{
-    const rid=uid();
-    await idbPut('images',{id:rid,kind:redState.kind,blob,created:today()});
-    editingCust.images=editingCust.images||[]; editingCust.images.push(rid);
+    if(!overCap){
+      const rid=uid();
+      await idbPut('images',{id:rid,kind:redState.kind,blob,created:today()});
+      editingCust.images.push(rid);
+    }
     closeSheet('ov-redact'); renderThumbs();
     if(redQueue.length) setTimeout(processNextRedact, 200);
   },'image/jpeg',0.9);
