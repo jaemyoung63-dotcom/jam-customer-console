@@ -476,5 +476,5 @@ async function renderThumbs(){
   wrap.appendChild(cam);
   enableDrop(wrap, addImageDirect);
 }
-function removeImage(e,ref){e.stopPropagation(); editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}
+function removeImage(e,ref){e.stopPropagation(); if(!confirm('이 사진을 삭제할까요?')) return; editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}
 

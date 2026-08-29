@@ -695,7 +695,7 @@ function pickPoolCamera(){
   };
   inp.click();
 }
-function removePoolImage(e,ref){e.stopPropagation(); editingPool.images=(editingPool.images||[]).filter(x=>x!==ref); idbDel('images',ref); renderPoolThumbs();}
+function removePoolImage(e,ref){e.stopPropagation(); if(!confirm('이 사진을 삭제할까요?')) return; editingPool.images=(editingPool.images||[]).filter(x=>x!==ref); idbDel('images',ref); renderPoolThumbs();}
 function pickPoolImage(){
   const inp=document.getElementById('img-input'); inp.value='';
   inp.onchange=async e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null;
@@ -810,6 +810,7 @@ function pickPoolAudio(){
   inp.click();
 }
 async function removePoolAudio(){
+  if(!confirm('이 음원을 삭제할까요?')) return;
   if(editingPool.audio){await idbDel('images',editingPool.audio); editingPool.audio=null;}
   renderPoolAudio();
 }

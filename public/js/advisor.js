@@ -446,6 +446,7 @@ function renderAdminPoolFileList(){
 async function removeAdminPoolDroppedFile(i){
   const p=_adminPoolEditing; if(!p||!p._droppedFiles) return;
   const f=p._droppedFiles[i]; if(!f) return;
+  if(!confirm((f.name||'이 파일')+'을(를) 삭제할까요?')) return;
   if(f.kind==='audio'){
     if(p.audio){ await idbDel('images',p.audio); p.audio=null; }
     renderAdminPoolAudio();
@@ -564,6 +565,7 @@ async function renderAdminPoolThumbs(){
 function removeAdminPoolImage(e,ref){
   e.stopPropagation();
   const p=_adminPoolEditing; if(!p) return;
+  if(!confirm('이 사진을 삭제할까요?')) return;
   p.images=(p.images||[]).filter(x=>x!==ref);
   idbDel('images',ref);
   renderAdminPoolThumbs();
@@ -639,6 +641,7 @@ function pickAdminPoolAudio(){
 }
 async function removeAdminPoolAudio(){
   const p=_adminPoolEditing; if(!p) return;
+  if(!confirm('이 음원을 삭제할까요?')) return;
   if(p.audio){ await idbDel('images',p.audio); p.audio=null; }
   renderAdminPoolAudio();
 }

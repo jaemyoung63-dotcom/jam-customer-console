@@ -180,6 +180,7 @@ async function renderAnPlanThumbs(c){
 }
 async function removeAnPlanImage(id,ref){
   const c=customers.find(x=>x.id===id); if(!c) return;
+  if(!confirm('이 사진을 삭제할까요?')) return;
   c.planImages=(c.planImages||[]).filter(x=>x!==ref); c.planText=''; c.planTextImgN=-1;
   await idbDel('images',ref); await idbPut('customers',c); renderAnalysis();
 }
