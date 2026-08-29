@@ -70,7 +70,21 @@ function apPoolBlock(c, type){
   return h;
 }
 function apMaterialText(c, stageKey){
-  if(stageKey==='ice'){ return relevantPool(c,'icebreak').slice(0,6).map(m=>'- '+(m.p.title||'')+': '+(m.p.bodyFull||m.p.body||'')).join('\n'); }
+  if(stageKey==='ice'){
+    /* '고객니즈 환기' 항목을 만들려면 아이스브레이크 참조풀만으로는 부족해서,
+       고객에 대해 이미 모아둔 자료 전체(상품관심·상담상황·보장자료·보장분석·가입설계·참조풀)를 모아 넘긴다. */
+    const parts=[];
+    if((c.product||[]).length) parts.push('상품 관심: '+c.product.join(', '));
+    if((c.situation||[]).length) parts.push('상담 상황: '+c.situation.join(', '));
+    if((c.coverageText||'').trim()) parts.push('[보장 자료 정리]\n'+c.coverageText.trim());
+    { const e=(c.analyses&&c.analyses[0]); const d=e&&rescueResult(e.data);
+      if(d) parts.push('[보장분석 요약]\n'+[d.summary||'', (d.priorities||[]).join('; ')].filter(Boolean).join('\n')); }
+    { const e=(c.planAnalyses&&c.planAnalyses[0]); const d=e&&rescueResult(e.data);
+      if(d) parts.push('[가입설계 요약]\n'+(d.summary||'')); }
+    const pool=relevantPool(c,'icebreak').slice(0,6).map(m=>'- '+(m.p.title||'')+': '+(m.p.bodyFull||m.p.body||'')).join('\n');
+    if(pool) parts.push('[참조풀·아이스브레이크 자료]\n'+pool);
+    return parts.join('\n\n');
+  }
   if(stageKey==='epi'){ return relevantPool(c,'episode').slice(0,6).map(m=>'- '+(m.p.title||'')+': '+(m.p.bodyFull||m.p.body||'')).join('\n'); }
   if(stageKey==='cov'){ const e=(c.analyses&&c.analyses[0]); const d=e&&rescueResult(e.data); if(!d) return ''; return [d.summary||'', (d.areas||[]).map(a=>a.name+' '+a.level+' '+(a.reason||'')).join('; '), (d.priorities||[]).join('; '), Array.isArray(d.detail)?d.detail.join('\n'):(d.detail||'')].filter(Boolean).join('\n'); }
   if(stageKey==='plan'){ const e=(c.planAnalyses&&c.planAnalyses[0]); const d=e&&rescueResult(e.data); if(!d) return ''; return [d.summary||'', (typeof d.shortfallRate!=='undefined'?('잔여 부족율 '+d.shortfallRate+'%'):''), Array.isArray(d.planDetail)?d.planDetail.join('\n'):(d.planDetail||'')].filter(Boolean).join('\n'); }
@@ -134,7 +148,7 @@ async function genApScripts(){
     if(prog){ prog.style.display='block'; prog.textContent='AI 대면 멘트 생성 중… ('+(i+1)+'/'+cks.length+' · '+stageName[k]+')'; }
     try{
       const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'ap', stage:stageName[k], customer:{name:c.name,age:c.age,region:c.region,gender:c.gender||'',job:c.job||''}, material:apMaterialText(c,k)})});
+        body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'ap', stage:stageName[k], stageKey:k, customer:{name:c.name,age:c.age,region:c.region,gender:c.gender||'',job:c.job||''}, material:apMaterialText(c,k)})});
       const data=await res.json();
       if(!res.ok){ throw new Error(data.error||('HTTP '+res.status)); }
       const txt=(data.text||'').trim();

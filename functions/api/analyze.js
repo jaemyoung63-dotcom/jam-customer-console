@@ -210,16 +210,17 @@ export async function onRequestPost(context) {
   // 요약 모드: 긴 원문을 약 500자로 요약 (풀 본문 표시용)
   if (payload.mode === 'ap') {
     const stage = (payload.stage || '상담').toString().slice(0, 60);
+    const stageKey = (payload.stageKey || '').toString().slice(0, 20);
     const material = (payload.material || '').toString().slice(0, 12000);
     const cust = payload.customer || {};
     const apModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
-    const apSys = buildApSystem({ stage, customer: cust });
+    const apSys = buildApSystem({ stage, customer: cust, stageKey });
     const apUser = '[참고 자료]\n' + (material || '(등록된 자료가 적습니다. 이 단계의 일반적인 모범 멘트를 만들어 주세요.)');
     try {
       const rr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: apModel, max_tokens: 1500, system: sysCached(apSys), messages: [{ role: 'user', content: apUser }] })
+        body: JSON.stringify({ model: apModel, max_tokens: stageKey === 'ice' ? 2000 : 1500, system: sysCached(apSys), messages: [{ role: 'user', content: apUser }] })
       });
       const rd = await rr.json();
       if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
