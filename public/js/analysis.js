@@ -105,65 +105,60 @@ function renderAnalysis(){
   let html='<div style="position:sticky;top:0;z-index:5;background:var(--accent);color:#fff;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:15px;font-weight:700">◉ '+esc(c.name)+' 고객'+(c.region?' <span style="font-weight:400;opacity:.85;font-size:13px">· '+esc(c.region)+'</span>':'')+'</div>';
   html+='<div class="stepbar">'
     +'<span class="stepdot'+(anStep===1?' on':(anStep>1?' done':''))+'">1</span><span class="stepline"></span>'
-    +'<span class="stepdot'+(anStep===2?' on':(anStep>2?' done':''))+'">2</span><span class="stepline"></span>'
-    +'<span class="stepdot'+(anStep===3?' on':'')+'">3</span></div>'
-    +'<div class="meta" style="margin:-8px 0 12px 2px">'+(anStep===1?'\u2460 \uace0\uac1d \u00b7 \uc720\uc0ac \uc0c1\ub2f4\uc0ac\ub840':anStep===2?'\u2461 \uc0c1\ub2f4\uc0ac\ub840 \ub9e4\uce6d \ubcf4\uc7a5\ubd84\uc11d':'\u2462 \uac00\uc785\uc124\uacc4')+'</div>';
+    +'<span class="stepdot'+(anStep===2?' on':'')+'">2</span></div>'
+    +'<div class="meta" style="margin:-8px 0 12px 2px">'+(anStep===1?'① 상담사례 매칭·보장분석':'② 가입설계')+'</div>';
 
   if(anStep===1){
     html+='<div class="card"><div class="row" style="margin-bottom:8px;"><span class="name">'+esc(c.name)+'</span><span class="spacer"></span>'
-      +(c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">\uc9c0\uc778</span>')+'</div>'
-      +'<div class="kv"><span class="k">\uc5f0\ub839 / \uc9c0\uc5ed</span><span>'+(c.age||'-')+' \u00b7 '+(esc(c.region)||'-')+'</span></div>'
-      +'<div class="kv"><span class="k">\uc0c1\ud488 \uad00\uc2ec</span><span>'+((c.product||[]).join(', ')||'-')+'</span></div>'
-      +'<div class="kv"><span class="k">\uc0c1\ub2f4 \uc0c1\ud669</span><span>'+((c.situation||[]).join(', ')||'-')+'</span></div>'
-      +'<div class="kv"><span class="k">\ubcf4\uc7a5 \uc790\ub8cc</span><span>'+(imgN?'\uc774\ubbf8\uc9c0 '+imgN+'\uc7a5':'\uc5c6\uc74c')+'</span></div></div>';
+      +(c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>')+'</div>'
+      +'<div class="kv"><span class="k">연령 / 지역</span><span>'+(c.age||'-')+' · '+(esc(c.region)||'-')+'</span></div>'
+      +'<div class="kv"><span class="k">상품 관심</span><span>'+((c.product||[]).join(', ')||'-')+'</span></div>'
+      +'<div class="kv"><span class="k">상담 상황</span><span>'+((c.situation||[]).join(', ')||'-')+'</span></div>'
+      +'<div class="kv"><span class="k">보장 자료</span><span>'+(imgN?'이미지 '+imgN+'장':'없음')+'</span></div></div>';
     html+='<label class="f">참조풀 매칭 ('+caseList.length+') <span style="font-weight:400;color:var(--ink-mute)">· 최대 6개 표시 · 눌러서 전체</span></label>';
     if(caseList.length){ html+=renderPoolCapped(caseList);
     } else { html+='<div class="stage-note">관련 상담사례가 아직 없어요. 참조풀에서 선택(☑)하거나 태그가 겹치는 사례를 쌓으면 매칭됩니다.</div>'; }
-    html+='<div class="divider"></div><button class="btn ghost sm wide" onclick="go(\'pools\')">참조풀에서 자료 선택 →</button><button class="btn primary wide" style="margin-top:8px" onclick="anStepGo(2)">\ub2e4\uc74c \u203a</button>';
-  } else if(anStep===2){
-    html+='<button class="btn ghost sm" onclick="anStepGo(1)">\u2039 \uc0c1\ub2f4\uc0ac\ub840(1\ub2e8\uacc4)</button>';
     html+='<div class="divider"></div>';
     c.focusAreas=c.focusAreas||[]; c.excludeAreas=c.excludeAreas||[];
-    html+='<label class="f">\ubd84\uc11d \uc635\uc158 <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \ubcf4\uc7a5\ubd84\uc11d\u00b7\uac00\uc785\uc124\uacc4 \uacf5\ud1b5</span></label>';
-    html+='<div class="meta" style="margin:2px 0 4px">\uc9d1\uc911 \ubd84\uc11d(\ud3ec\ud568)</div><div class="chips">'+ANALYSIS_AREAS.map(a=>'<span class="chip'+(c.focusAreas.includes(a)?' on':'')+'" onclick="toggleAnArea(\''+c.id+'\',\'focus\',\''+a+'\')">'+a+'</span>').join('')+'</div>';
-    html+='<div class="meta" style="margin:8px 0 4px">\uc81c\uc678</div><div class="chips">'+ANALYSIS_AREAS.map(a=>'<span class="chip'+(c.excludeAreas.includes(a)?' on':'')+'" onclick="toggleAnArea(\''+c.id+'\',\'exclude\',\''+a+'\')">'+a+'</span>').join('')+'</div>';
+    html+='<label class="f">분석 옵션 <span style="font-weight:400;color:var(--ink-mute)">· 보장분석·가입설계 공통</span></label>';
+    html+='<div class="meta" style="margin:2px 0 4px">집중 분석(포함)</div><div class="chips">'+ANALYSIS_AREAS.map(a=>'<span class="chip'+(c.focusAreas.includes(a)?' on':'')+'" onclick="toggleAnArea(\''+c.id+'\',\'focus\',\''+a+'\')">'+a+'</span>').join('')+'</div>';
+    html+='<div class="meta" style="margin:8px 0 4px">제외</div><div class="chips">'+ANALYSIS_AREAS.map(a=>'<span class="chip'+(c.excludeAreas.includes(a)?' on':'')+'" onclick="toggleAnArea(\''+c.id+'\',\'exclude\',\''+a+'\')">'+a+'</span>').join('')+'</div>';
     const catN=pools.filter(p=>p.poolType==='catalog').length;
-    if(catN) html+='<div class="meta" style="margin-top:10px">\u203b \uc0c1\ud488 \uce74\ub2ec\ub85c\uadf8 '+catN+'\uac1c\ub97c \ubcf4\uc7a5\ubd84\uc11d\u00b7\uac00\uc785\uc124\uacc4\uc5d0 \uc790\ub3d9 \ucc38\uc870\ud569\ub2c8\ub2e4.</div>';
-    if(pinnedCount()>0) html+='<div class="meta" style="margin-top:4px;color:var(--accent)">\u2713 \ucc38\uc870\ud480\uc5d0\uc11c \uc120\ud0dd(\uccb4\ud06c)\ud55c '+pinnedCount()+'\uac1c \ud56d\ubaa9\uc744 \ubd84\uc11d\uc5d0 \uac15\uc81c \ucc38\uc870\ud569\ub2c8\ub2e4. (\ud574\ub2f9 \uc885\ub958\ub294 \uc790\ub3d9\ub9e4\uce6d \ub300\uc2e0 \uc120\ud0dd\ud56d\ubaa9 \uc0ac\uc6a9)</div>';
+    if(catN) html+='<div class="meta" style="margin-top:10px">※ 상품 카달로그 '+catN+'개를 보장분석·가입설계에 자동 참조합니다.</div>';
+    if(pinnedCount()>0) html+='<div class="meta" style="margin-top:4px;color:var(--accent)">✓ 참조풀에서 선택(체크)한 '+pinnedCount()+'개 항목을 분석에 강제 참조합니다. (해당 종류는 자동매칭 대신 선택항목 사용)</div>';
     { const rel=refPoolAll(c);
       html+='<label class="f" style="margin-top:10px">참조 자료 ('+rel.length+') <span style="font-weight:400;color:var(--ink-mute)">· 최대 6개 표시 · 눌러서 전체</span></label>';
       if(rel.length){ html+=renderPoolCapped(rel); }
       else html+='<div class="meta">관련 참조자료가 없습니다. 아래에서 선택하거나 태그가 겹치는 자료를 쌓으세요.</div>';
     }
     html+='<button class="btn ghost sm wide" style="margin-top:6px" onclick="go(\'pools\')">참조풀에서 자료 선택/변경 →</button>';
-    if(!hasText) html+='<div class="stage-note" style="margin-top:10px">\ubcf4\uc7a5 \ud14d\uc2a4\ud2b8\uac00 \uc544\uc9c1 \uc5c6\uc2b5\ub2c8\ub2e4. \uace0\uac1d \ud654\uba74\uc5d0\uc11c \ucc44\uc6b4 \ub4a4 \ubd84\uc11d\ud558\uc138\uc694.</div>';
-    else if(hasAnalysis) html+='<div class="stage-note">\uc800\uc7a5\ub41c \ubcf4\uc7a5 \ubd84\uc11d\uc785\ub2c8\ub2e4 (\ucd5c\uadfc '+esc((alist[0].at||alist[0].date)||'')+' \u00b7 \ucd1d '+alist.length+'\ud68c). \ub2e4\uc2dc \uc2e4\ud589\ud558\uba74 \ube44\uc6a9\uc774 \ud55c \ubc88 \ub354 \ub4ed\ub2c8\ub2e4.</div>';
-    else html+='<div class="stage-note">\ubcf4\uc7a5\uae09\ubd80\u00b7\ub0b4\ubcf4\uc7a5\uc790\uc0b0\u00b7\uae30\ud0c0 + \uc0c1\ub2f4\uc0ac\ub840\ub97c \ud568\uaed8 \ubd84\uc11d\ud574 \uc57d 2000\uc790\ub85c \uc815\ub9ac\ud569\ub2c8\ub2e4.</div>';
+    if(!hasText) html+='<div class="stage-note" style="margin-top:10px">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
+    else if(hasAnalysis) html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc((alist[0].at||alist[0].date)||'')+' · 총 '+alist.length+'회). 다시 실행하면 비용이 한 번 더 듭니다.</div>';
+    else html+='<div class="stage-note">보장급부·내보장자산·기타 + 상담사례를 함께 분석해 약 2000자로 정리합니다.</div>';
     if(hasAnalysis){
       html+='<button class="btn result-ready wide" style="margin-top:8px" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기 ›</button>';
     } else {
       html+='<button class="btn btn-ai wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">🤖 상담사례 매칭 보장분석</button>';
     }
     html+='<div id="an-result" style="margin-top:14px"></div>';
-    html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(3)">\ub2e4\uc74c: \uac00\uc785\uc124\uacc4 \u203a</button>';
+    html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(2)">다음: 가입설계 ›</button>';
   } else {
-    html+='<div class="row"><button class="btn ghost sm grow" onclick="anStepGo(1)">\u2039 \uc0c1\ub2f4\uc0ac\ub840(1\ub2e8\uacc4)</button><button class="btn ghost sm grow" onclick="anStepGo(2)">\u2039 \ubcf4\uc7a5\ubd84\uc11d(2\ub2e8\uacc4)</button></div>';
-    html+='<label class="f" style="margin-top:12px">\uc0ac\uc804\uc2ec\uc0ac <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \uc9c8\ubcd1\u00b7\ubd80\ub2f4\ubcf4 \ub4f1 (\uac00\uc785\uc124\uacc4 \ubd84\uc11d\uc5d0 \ud568\uaed8 \ubc18\uc601\ub3fc\uc694)</span></label>';
-    html+='<textarea id="an-plan-prescreen" class="t" rows="4" style="width:100%;box-sizing:border-box" placeholder="\uac00\uc785\uc124\uacc4 \uc911 \ud30c\uc545\ud55c \uace0\uac1d \uc0ac\uc804\uc2ec\uc0ac \ub0b4\uc6a9\uc744 \uc801\uc73c\uc138\uc694.&#10;\uc608: \uace0\ud608\uc555\uc57d \ubcf5\uc6a9, 3\ub144 \uc804 \uac11\uc0c1\uc120\uc554 \uc218\uc220 \uc774\ub825, \u25b3\u25b3\ub2f4\ubcf4 \ubd80\ub2f4\ubcf4 \uc870\uac74 \ub4f1" onchange="savePlanPreScreen(\''+c.id+'\', this.value)">'+esc(c.planPreScreen||'')+'</textarea>';
-    html+='<label class="f" style="margin-top:12px">\uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0 <span style="font-weight:400;color:var(--ink-mute)">\u00b7 \uc5ec\ub7ec \uc7a5 \ub4f1\ub85d</span></label>';
+    html+='<button class="btn ghost sm wide" onclick="anStepGo(1)">‹ 이전 화면 (상담사례·보장분석)</button>';
+    html+='<label class="f" style="margin-top:12px">사전심사 <span style="font-weight:400;color:var(--ink-mute)">· 질병·부담보 등 (가입설계 분석에 함께 반영돼요)</span></label>';
+    html+='<textarea id="an-plan-prescreen" class="t" rows="4" style="width:100%;box-sizing:border-box" placeholder="가입설계 중 파악한 고객 사전심사 내용을 적으세요.&#10;예: 고혈압약 복용, 3년 전 갑상선암 수술 이력, △△담보 부담보 조건 등" onchange="savePlanPreScreen(\''+c.id+'\', this.value)">'+esc(c.planPreScreen||'')+'</textarea>';
+    html+='<label class="f" style="margin-top:12px">가입설계서 이미지 <span style="font-weight:400;color:var(--ink-mute)">· 여러 장 등록</span></label>';
     html+='<div class="thumbs" id="an-plan-thumbs"></div>';
     const canPlan=hasAnalysis && (c.planImages&&c.planImages.length);
-    html+='<button class="btn '+(palist.length?'result-ready':'btn-ai')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'\u2713 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc644\ub8cc \u00b7 \ub2e4\uc2dc \ubd84\uc11d':'\ud83e\udd16 \uac00\uc785\uc124\uacc4 \ubd84\uc11d \uc2e4\ud589')+'</button>';
-    if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">\u203b \uba3c\uc800 \u2461 \ubcf4\uc7a5\ubd84\uc11d\uc744 \uc2e4\ud589\ud558\uc138\uc694.</div>';
-    else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">\u203b \uac00\uc785\uc124\uacc4\uc11c \uc774\ubbf8\uc9c0\ub97c \uba3c\uc800 \ub4f1\ub85d\ud558\uc138\uc694.</div>';
+    html+='<button class="btn '+(palist.length?'result-ready':'btn-ai')+' wide" style="margin-top:10px'+(canPlan?'':';opacity:.5')+'" onclick="runPlanAnalysis(\''+c.id+'\')">'+(palist.length?'✓ 가입설계 분석 완료 · 다시 분석':'🤖 가입설계 분석 실행')+'</button>';
+    if(!hasAnalysis) html+='<div class="meta" style="margin-top:6px">※ 먼저 ① 보장분석을 실행하세요.</div>';
+    else if(!(c.planImages&&c.planImages.length)) html+='<div class="meta" style="margin-top:6px">※ 가입설계서 이미지를 먼저 등록하세요.</div>';
         html+='<div id="an-plan-result" style="margin-top:14px"></div>';
     html+='<div id="plan-questions"></div>';
-    html+='<button class="btn ghost wide" style="margin-top:8px" onclick="anStepGo(2)">\u2039 \uc774\uc804 \ud654\uba74 (\ubcf4\uc7a5\ubd84\uc11d)</button>';
     html+='<button class="btn primary wide" style="margin-top:10px" onclick="openAP(\''+c.id+'\')">▶ 고객대면상담</button>';
   }
   body.innerHTML=html;
-  if(anStep===3) renderAnPlanThumbs(c);
-  if(anStep===3 && palist.length) renderPlanWithHistory(c, 0);
+  if(anStep===2) renderAnPlanThumbs(c);
+  if(anStep===2 && palist.length) renderPlanWithHistory(c, 0);
 }
 /* ---------- 가입설계서 이미지 (고객별) ---------- */
 async function renderAnPlanThumbs(c){
@@ -265,7 +260,7 @@ function showHistoryEntry(custId, idx){
 function openAnResult(custId){
   const c=customers.find(x=>x.id===custId); if(!c) return;
   const redo=document.getElementById('anr-redo'); if(redo) redo.onclick=()=>{ closeSheet('ov-anresult'); runAnalysis(custId); };
-  const plan=document.getElementById('anr-plan'); if(plan) plan.onclick=()=>{ closeSheet('ov-anresult'); anStepGo(3); };
+  const plan=document.getElementById('anr-plan'); if(plan) plan.onclick=()=>{ closeSheet('ov-anresult'); anStepGo(2); };
   openSheet('ov-anresult');
   renderResultWithHistory(c, 0);
 }
