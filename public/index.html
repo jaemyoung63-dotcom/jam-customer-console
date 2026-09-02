@@ -209,11 +209,6 @@
     <div class="login-mascot">☁️</div>
     <div class="login-t">고객상담 매니저</div>
     <div class="login-s">클라우드 자료를 쓰려면 비밀번호를 입력하세요.<br>PC·폰·탭 어디서든 같은 비밀번호로 같은 자료가 보입니다.</div>
-    <div class="view-mode-pick" id="viewModePick">
-      <button type="button" class="btn ghost sm" data-mode="mobile" onclick="pickViewMode('mobile',this)">📱 모바일</button>
-      <button type="button" class="btn ghost sm" data-mode="desktop" onclick="pickViewMode('desktop',this)">💻 PC·태블릿</button>
-    </div>
-    <div class="view-mode-hint">보통은 화면 크기에 맞춰 자동으로 골라져요. 다르게 보고 싶으면 눌러서 바꿔보세요 — 이 기기에 기억돼요.</div>
     <div class="pw-wrap">
       <input type="password" id="login-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
       <button type="button" class="pw-eye" onclick="togglePw('login-pw',this)" aria-label="비밀번호 보기">👁</button>
