@@ -56,8 +56,9 @@
   header.top .mic-btn.listening, #cust-mic-btn.listening, #hdr-mic-btn.listening{background:#FDEAEA; color:#D6392E; animation:mic-pulse 1.1s ease-in-out infinite;}
   @keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(214,57,46,.35);} 50%{box-shadow:0 0 0 7px rgba(214,57,46,0);}}
   /* ===== 스플래시 ===== */
+  /* 2026-09-02: 스플래시(로딩화면) 색을 홈 화면 상단 배너와 같은 청록~초록 톤으로 통일 */
   #splash{position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:linear-gradient(160deg,#1E86F0 0%,#0E72E0 45%,#0A55B8 100%); color:#fff; transition:opacity .8s ease;}
+    background:linear-gradient(160deg,#37C2EF 0%,#1FC1B4 52%,#18B778 100%); color:#fff; transition:opacity .8s ease;}
   #splash.hide{opacity:0; pointer-events:none;}
   #splash .mascots{display:flex; gap:16px; margin-bottom:28px;}
   /* 오리지널 심플 캐릭터(플레이스홀더) — 실제 캐릭터 이미지가 있으면 이 자리를 <img>로 교체 */
@@ -244,14 +245,11 @@
     align-items:center; justify-content:center; gap:6px;
   }
   button.btn:active{transform:scale(.98);}
-  button.btn.primary{
-    background:linear-gradient(180deg,#9AC9F5,#63A9EF); border:none; color:#fff; font-weight:700;
-    box-shadow:0 4px 0 #4A90DC, 0 6px 14px rgba(74,144,220,.30);
-  }
-  button.btn.primary:active{ transform:translateY(3px); box-shadow:0 1px 0 #4A90DC, 0 2px 6px rgba(74,144,220,.26); }
+  /* 2026-09-02: primary와 btn-blue가 육안으로 거의 구분이 안 돼서 같은 색으로 통일함
+     (마크업의 클래스명은 그대로 두되, 보이는 색만 하나로 맞췄다) */
+  button.btn.primary, button.btn.btn-blue{background:linear-gradient(180deg,#5FC7F0,#2FA9E0); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #1888C0, 0 6px 14px rgba(24,136,192,.28);}
+  button.btn.primary:active, button.btn.btn-blue:active{ transform:translateY(3px); box-shadow:0 1px 0 #1888C0, 0 2px 6px rgba(24,136,192,.24); }
   button.btn.ghost{background:transparent; border-color:var(--line);}
-  button.btn.btn-blue{background:linear-gradient(180deg,#5FC7F0,#2FA9E0); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #1888C0, 0 6px 14px rgba(24,136,192,.28);}
-  button.btn.btn-blue:active{ transform:translateY(3px); box-shadow:0 1px 0 #1888C0, 0 2px 6px rgba(24,136,192,.24); }
   button.btn.btn-green{background:linear-gradient(180deg,#4FD0A8,#20B98C); border:none; color:#fff; font-weight:700; box-shadow:0 4px 0 #0E9070, 0 6px 14px rgba(16,168,127,.28);}
   button.btn.btn-green:active{ transform:translateY(3px); box-shadow:0 1px 0 #0E9070, 0 2px 6px rgba(16,168,127,.24); }
   /* AI 실행 버튼 전용 색(보라) — 파란 primary/btn-blue와 구분해서 "AI가 대신 해주는 동작"임을 한눈에 표시 */
