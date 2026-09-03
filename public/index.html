@@ -345,11 +345,13 @@
     <div class="handle"></div>
     <div class="row"><h2>보장분석 결과</h2><span class="spacer"></span>
       <button class="btn ghost sm" id="anr-redo">다시 분석</button>
-      <button class="btn primary sm" id="anr-plan">가입설계 분석</button>
       <button class="btn ghost sm" onclick="closeSheet('ov-anresult')">닫기</button></div>
     <div id="anresult-body"></div>
     <div class="divider"></div>
-    <button class="btn primary wide" style="margin-top:8px" onclick="closeSheet('ov-anresult')">닫기</button>
+    <div class="btn-grid" style="margin-top:8px">
+      <button class="btn primary" id="anr-plan">가입설계 분석</button>
+      <button class="btn ghost" onclick="closeSheet('ov-anresult')">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -361,7 +363,10 @@
       <button class="btn ghost sm" onclick="closeSheet('ov-subpage')">닫기</button></div>
     <div id="subpage-body"></div>
     <div class="divider"></div>
-    <button class="btn primary wide" onclick="closeSheet('ov-subpage')">닫기</button>
+    <div class="btn-grid">
+      <button class="btn ghost" onclick="copySubPage()">📋 복사</button>
+      <button class="btn primary" onclick="closeSheet('ov-subpage')">닫기</button>
+    </div>
   </div>
 </div>
 

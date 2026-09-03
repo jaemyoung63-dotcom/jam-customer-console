@@ -85,7 +85,7 @@ async function toggleAnArea(id,kind,area){
   await idbPut('customers',c); renderAnalysis();
 }
 let anStep=1;
-function anStepGo(n){ anStep=n; renderAnalysis(); }
+function anStepGo(n){ anStep=n; renderAnalysis(); window.scrollTo(0,0); }
 function onAnCust(){ currentCustId=document.getElementById('an-cust').value||null; ensurePinsForCustomer(currentCustId); anStep=1; renderAnalysis(); renderPoolCtx(); }
 function renderAnalysis(){
   const id=document.getElementById('an-cust').value;
@@ -106,7 +106,7 @@ function renderAnalysis(){
   html+='<div class="stepbar">'
     +'<span class="stepdot'+(anStep===1?' on':(anStep>1?' done':''))+'">1</span><span class="stepline"></span>'
     +'<span class="stepdot'+(anStep===2?' on':'')+'">2</span></div>'
-    +'<div class="meta" style="margin:-8px 0 12px 2px">'+(anStep===1?'① 상담사례 매칭·보장분석':'② 가입설계')+'</div>';
+    +'<div style="margin:-4px 0 14px 2px;font-size:17px;font-weight:800;color:var(--ink)">'+(anStep===1?'① 상담사례 매칭·보장분석':'② 가입설계')+'</div>';
 
   if(anStep===1){
     html+='<div class="card"><div class="row" style="margin-bottom:8px;"><span class="name">'+esc(c.name)+'</span><span class="spacer"></span>'
@@ -135,13 +135,15 @@ function renderAnalysis(){
     if(!hasText) html+='<div class="stage-note" style="margin-top:10px">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
     else if(hasAnalysis) html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc((alist[0].at||alist[0].date)||'')+' · 총 '+alist.length+'회). 다시 실행하면 비용이 한 번 더 듭니다.</div>';
     else html+='<div class="stage-note">보장급부·내보장자산·기타 + 상담사례를 함께 분석해 약 2000자로 정리합니다.</div>';
+    html+='<div class="btn-grid" style="margin-top:8px">';
     if(hasAnalysis){
-      html+='<button class="btn result-ready wide" style="margin-top:8px" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기 ›</button>';
+      html+='<button class="btn result-ready" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기</button>';
     } else {
-      html+='<button class="btn btn-ai wide" style="margin-top:8px'+(hasText?'':';opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">🤖 상담사례 매칭 보장분석</button>';
+      html+='<button class="btn btn-ai" style="'+(hasText?'':'opacity:.5')+'" onclick="runAnalysis(\''+c.id+'\')">🤖 상담사례 매칭 보장분석</button>';
     }
+    html+='<button class="btn primary" onclick="anStepGo(2)">가입설계</button>';
+    html+='</div>';
     html+='<div id="an-result" style="margin-top:14px"></div>';
-    html+='<div class="divider"></div><button class="btn primary wide" onclick="anStepGo(2)">다음: 가입설계 ›</button>';
   } else {
     html+='<button class="btn ghost sm wide" onclick="anStepGo(1)">‹ 이전 화면 (상담사례·보장분석)</button>';
     html+='<label class="f" style="margin-top:12px">사전심사 <span style="font-weight:400;color:var(--ink-mute)">· 질병·부담보 등 (가입설계 분석에 함께 반영돼요)</span></label>';
@@ -436,12 +438,15 @@ function matchedEpisodes(c){
     return {p,overlap};
   }).sort((a,b)=>b.overlap-a.overlap).slice(0,6);
 }
-/* 특정 타입에서 '선택(pinned) + 자동선정(태그겹침>0)' 전체를 반환 (선택 먼저, 그다음 점수순) */
+/* 이 타입에서 실제로 매칭해 보여줄 자료를 고른다 (2026-09-04: 선택 우선 + 자동 2개 제한으로 변경).
+   담당자가 참조풀에서 선택(☑)해둔 게 있으면 그것만 보여준다(자동매칭은 섞지 않음).
+   선택한 게 하나도 없으면, 고객 태그와 겹치는 정도(점수)가 높은 순으로 최대 2개까지만 자동으로 골라준다. */
 function relevantPool(c, type){
   const all=pools.filter(p=>p.poolType===type);
-  const scored=all.map(p=>({p, s: p.pinned?99999:poolMatchScore(p,c)}));
-  scored.sort((a,b)=>b.s-a.s);
-  return scored.map(m=>({p:m.p, tag: m.p.pinned?'☑ 선택':(m.s>0?'자동':'기타')}));
+  const pinned=all.filter(p=>p.pinned);
+  if(pinned.length) return pinned.map(p=>({p, tag:'☑ 선택'}));
+  const auto=all.map(p=>({p, s:poolMatchScore(p,c)})).filter(m=>m.s>0).sort((a,b)=>b.s-a.s).slice(0,2);
+  return auto.map(m=>({p:m.p, tag:'자동'}));
 }
 /* 참조자료 6개 초과 시 '더 보기' → 전체를 서브페이지로 */
 function refPoolAll(c){ return relevantPool(c,'case').concat(relevantPool(c,'episode')).concat(relevantPool(c,'catalog')); }
@@ -617,5 +622,17 @@ function openSubPage(title, html){
   document.getElementById('subpage-body').innerHTML=html;
   openSheet('ov-subpage');
   const sh=document.querySelector('#ov-subpage .sheet'); if(sh) sh.scrollTop=0;
+}
+/* 서브페이지(참조풀 항목 상세보기 등) 내용을 클립보드로 복사 — 2026-09-04 추가 */
+async function copySubPage(){
+  const el=document.getElementById('subpage-body'); if(!el) return;
+  const text=(el.innerText||el.textContent||'').trim();
+  if(!text){ toast('복사할 내용이 없어요'); setTimeout(toastHide,2000); return; }
+  try{
+    await navigator.clipboard.writeText(text);
+    toast('✓ 내용이 복사됐어요'); setTimeout(toastHide,2000);
+  }catch(e){
+    toast('복사에 실패했어요: '+(e.message||'')); setTimeout(toastHide,2500);
+  }
 }
 

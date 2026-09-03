@@ -531,35 +531,44 @@ function setPoolType(t){
   ['icebreak','case','episode','catalog'].forEach(k=>{const b=document.getElementById('pt-'+k); if(b) b.classList.toggle('on',k===poolType);});
   renderPools();
 }
+/* 항목 하나를 카드 HTML로 만든다 (섹션 방식으로 바꾸면서 반복 사용하려고 따로 뺐다) */
+function poolItemCard(p){
+  let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
+  const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+  const pin=!!p.pinned;
+  const toggleLabel=pin?'☑ 분석에 포함됨':'☐ 분석에 포함';
+  const pinBtn='<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+toggleLabel+'</span>';
+  return '<div class="card tap" onclick="viewPoolItem(\''+p.id+'\')">'
+    +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+' '+pinBtn+'</div>'
+    +'<div class="pill-tags">'+tags+'</div>'
+    +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';
+}
+/* 참조풀 목록: 상품별 섹션으로 묶어서 보여준다 (2026-09-04, 필터 방식 → 섹션 방식으로 변경).
+   PRODUCTS 순서대로 그 상품 태그가 붙은 항목을 모으고, 한 항목이 상품 여러 개에 걸쳐 있으면
+   해당하는 섹션 모두에 나온다. 상품 태그가 하나도 없는 항목은 맨 아래 '미분류' 섹션에 모은다. */
 function renderPools(){
   ensurePinsForCustomer(currentCustId);
   renderPoolCtx();
   const L=POOL_LABEL[poolType]||POOL_LABEL.case;
   header('참조 풀', L[1]);
   const items=pools.filter(p=>p.poolType===poolType);
-  // filter chips = union of product tags
-  const allTags=[...new Set(items.flatMap(p=>p.product||[]))];
-  const fEl=document.getElementById('pool-filter');
-  fEl.innerHTML='';
-  allTags.forEach(t=>{const c=document.createElement('div'); c.className='chip'+(poolFilter.includes(t)?' on':'');
-    c.textContent=t; c.onclick=()=>{const i=poolFilter.indexOf(t); if(i>=0)poolFilter.splice(i,1); else poolFilter.push(t); renderPools();}; fEl.appendChild(c);});
-
-  let list=items.slice().sort((a,b)=>(b.created||'').localeCompare(a.created||''));
-  if(poolFilter.length) list=list.filter(p=>poolFilter.every(t=>(p.product||[]).includes(t)));
+  const fEl=document.getElementById('pool-filter'); if(fEl) fEl.innerHTML='';
 
   const wrap=document.getElementById('pool-list');
-  if(list.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>자료 등록·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.</div>'; return; }
+  if(items.length===0){ wrap.innerHTML='<div class="empty"><div class="big">'+L[2]+'</div>자료 등록·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.</div>'; return; }
+
+  const sections=[];
+  PRODUCTS.forEach(prod=>{
+    const list=items.filter(p=>(p.product||[]).includes(prod)).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+    if(list.length) sections.push({title:prod, list});
+  });
+  const untagged=items.filter(p=>!(p.product&&p.product.length)).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+  if(untagged.length) sections.push({title:'미분류', list:untagged});
+
   let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 항목을 누르면 AI가 정리한 내용을 볼 수 있고, 아래에서 이 고객 <b>분석에 포함</b>할 자료를 체크하세요(체크가 없으면 자동으로 비슷한 걸 골라 씁니다).</div>';
-  list.forEach(p=>{
-    let rb=''; if(poolType==='case'&&p.result){const rc=RESULTS.find(r=>r[0]===p.result); rb='<span class="badge b-'+(rc?rc[1]:'hold')+'">'+p.result+'</span>';}
-    const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
-    const pin=!!p.pinned;
-    const toggleLabel=pin?'☑ 분석에 포함됨':'☐ 분석에 포함';
-    const pinBtn='<span onclick="togglePin(event,\''+p.id+'\')" style="cursor:pointer;font-size:13px;font-weight:700;padding:5px 12px;border-radius:14px;white-space:nowrap;border:1.5px solid '+(pin?'var(--accent);color:#fff;background:var(--accent)':'var(--accent);color:var(--accent);background:#fff')+'">'+toggleLabel+'</span>';
-    html+='<div class="card tap" onclick="viewPoolItem(\''+p.id+'\')">'
-      +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span><span class="spacer"></span>'+rb+' '+pinBtn+'</div>'
-      +'<div class="pill-tags">'+tags+'</div>'
-      +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';
+  sections.forEach(sec=>{
+    html+='<div class="pool-section-h">'+esc(sec.title)+'<span class="pool-section-n">'+sec.list.length+'</span></div>';
+    sec.list.forEach(p=>{ html+=poolItemCard(p); });
   });
   wrap.innerHTML=html;
 }
