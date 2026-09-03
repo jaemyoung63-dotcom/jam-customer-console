@@ -163,9 +163,48 @@ async function saveAP(){
   const c=customers.find(x=>x.id===apCustId); if(!c){ go('customers'); return; }
   c.ap=c.ap||{scripts:{}}; c.ap.savedAt=now(); c.apSaved=true;
   await idbPut('customers',c); customers=await idbAll('customers');
-  toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); setTimeout(toastHide,2200);
+  toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); setTimeout(toastHide,1800);
+  openConsultResult(c.id);
+}
+
+/* =========================================================
+   상담결과 입력 (고객대면 이후) — 2026-09-04 추가
+   AP를 저장하면(끝까지 마쳤든, 도중에 상단 "저장"을 눌렀든) 이 고객과의 상담이
+   어떻게 됐는지 바로 기록하도록 이어준다. 결과(성공/보류/실패) + 다음 일정 + 메모.
+   ========================================================= */
+let consultCustId=null;
+function openConsultResult(id){
+  const c=customers.find(x=>x.id===id); if(!c) return;
+  consultCustId=id;
+  renderConsultForm(c);
+  openSheet('ov-consult');
+}
+function renderConsultForm(c){
+  const box=document.getElementById('consult-body'); if(!box) return;
+  let h='<div class="meta" style="margin-bottom:10px">'+esc(c.name)+' 고객과의 오늘 상담, 어떻게 마무리됐나요? (모두 선택 사항이에요)</div>';
+  h+='<label class="f">상담결과</label><div class="chips" id="consult-result-chips"></div>';
+  h+='<label class="f" style="margin-top:14px">다음 일정 <span style="font-weight:400;color:var(--ink-mute)">· 재상담·방문 예정일</span></label>';
+  h+='<input type="date" class="t" id="consult-next" value="'+esc(c.nextFollowUp||'')+'">';
+  h+='<label class="f" style="margin-top:14px">메모 <span style="font-weight:400;color:var(--ink-mute)">· 오늘 상담 내용, 다음에 챙길 것 등</span></label>';
+  h+='<textarea class="t" id="consult-memo" rows="4" placeholder="예) 암보험 갱신형 부담 느끼심. 다음 방문 때 비갱신형 비교자료 챙겨가기.">'+esc(c.consultMemo||'')+'</textarea>';
+  h+='<button class="btn primary wide" style="margin-top:16px" onclick="saveConsultResult()">✓ 저장</button>';
+  box.innerHTML=h;
+  chipGroup(document.getElementById('consult-result-chips'), RESULTS.map(r=>r[0]), c.consultResult||'', false, v=>{ c.consultResult=v; });
+}
+async function saveConsultResult(){
+  const c=customers.find(x=>x.id===consultCustId); if(!c){ closeConsult(); return; }
+  c.nextFollowUp=(document.getElementById('consult-next')||{}).value||'';
+  c.consultMemo=(document.getElementById('consult-memo')||{}).value||'';
+  // 결과에 따라 고객 상태(seg)도 자연스럽게 맞춰준다 — 성공은 계약, 보류·실패는 다음 상담을 위해 '상담' 상태 유지.
+  if(c.consultResult==='성공') c.seg='계약';
+  else if(c.consultResult && c.seg!=='계약') c.seg='상담';
+  c.consultResultAt=now();
+  await idbPut('customers',c); customers=await idbAll('customers');
+  closeSheet('ov-consult');
+  toast('✓ 상담결과가 저장됐어요'); setTimeout(toastHide,2200);
   go('customers');
 }
+function closeConsult(){ closeSheet('ov-consult'); go('customers'); }
 let lastPlan=null;
 function renderPlanResult(d, date){
   d=rescueResult(d);

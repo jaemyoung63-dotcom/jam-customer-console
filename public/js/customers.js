@@ -48,14 +48,17 @@ function renderCustResults(){
       const src = c.source==='db'?'<span class="badge b-db">DB</span>':'<span class="badge b-acq">지인</span>';
       const seg = c.seg?'<span class="badge b-seg">'+c.seg+'</span>':'';
       const grade = c.grade?'<span class="badge b-grade">'+c.grade+'</span>':'';
+      const rc = c.consultResult?RESULTS.find(r=>r[0]===c.consultResult):null;
+      const resultBadge = rc?'<span class="badge b-'+rc[1]+'">'+c.consultResult+'</span>':'';
       const imgN = (c.images||[]).length;
       const tags=[...(c.product||[]),...(c.situation||[])].slice(0,4).map(t=>'<span class="pt">'+t+'</span>').join('');
       const apBtn = c.apSaved ? '<button class="btn primary sm" style="margin-left:8px;flex-shrink:0" onclick="event.stopPropagation();openAP(\''+c.id+'\')">AP</button>' : '';
       html+='<div class="card tap" onclick="openCustomer(\''+c.id+'\')">'
-        +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+src+apBtn+'</div>'
+        +'<div class="row" style="margin-bottom:6px;"><span class="name">'+esc(c.name||'(이름 없음)')+'</span><span class="spacer"></span>'+grade+' '+seg+' '+resultBadge+' '+src+apBtn+'</div>'
         +'<div class="meta">'+(c.age?c.age+' · ':'')+(c.region?esc(c.region):'지역 미입력')
         +(c.phone?' · '+esc(c.phone):'')
-        +(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')+'</div>'
+        +(imgN?' · <span>◇ 이미지 '+imgN+'</span>':'')
+        +(c.nextFollowUp?' · <span style="color:var(--accent);font-weight:600">다음 '+esc(c.nextFollowUp)+'</span>':'')+'</div>'
         +(tags?'<div class="pill-tags">'+tags+'</div>':'')
         +'</div>';
     });
