@@ -126,10 +126,20 @@ function renderAP(){
     else { h+='<div class="stage-note" style="margin-top:10px">이 단계의 AI 멘트는 <b>① 멘트 만들기</b> 단계에서 만들 수 있어요.</div>'; }
     // 하단 네비
     h+='<div class="divider"></div><div class="row">';
-    h+='<button class="btn ghost grow" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
-    if(apStage<5) h+='<button class="btn primary grow" onclick="apGo('+(apStage+1)+')">다음 ›</button>';
-    else h+='<button class="btn primary grow" onclick="saveAP()">✓ AP 저장하고 닫기</button>';
-    h+='</div>';
+    if(apStage<5){
+      h+='<button class="btn ghost grow" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
+      h+='<button class="btn primary grow" onclick="apGo('+(apStage+1)+')">다음 ›</button>';
+      h+='</div>';
+    } else {
+      h+='</div>';
+      // 2026-09-04: 저장 버튼 2개로 분리 — "AP 저장하고 닫기"는 저장 후 상담결과 입력 화면으로
+      // 이어지고, "저장만 하고 나가기"는 상담결과는 나중에 입력하기로 하고 바로 고객 목록으로 나간다.
+      h+='<div class="btn-grid" style="margin-top:8px">';
+      h+='<button class="btn primary" onclick="saveAP()">✓ AP 저장하고 닫기</button>';
+      h+='<button class="btn ghost" onclick="saveAPAndExit()">저장만 하고 나가기</button>';
+      h+='</div>';
+      h+='<button class="btn ghost sm wide" style="margin-top:8px" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
+    }
   }
   box.innerHTML=h;
 }
@@ -159,12 +169,24 @@ async function genApScripts(){
   if(prog){ prog.textContent='완료 · 생성 '+done+'개'+(fail?(' · 실패 '+fail+'개'):'')+'. 각 단계 탭에서 확인하세요.'; }
   renderAP();
 }
-async function saveAP(){
-  const c=customers.find(x=>x.id===apCustId); if(!c){ go('customers'); return; }
+/* AP 저장 자체(파일에 기록)는 두 버튼이 공통으로 쓴다 — 다른 건 저장 뒤 어디로 가느냐뿐이다. */
+async function persistAPData(c){
   c.ap=c.ap||{scripts:{}}; c.ap.savedAt=now(); c.apSaved=true;
   await idbPut('customers',c); customers=await idbAll('customers');
+}
+/* "AP 저장하고 닫기" — 저장 후 상담결과(성공/보류/실패·다음일정·메모) 입력 화면으로 이어진다. */
+async function saveAP(){
+  const c=customers.find(x=>x.id===apCustId); if(!c){ go('customers'); return; }
+  await persistAPData(c);
   toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); setTimeout(toastHide,1800);
   openConsultResult(c.id);
+}
+/* "저장만 하고 나가기" — 상담결과 입력은 건너뛰고 바로 고객 목록으로 나간다(나중에 따로 입력 가능). */
+async function saveAPAndExit(){
+  const c=customers.find(x=>x.id===apCustId); if(!c){ go('customers'); return; }
+  await persistAPData(c);
+  toast('✓ AP 저장됨 · 고객 목록에 AP 버튼이 생겼어요'); setTimeout(toastHide,2200);
+  go('customers');
 }
 
 /* =========================================================
