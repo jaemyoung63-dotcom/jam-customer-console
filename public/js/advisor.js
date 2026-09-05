@@ -47,7 +47,7 @@ async function doAdvisorLogin(){
 
 /* ---------- 관리자 화면 ---------- */
 let _adminPw='';        // 관리자 비밀번호는 저장하지 않고 화면이 열려있는 동안만 메모리에 둔다.
-let _adminTab='advisors'; // 'advisors' | 'pools' — 관리자 화면 안의 탭
+let _adminTab='advisors'; // 'advisors' | 'pools' | 'ta' — 관리자 화면 안의 탭 (2026-09-06: 'ta' 추가, TA 자료는 참조풀과 별개로 관리)
 let _adminPools=[];      // "참조풀 관리" 탭에서 불러온 공용 참조풀 전체 목록(비공개 포함)
 
 function openAdminGate(){
@@ -85,12 +85,21 @@ async function adminCall(action, extra){
 /* 관리자 화면 탭 전환 + 진입 시 첫 로딩을 함께 처리 */
 function switchAdminTab(tab){ _adminTab=tab; reloadAdminScreen(); }
 async function reloadAdminScreen(){
-  return _adminTab==='pools' ? await reloadAdminPools() : await reloadAdminList();
+  if(_adminTab==='pools') return await reloadAdminPools();
+  if(_adminTab==='ta') return await reloadAdminTA();
+  return await reloadAdminList();
 }
+/* 2026-09-06: 참조풀 편집기(openAdminPoolEditor·closeAdminPoolEditor·saveAdminPool 등)는
+   원래 "참조풀 관리" 화면 하나만 있던 시절 코드라 저장·닫기 후 항상 renderAdminPools()로
+   돌아갔다. TA 관리도 같은 편집기를 재사용하므로, 지금 관리자 화면이 어느 탭인지 보고
+   맞는 화면으로 돌아가도록 이 두 라우터를 거치게 한다. */
+function renderAdminPoolsScreen(){ if(_adminTab==='ta') renderAdminTA(); else renderAdminPools(); }
+async function reloadAdminPoolsScreen(){ if(_adminTab==='ta') await reloadAdminTA(); else await reloadAdminPools(); }
 function adminTabsHtml(){
-  return '<div class="row" style="gap:6px;margin-bottom:14px">'
+  return '<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">'
     +'<button class="btn '+(_adminTab==='advisors'?'primary':'ghost')+' sm" onclick="switchAdminTab(\'advisors\')">담당자 관리</button>'
     +'<button class="btn '+(_adminTab==='pools'?'primary':'ghost')+' sm" onclick="switchAdminTab(\'pools\')">참조풀 관리</button>'
+    +'<button class="btn '+(_adminTab==='ta'?'primary':'ghost')+' sm" onclick="switchAdminTab(\'ta\')">TA 관리</button>'
     +'</div>';
 }
 
@@ -308,6 +317,64 @@ function renderAdminPools(){
   renderCostMeter();
 }
 
+/* ---------- TA 관리 (2026-09-06 추가) ----------
+   DB 고객·지인 고객에게 전화·상담할 때 쓸 요령 자료. 참조풀(상담사례·에피소드·카달로그·
+   아이스브레이크)과 완전히 별개 — 같은 편집기(openAdminPoolEditor 등)를 재사용하지만
+   poolType을 'ta'로 저장하고, "참조풀 관리" 화면의 종류 탭에는 섞이지 않도록 여기
+   전용 목록·로딩 함수를 따로 둔다. _adminPools 캐시는 참조풀 관리와 공유한다. */
+async function reloadAdminTA(){
+  const d=await adminCall('adminListPools');
+  if(!d || !d.ok){ adminGateMsg((d&&d.error)||'불러오기 실패'); return false; }
+  _adminPools=d.pools||[];
+  _adminPoolEditing=null;
+  renderAdminTA();
+  return true;
+}
+
+function renderAdminTA(){
+  const b=document.getElementById('admin-body'); if(!b) return;
+  let h=adminTabsHtml();
+  h+='<div id="cost-meter" style="margin-bottom:14px"></div>';
+  h+='<div class="su-hero"><h3>TA 관리</h3><p>DB 고객·지인 고객에게 전화하거나 만나서 상담할 때 쓸 요령 자료입니다. 참조풀(상담사례 등)과는 완전히 별개로 관리됩니다. "공개"된 것만 전체 담당자의 TA 화면에 뜹니다.</p></div>';
+
+  if(_adminPoolEditing){
+    h+=renderAdminPoolEditorHtml(_adminPoolEditing);
+    b.innerHTML=h;
+    renderCostMeter();
+    renderAdminPoolAudio();
+    renderAdminPoolThumbs();
+    renderAdminPoolFileList();
+    const textDrop=document.getElementById('ap-textdrop');
+    if(textDrop) enableDrop(textDrop, handleAdminPoolDropFile, f=>(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
+    const imgDrop=document.getElementById('ap-imgdrop');
+    if(imgDrop) enableDrop(imgDrop, addAdminPoolImageDirect, f=>isPdfFile(f)||(f.type&&f.type.indexOf('image')===0));
+    return;
+  }
+
+  const items=_adminPools.filter(p=>p.poolType==='ta');
+  h+='<div class="row" style="align-items:center;margin-bottom:10px"><span class="spacer"></span>'
+    +'<button class="btn ghost sm" onclick="openAdminPoolEditor(null,\'ta\')">＋ 새 TA 자료</button></div>';
+  if(!items.length){ h+='<div class="stage-note">등록된 TA 자료가 없습니다.</div>'; }
+  items.forEach(p=>{
+    const pub=!!p.published;
+    const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+    const preview=(p.keyContent||p.tocSummary||p.body||'').slice(0,140);
+    h+='<div class="card" style="margin-bottom:10px">'
+      +'<div class="row" style="align-items:center"><div style="font-weight:700;font-size:15px">'+esc(p.title||'(제목 없음)')+'</div><span class="spacer"></span></div>'
+      +'<div class="pill-tags" style="margin-top:4px">'+tags+'</div>'
+      +'<div class="meta" style="margin-top:6px;white-space:pre-wrap;max-height:60px;overflow:hidden">'+esc(preview)+'</div>'
+      +'<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">'
+      +'<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" '+(pub?'checked':'')+' onchange="toggleAdminPoolFlag(\''+p.id+'\',\'published\',this.checked)">공개(전체 담당자)</label>'
+      +'</div>'
+      +'<div class="row" style="gap:6px;margin-top:8px">'
+      +'<button class="btn ghost sm" onclick="openAdminPoolEditor(\''+p.id+'\',\'ta\')">편집</button>'
+      +'<button class="btn danger sm" onclick="doAdminDeletePool(\''+p.id+'\',\''+esc(p.title||'').replace(/'/g,"\\'")+'\')">삭제</button>'
+      +'</div></div>';
+  });
+  b.innerHTML=h;
+  renderCostMeter();
+}
+
 function openAdminPoolEditor(id, type){
   const found=id?_adminPools.find(x=>x.id===id):null;
   if(found){
@@ -324,12 +391,12 @@ function openAdminPoolEditor(id, type){
     _adminPoolEditing = {id:null,poolType:type,title:'',rawText:'',tocSummary:'',keyContent:'',images:[],audio:null,free:[],product:[],situation:[],age:[],result:'',published:true,globalPinned:true};
   }
   _adminPoolEditing._isNew=!found;
-  renderAdminPools();
+  renderAdminPoolsScreen();
 }
-function closeAdminPoolEditor(){ _adminPoolEditing=null; renderAdminPools(); }
+function closeAdminPoolEditor(){ _adminPoolEditing=null; renderAdminPoolsScreen(); }
 
 function renderAdminPoolEditorHtml(p){
-  const label=(ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
+  const label = p.poolType==='ta' ? 'TA 자료' : (ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
   const kcLen=(p.keyContent||'').length;
   return '<div class="su-hero"><h3>'+(p._isNew?'새 '+label:label+' 편집')+'</h3></div>'
 
@@ -675,7 +742,7 @@ async function saveAdminPool(){
     toast('✓ 저장했습니다'); setTimeout(toastHide,1500);
     // 음원·이미지 실물(blob)은 이 기기 로컬에만 있으므로, 다른 담당자 화면에서도 보이도록 클라우드(R2)에 올린다.
     if((item.audio || (item.images&&item.images.length)) && typeof fsQueueForOwner==='function') fsQueueForOwner('pool', item);
-    await reloadAdminPools();
+    await reloadAdminPoolsScreen();
   }
   else alert('저장 실패: '+((d&&d.error)||'알 수 없음'));
 }
@@ -685,12 +752,12 @@ async function toggleAdminPoolFlag(id, field, value){
   const item=Object.assign({}, p); item[field]=value;
   const d=await adminCall('adminSavePool', {item});
   if(d&&d.ok){ p[field]=value; toast('✓ 변경됨'); setTimeout(toastHide,1000); }
-  else { alert('변경 실패: '+((d&&d.error)||'알 수 없음')); renderAdminPools(); }
+  else { alert('변경 실패: '+((d&&d.error)||'알 수 없음')); renderAdminPoolsScreen(); }
 }
 
 async function doAdminDeletePool(id, title){
   if(!confirm((title||'이 자료')+'를 삭제할까요? 전체 담당자에게서 사라집니다.')) return;
   const d=await adminCall('adminDeletePool', {id});
-  if(d&&d.ok){ toast('✓ 삭제했습니다'); setTimeout(toastHide,1500); await reloadAdminPools(); }
+  if(d&&d.ok){ toast('✓ 삭제했습니다'); setTimeout(toastHide,1500); await reloadAdminPoolsScreen(); }
   else alert('삭제 실패: '+((d&&d.error)||'알 수 없음'));
 }

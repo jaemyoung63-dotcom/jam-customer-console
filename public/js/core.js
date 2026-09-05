@@ -428,11 +428,24 @@ function updateCloudUI(){
 /* 홈 화면 "시작하기" — 예전엔 "자료 준비"/"상담·분석" 두 모드로 나뉘어 있었으나(2026-08-29 앱12
    세션에서 통합), 실제로는 똑같은 고객 화면으로 갔고 차이는 고객 선택 유지 여부·버튼 몇 개 숨김뿐이라
    실사용(이어서 작업)과 안 맞아 하나로 합쳤다. 이제 고객 선택은 항상 유지되고, 추가·삭제 버튼도 항상 보인다. */
-/* 2026-09-06: 6탭 개편 1단계 — TA·고객관리는 아직 자리만 잡아둔 화면(준비중).
-   실제 기능(자료 관리·히스토리·Q&A)은 다음 단계에서 만든다. docs/6탭구조_설계메모.md 참고. */
+/* 2026-09-06: 6탭 개편 2단계 — TA 자료는 참조풀과 완전히 별개의 poolType('ta')로 관리자
+   화면(⚙ 관리자 화면 → TA 관리, advisor.js)에서 넣고, 여기서는 읽기 전용으로 보여준다.
+   상세보기는 참조풀과 똑같은 형식(제목→요약→핵심내용)이라 viewPoolItem()을 그대로 재사용한다. */
 function renderTA(){
-  header('TA', 'DB 고객·지인 고객에게 전화·상담할 때 쓸 요령 (준비중)');
-  document.getElementById('ta-body').innerHTML='<div class="empty">TA 자료 화면은 준비 중입니다.<br>완성되면 관리자 화면에서 자료를 넣고, 여기서 볼 수 있게 됩니다.</div>';
+  header('TA', 'DB 고객·지인 고객에게 전화·상담할 때 쓸 요령');
+  const items=pools.filter(p=>p.poolType==='ta').sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+  const wrap=document.getElementById('ta-body');
+  if(!items.length){ wrap.innerHTML='<div class="empty">아직 등록된 TA 자료가 없습니다.<br>자료 등록은 "⚙ 관리자 화면 → TA 관리"에서 합니다.</div>'; return; }
+  let html='<div class="meta" style="margin-bottom:10px">📌 TA 자료는 "⚙ 관리자 화면 → TA 관리"에서 관리합니다. 항목을 눌러 전화·상담 요령을 확인하세요.</div>';
+  items.forEach(p=>{ html+=taItemCard(p); });
+  wrap.innerHTML=html;
+}
+function taItemCard(p){
+  const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].slice(0,6).map(t=>'<span class="pt">'+esc(t)+'</span>').join('');
+  return '<div class="card tap" style="margin-bottom:10px" onclick="viewPoolItem(\''+p.id+'\')">'
+    +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+esc(p.title||'(제목 없음)')+'</span></div>'
+    +'<div class="pill-tags">'+tags+'</div>'
+    +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';
 }
 function renderCustomerMgmt(){
   header('고객관리', '통화·상담 히스토리 모아보기 + Q&A (준비중)');
