@@ -24,6 +24,11 @@
 </div>
 <div id="lightbox" onclick="this.classList.remove('show')"><img id="lightbox-img" alt=""></div>
 <div id="app">
+  <!-- ===== TA (전화·상담 요령) ===== -->
+  <div class="screen" id="s-ta">
+    <div id="ta-body"></div>
+  </div>
+
   <!-- ===== 고객 목록 ===== -->
   <div class="screen active" id="s-customers">
     <div id="cust-toolbar"></div>
@@ -184,6 +189,11 @@
     </div>
     <div id="ap-body"></div>
   </div>
+
+  <!-- ===== 고객관리 (히스토리·Q&A, 준비중) ===== -->
+  <div class="screen" id="s-customermgmt">
+    <div id="cm-body"></div>
+  </div>
 </div>
 
 <!-- headers rendered per screen -->
@@ -195,11 +205,12 @@
 <input type="file" id="import-cust-input" accept="application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px" onchange="importCustomers(event)">
 
 <nav class="tabs">
-  <button id="tab-home" onclick="goHome()"><span class="ic">⌂</span>홈</button>
+  <button id="tab-ta" onclick="navGo('ta')"><span class="ic">📞</span>TA</button>
   <button id="tab-customers" class="on" onclick="navGo('customers')"><span class="ic">◐</span>고객</button>
-  <button id="tab-pools" onclick="navGo('pools')"><span class="ic">▤</span>참조 풀</button>
+  <button id="tab-pools" onclick="navGo('pools')"><span class="ic">▤</span>참조풀</button>
   <button id="tab-analysis" onclick="navGo('analysis')"><span class="ic">✦</span>분석</button>
   <button id="tab-ap" onclick="navGo('ap')"><span class="ic">🗣️</span>상담</button>
+  <button id="tab-customermgmt" onclick="navGo('customermgmt')"><span class="ic">🗂️</span>관리</button>
 </nav>
 
 <!-- ===== 로그인(클라우드 비밀번호) ===== -->

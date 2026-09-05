@@ -370,7 +370,8 @@ function header(title,sub,micFn){
   const old=document.querySelector('header.top'); if(old) old.remove();
   const h=document.createElement('header'); h.className='top';
   const mic = micFn ? '<button class="mic-btn" id="hdr-mic-btn" aria-label="음성 명령" title="음성으로 고객 찾기·추가">🎤</button>' : '';
-  h.innerHTML='<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button><div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic;
+  // 2026-09-06: 홈 버튼을 하단 탭에서 빼면서, 화면 상단 우측(제목 오른쪽 끝)으로 이동.
+  h.innerHTML='<div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic+'<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button>';
   document.getElementById('app').prepend(h);
   if(micFn){ const mb2=document.getElementById('hdr-mic-btn'); if(mb2) mb2.onclick=micFn; }
 }
@@ -386,7 +387,9 @@ function go(s){
   const tb=document.getElementById('tab-'+s); if(tb) tb.classList.add('on');
   const nav=document.querySelector('nav.tabs'); if(nav) nav.style.display='flex';
   const fab=document.getElementById('fab');
-  if(fab) fab.style.display = (s==='analysis'||s==='ap')?'none':'flex';
+  if(fab) fab.style.display = (s==='analysis'||s==='ap'||s==='ta'||s==='customermgmt')?'none':'flex';
+  if(s==='ta') renderTA();
+  if(s==='customermgmt') renderCustomerMgmt();
   if(s==='customers') renderCustomers();
   if(s==='pools'){ renderPools(); renderPoolCtx(); }
   if(s==='analysis'){
@@ -425,6 +428,16 @@ function updateCloudUI(){
 /* 홈 화면 "시작하기" — 예전엔 "자료 준비"/"상담·분석" 두 모드로 나뉘어 있었으나(2026-08-29 앱12
    세션에서 통합), 실제로는 똑같은 고객 화면으로 갔고 차이는 고객 선택 유지 여부·버튼 몇 개 숨김뿐이라
    실사용(이어서 작업)과 안 맞아 하나로 합쳤다. 이제 고객 선택은 항상 유지되고, 추가·삭제 버튼도 항상 보인다. */
+/* 2026-09-06: 6탭 개편 1단계 — TA·고객관리는 아직 자리만 잡아둔 화면(준비중).
+   실제 기능(자료 관리·히스토리·Q&A)은 다음 단계에서 만든다. docs/6탭구조_설계메모.md 참고. */
+function renderTA(){
+  header('TA', 'DB 고객·지인 고객에게 전화·상담할 때 쓸 요령 (준비중)');
+  document.getElementById('ta-body').innerHTML='<div class="empty">TA 자료 화면은 준비 중입니다.<br>완성되면 관리자 화면에서 자료를 넣고, 여기서 볼 수 있게 됩니다.</div>';
+}
+function renderCustomerMgmt(){
+  header('고객관리', '통화·상담 히스토리 모아보기 + Q&A (준비중)');
+  document.getElementById('cm-body').innerHTML='<div class="empty">고객관리 화면은 준비 중입니다.<br>완성되면 이 고객과의 통화·상담 히스토리를 모아보고, Q&A로 물어볼 수 있게 됩니다.</div>';
+}
 function enterCustomers(){ currentCustId=null; go('customers'); }
 // 2026-08-17: 참조풀은 이제 공용(관리자 화면에서만 추가·수정)이라, 이 화면(+ 버튼)에서는
 // 더 이상 새 자료를 추가하지 않는다 — 안내만 띄운다.
