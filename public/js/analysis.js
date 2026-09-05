@@ -126,11 +126,6 @@ function renderAnalysis(){
     const catN=pools.filter(p=>p.poolType==='catalog').length;
     if(catN) html+='<div class="meta" style="margin-top:10px">※ 상품 카달로그 '+catN+'개를 보장분석·가입설계에 자동 참조합니다.</div>';
     if(pinnedCount()>0) html+='<div class="meta" style="margin-top:4px;color:var(--accent)">✓ 참조풀에서 선택(체크)한 '+pinnedCount()+'개 항목을 분석에 강제 참조합니다. (해당 종류는 자동매칭 대신 선택항목 사용)</div>';
-    { const rel=refPoolAll(c);
-      html+='<label class="f" style="margin-top:10px">참조 자료 ('+rel.length+') <span style="font-weight:400;color:var(--ink-mute)">· 최대 6개 표시 · 눌러서 전체</span></label>';
-      if(rel.length){ html+=renderPoolCapped(rel); }
-      else html+='<div class="meta">관련 참조자료가 없습니다. 아래에서 선택하거나 태그가 겹치는 자료를 쌓으세요.</div>';
-    }
     html+='<button class="btn ghost sm wide" style="margin-top:6px" onclick="go(\'pools\')">참조풀에서 자료 선택/변경 →</button>';
     if(!hasText) html+='<div class="stage-note" style="margin-top:10px">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
     else if(hasAnalysis) html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc((alist[0].at||alist[0].date)||'')+' · 총 '+alist.length+'회). 다시 실행하면 비용이 한 번 더 듭니다.</div>';
