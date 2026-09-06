@@ -409,8 +409,8 @@ function openCmQna(){
   const c=customers.find(x=>x.id===cmCustId); if(!c) return;
   const hist=(c.history||[]);
   if(!hist.length){ alert('아직 히스토리 기록이 없어서 물어볼 내용이 없어요. 먼저 위에서 통화·상담 기록을 몇 개 쌓아주세요.'); return; }
-  let h='<div class="meta" style="margin-bottom:10px">'+esc(c.name)+' 고객의 히스토리 기록(총 '+hist.length+'건)만 근거로 답해요. 기록에 없는 내용은 "확인 안 됨"이라고 답해요.</div>';
-  h+='<textarea class="t" id="cm-qna-q" rows="3" placeholder="예) 지난번에 통화했을 때 반응이 어땠어? / 다음에 만나면 뭘 챙겨가면 좋을까?"></textarea>';
+  let h='<div class="meta" style="margin-bottom:10px">'+esc(c.name)+' 고객의 히스토리 기록(총 '+hist.length+'건)만 근거로 답해요. 반응·전략을 물으면 어느 기록의 어떤 내용을 근거로 했는지 밝히고, 긍정적인 면·우려되는 점·고객 입장·제안까지 정리해서 답해요.</div>';
+  h+='<textarea class="t" id="cm-qna-q" rows="3" placeholder="예) 이 고객 다음에 어떻게 접근하면 좋을까? / 지난번 통화 반응이 어땠어?"></textarea>';
   h+='<button class="btn btn-ai wide" style="margin-top:8px" onclick="askCmQna()">🤖 물어보기</button>';
   h+='<div id="cm-qna-answer" style="margin-top:16px"></div>';
   openSubPage('Q&A · '+c.name, h);
@@ -425,7 +425,14 @@ async function askCmQna(){
   try{
     const historyText=buildCmHistoryText(c);
     const d=await aiCmHistoryQna(historyText, q);
-    if(box) box.innerHTML='<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink);padding:12px;background:var(--paper2,var(--paper));border:1px solid var(--line);border-radius:10px">'+esc(d.answer||'(답변 없음)')+'</div>';
+    const answer=d.answer||'(답변 없음)';
+    // 2026-09-06: 분석·전략 질문엔 [근거]/[긍정적인 면]/[제안] 같은 대괄호 소제목+개조식으로 답이
+    // 오도록 프롬프트를 바꿈 — 이런 답은 analysis.js의 detail 렌더링과 같은 linesBlock()을 재사용해
+    // 소제목은 굵게, 나머지는 "· " 불릿으로 정리해 보여준다. 단순 사실 질문(문장형 답)은 그대로
+    // 문단으로 보여준다(불릿 하나에 문단 전체가 들어가는 어색함 방지).
+    const hasSections=/^\[.*\]$/m.test(answer);
+    const inner=hasSections ? linesBlock(answer) : '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(answer)+'</div>';
+    if(box) box.innerHTML='<div style="padding:12px;background:var(--paper2,var(--paper));border:1px solid var(--line);border-radius:10px">'+inner+'</div>';
   }catch(err){
     if(box) box.innerHTML='<div class="meta" style="color:#C0392B">답변 실패: '+esc(err&&err.message?err.message:String(err))+'</div>';
   }
