@@ -13,6 +13,7 @@ import {
   summarizeSystem as buildSummarizeSystem,
   organizePoolSystem as buildOrganizePoolSystem,
   organizeHistorySystem as buildOrganizeHistorySystem,
+  historyQnaSystem as buildHistoryQnaSystem,
   planSystem as buildPlanSystem,
   analyzeSystem as buildAnalyzeSystem
 } from '../_lib/prompts.js';
@@ -362,6 +363,38 @@ export async function onRequestPost(context) {
       });
     } catch (err) {
       return json({ error: '정리 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+    }
+  }
+
+  // 고객관리 Q&A 모드(2026-09-06 6탭 개편 4단계): 담당자가 자기 고객의 저장된 히스토리 요약을
+  // 근거로 자유 질문에 답을 받는다. organize_history와 마찬가지로 일반 담당자 로그인으로 인증한다.
+  if (payload.mode === 'history_qna') {
+    const historyText = (payload.historyText || '').trim();
+    const question = (payload.question || '').trim();
+    if (!historyText) return json({ error: '히스토리 기록이 없습니다. 먼저 통화·상담 기록을 추가하세요.' }, 400);
+    if (!question) return json({ error: '질문을 입력하세요.' }, 400);
+
+    const qModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const qsys = buildHistoryQnaSystem();
+    try {
+      const rr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: qModel, max_tokens: 900,
+          system: sysCached(qsys),
+          messages: [{ role: 'user', content: '히스토리 기록:\n' + historyText.slice(0, 8000) + '\n\n질문: ' + question.slice(0, 500) }]
+        })
+      });
+      const rd = await rr.json();
+      if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
+      const answer = (rd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      return json({
+        answer: answer.slice(0, 2000),
+        _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || qModel }
+      });
+    } catch (err) {
+      return json({ error: '답변 생성 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
     }
   }
 

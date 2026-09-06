@@ -60,6 +60,8 @@ function renderCmBody(){
 
   h+='<div class="divider"></div>';
   const hist=(c.history||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  h+='<button class="btn btn-ai wide" onclick="openCmQna()">🤖 이 고객 히스토리로 Q&A 물어보기</button>';
+  h+='<div class="meta" style="margin:4px 0 12px">저장된 기록만 근거로 답해요. 예) "지난달에 통화했을 때 반응 어땠어?" · "다음에 만나면 뭘 챙겨가면 좋을까?"</div>';
   h+='<label class="f">히스토리 ('+hist.length+')</label>';
   if(!hist.length){ h+='<div class="stage-note">아직 기록이 없습니다.</div>'; }
   hist.forEach(item=>{ h+=cmHistoryCard(item); });
@@ -288,5 +290,57 @@ async function aiOrganizeHistory(text, audioBase64){
   }
   if(!res.ok) throw new Error(data.error||'정리 실패');
   if(typeof addUsage==='function') addUsage(data._usage,'고객관리 정리');
+  return data;
+}
+
+/* ---- Q&A 코너 (2026-09-06, 6탭 개편 4단계) ----
+   저장된 히스토리 요약(summary)만 근거로 자유 질문에 답한다. 원문(rawText)은 안 보내고,
+   최근 항목 위주로 글자 수를 제한해서(6000자) 히스토리가 쌓여도 비용이 크게 안 늘게 한다. */
+function openCmQna(){
+  const c=customers.find(x=>x.id===cmCustId); if(!c) return;
+  const hist=(c.history||[]);
+  if(!hist.length){ alert('아직 히스토리 기록이 없어서 물어볼 내용이 없어요. 먼저 위에서 통화·상담 기록을 몇 개 쌓아주세요.'); return; }
+  let h='<div class="meta" style="margin-bottom:10px">'+esc(c.name)+' 고객의 히스토리 기록(총 '+hist.length+'건)만 근거로 답해요. 기록에 없는 내용은 "확인 안 됨"이라고 답해요.</div>';
+  h+='<textarea class="t" id="cm-qna-q" rows="3" placeholder="예) 지난번에 통화했을 때 반응이 어땠어? / 다음에 만나면 뭘 챙겨가면 좋을까?"></textarea>';
+  h+='<button class="btn btn-ai wide" style="margin-top:8px" onclick="askCmQna()">🤖 물어보기</button>';
+  h+='<div id="cm-qna-answer" style="margin-top:16px"></div>';
+  openSubPage('Q&A · '+c.name, h);
+}
+async function askCmQna(){
+  const c=customers.find(x=>x.id===cmCustId); if(!c) return;
+  const qEl=document.getElementById('cm-qna-q');
+  const q=(qEl&&qEl.value||'').trim();
+  if(!q){ alert('질문을 입력하세요.'); return; }
+  const box=document.getElementById('cm-qna-answer');
+  if(box) box.innerHTML='<div class="meta">답변 생각하는 중…</div>';
+  try{
+    const historyText=buildCmHistoryText(c);
+    const d=await aiCmHistoryQna(historyText, q);
+    if(box) box.innerHTML='<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink);padding:12px;background:var(--paper2,var(--paper));border:1px solid var(--line);border-radius:10px">'+esc(d.answer||'(답변 없음)')+'</div>';
+  }catch(err){
+    if(box) box.innerHTML='<div class="meta" style="color:#C0392B">답변 실패: '+esc(err&&err.message?err.message:String(err))+'</div>';
+  }
+}
+/* 최신 항목부터 6000자 예산 안에서 채우고, 다시 오래된 순으로 정렬해 흐름대로 읽히게 한다. */
+function buildCmHistoryText(c){
+  const hist=(c.history||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  const chosen=[]; let total=0;
+  for(const item of hist){
+    const block='['+(item.at||'')+'] '+(item.title||'')+'\n'+(item.summary||'')+'\n\n';
+    if(total+block.length>6000) break;
+    chosen.push(block); total+=block.length;
+  }
+  return chosen.reverse().join('').trim();
+}
+async function aiCmHistoryQna(historyText, question){
+  if(!cloudOn) throw new Error('Q&A 기능은 로그인 후 사용할 수 있습니다.');
+  const body={pw:cloudPW, advisorId, advisorPw, mode:'history_qna', historyText, question};
+  const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const raw=await res.text();
+  let data;
+  try{ data=JSON.parse(raw); }
+  catch(e){ throw new Error('서버 응답이 올바르지 않습니다(오류 페이지가 돌아왔어요). 상태 코드 '+res.status); }
+  if(!res.ok) throw new Error(data.error||'답변 실패');
+  if(typeof addUsage==='function') addUsage(data._usage,'고객관리 Q&A');
   return data;
 }

@@ -151,6 +151,23 @@ export function organizeHistorySystem() {
 }
 
 /**
+ * [history_qna] 고객관리 Q&A — 저장된 히스토리 기록을 근거로 자유 질문에 답한다.
+ * 입력: historyText(고객 히스토리 요약 모음), question
+ * 출력: 자연어 답변(텍스트, JSON 아님)
+ * 모델: TIDY_MODEL (기본값: Haiku 4.5)
+ * 비고: 2026-09-06 6탭 개편 4단계. organize_history로 미리 압축해둔 요약(summary)만 근거로 쓰므로
+ *       히스토리가 쌓여도 비용이 크게 늘지 않는다(원문 rawText는 안 보냄).
+ */
+export function historyQnaSystem() {
+  return [
+    '당신은 보험설계사가 자기 고객과 있었던 통화·상담 히스토리 기록을 보고 질문에 답하는 조수입니다.',
+    '아래 "히스토리 기록"에 실제로 적힌 내용만 근거로 답하세요. 기록에 없는 내용은 추측하거나 지어내지 말고, 답을 알 수 없으면 그렇게 솔직히 말하세요(예: "기록에서는 확인되지 않습니다").',
+    '날짜·반응·다음 일정 등을 물으면 기록에 있는 날짜·표현을 그대로 인용해서 답하세요.',
+    '답변은 실제 대화하듯 자연스러운 한국어 2~6문장으로, 개조식 나열 없이 이어지는 문장으로 답하세요.'
+  ].join('\n');
+}
+
+/**
  * [plan] 가입설계서(신규 제안 설계) 분석 — 현재 보장분석 + 가입설계서 사진으로 부족·보완 분석
  * 입력: focusAreas/excludeAreas(집중·제외 영역), episodesText·catalogText 계열(참조풀 자료, Fixed=전역고정, Dynamic=고객맞춤)
  * 출력: JSON { shortfallRate, summary, planDetail, questions }
