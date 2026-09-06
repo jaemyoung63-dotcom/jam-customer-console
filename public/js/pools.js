@@ -420,6 +420,21 @@ function renderAdminGuide(){
     +'<div class="su-tip">💡 각 담당자는 이름을 고르고 본인 비밀번호만 입력하면 됩니다. 아이디를 따로 외울 필요가 없어요.</div>'
   +'</div>'
 
+  +'<div class="su-hero" style="margin-top:6px"><h3>☁️ 구글 드라이브 연동 (2026-09-06 완료)</h3><p>고객관리 탭에서 "☁️ 구글드라이브에서 가져오기"로 음원 파일을 바로 가져올 수 있습니다. <b>이미 설정 완료</b> — 아래는 값이 어디 있는지·문제 생겼을 때 확인하는 용도입니다.</p></div>'
+
+  +'<div class="su-step blue"><span class="su-n">F</span><span class="su-t">발급된 값 확인 위치</span>'
+    +'<div class="su-d">Google Cloud Console에서 발급한 API 키·클라이언트ID·앱ID는 <span class="su-key">public/js/customermgmt.js</span> 파일 맨 위(<span class="su-key">GOOGLE_API_KEY</span>, <span class="su-key">GOOGLE_CLIENT_ID</span>, <span class="su-key">GOOGLE_APP_ID</span>)에 저장돼 있습니다. 발급 과정·값은 <span class="su-key">docs/구글드라이브_연동_설정가이드.md</span>에도 정리해뒀습니다.</div>'
+    +'<div class="su-tip">💡 <b>drive.file 스코프</b>만 씁니다 — 담당자가 Picker에서 직접 고른 파일에만 접근하고, 드라이브 전체를 열람하지 않습니다.</div>'
+  +'</div>'
+
+  +'<div class="su-step gray"><span class="su-n">G</span><span class="su-t">"가져오기"가 안 될 때</span>'
+    +'<ul>'
+      +'<li>Google 로그인 창이 안 뜨면 → Google Cloud Console → <b>OAuth 동의 화면 → 테스트 사용자</b>에 그 담당자의 구글 계정이 등록돼 있는지 확인.</li>'
+      +'<li>"승인되지 않은 도메인" 오류 → API 키의 <b>애플리케이션 제한사항(웹사이트)</b>에 지금 앱 주소(<span class="su-key">jam-customer-console.pages.dev</span> 등)가 등록돼 있는지 확인.</li>'
+      +'<li>파일 선택창은 뜨는데 다운로드가 안 되면 → 크레딧·네트워크 문제가 아니라 <b>Drive API 활성화 여부</b>를 Cloud Console에서 확인.</li>'
+    +'</ul>'
+  +'</div>'
+
   +'<div style="text-align:center;color:var(--ink-mute);font-size:12px;margin:6px 0 4px">막히면 각 단계의 파란/초록 버튼을 눌러 해당 사이트로 바로 이동하세요.</div>';
 }
 async function openStorage(){
