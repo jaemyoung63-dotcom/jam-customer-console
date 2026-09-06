@@ -33,7 +33,10 @@ function renderCostMeter(lastCost){
   if(lastCost!=null) s+='<div class="meta" style="margin-top:3px">이번 약 US$'+lastCost.toFixed(3)+' ('+Math.round(lastCost*USD_KRW).toLocaleString()+'원) 차감</div>';
   s+='</div></div>'
     +'<div class="row" style="margin-top:8px"><button class="btn ghost sm grow" onclick="correctCost()">보정</button>'
-    +'<button class="btn ghost sm grow" onclick="toggleCostHistory()">사용 히스토리</button></div>'
+    +'<button class="btn ghost sm grow" onclick="toggleCostHistory()">사용 히스토리</button>'
+    // 2026-09-06: 잔액은 이 화면(브라우저 저장) 안에서만 추정하는 값이고, 실제 크레딧은
+    // Anthropic 콘솔(platform.claude.com)에 있음 — 헷갈리지 않게 바로 가는 링크를 붙여준다.
+    +'<button class="btn ghost sm grow" onclick="window.open(\'https://platform.claude.com/settings/billing\',\'_blank\')">💳 콘솔에서 확인</button></div>'
     +'<div id="cost-history" style="display:none;margin-top:8px"></div></div>';
   el.innerHTML=s;
 }

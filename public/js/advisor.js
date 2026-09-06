@@ -563,7 +563,10 @@ async function aiOrganizePool(text, poolTypeLabel, audioBase64){
       +'음원을 더 짧게 나누거나, 음원 없이 텍스트만 넣고 다시 시도해보세요. (상태 코드 '+res.status+')');
   }
   if(!res.ok) throw new Error(data.error||'정리 실패');
-  if(typeof addUsage==='function') addUsage(data._usage,'참조풀 정리');
+  // 2026-09-06: 예전엔 무조건 "참조풀 정리"로만 기록돼서, TA 자료를 정리해도 사용 히스토리에는
+  // 구분 없이 뭉뚱그려 보였다. 자료 종류별로 라벨을 나눠서 "종류별 합계"에서 어디에 크레딧을
+  // 얼마나 썼는지 구분해서 볼 수 있게 함.
+  if(typeof addUsage==='function') addUsage(data._usage,(poolTypeLabel||'참조풀')+' 정리');
   return data;
 }
 /* "AI로 정리"는 ①번 칸의 텍스트를 정리한다. 아래 음원 칸에 음원이 붙어 있으면,
@@ -595,7 +598,10 @@ async function organizeAdminPool(){
   }
 
   if(!src && !audioBase64){ alert('①번 칸에 텍스트를 넣거나, 아래 음원 칸에 음원을 올려주세요. (음원을 올리면 AI가 받아쓰기해서 함께 정리해요)'); return; }
-  const label=(ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
+  // 2026-09-06: TA(poolType 'ta')는 ADMIN_POOL_TYPES에 없어서 여기서 빠지면 항상 기본값
+  // '상담사례'로 잘못 표시됐다(AI에게 보내는 종류 설명도, 사용 히스토리 라벨도 틀리게 나감).
+  // renderAdminPoolEditorHtml()의 라벨 계산과 동일하게 맞춤.
+  const label = p.poolType==='ta' ? 'TA 자료' : (ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
   const _pg=startProgress(pc=>toast((audioBase64?'음원 받아쓰기·정리 중… ':'AI로 정리 중… ')+pc+'%'));
   try{
     const r=await aiOrganizePool(src, label, audioBase64);
