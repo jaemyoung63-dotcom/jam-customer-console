@@ -15,14 +15,30 @@ function renderCustomers(){
 function ensureCustToolbar(){
   if(document.getElementById('cust-search')) return;
   const micOn=(typeof voiceSupported==='function' && voiceSupported());
+  // 2026-09-06: 검색어가 남아있으면 고객 목록이 텅 빈 것처럼 보여서(예: "창원"을 검색했는데 그
+  // 이름의 고객이 없어 목록이 사라진 것처럼 느껴짐) jam님이 놀라신 일이 있었음 — 검색어가 있을 때
+  // 바로 지울 수 있는 ✕ 버튼을 입력창 안에 추가.
   let bar='<div class="row" style="margin-bottom:12px;align-items:center;gap:8px">'
     +'<div style="position:relative;flex:1;min-width:0"><input class="t" id="cust-search" placeholder="고객 이름으로 찾기" value="'+esc(custSearch)+'" oninput="onCustSearch(this.value)" oncompositionstart="onCustSearchCompositionStart()" oncompositionend="onCustSearchCompositionEnd(this.value)" style="padding-right:32px;width:100%">'
-    +'<span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.55;font-size:14px">🔍</span></div>'
+    +'<button id="cust-search-clear" onclick="clearCustSearch()" title="검색어 지우기" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:none;font-size:15px;color:var(--ink-mute);cursor:pointer;padding:6px 8px;line-height:1;display:none">✕</button>'
+    +'<span id="cust-search-icon" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.55;font-size:14px">🔍</span></div>'
     +(micOn?'<button class="btn ghost sm" id="hdr-mic-btn" style="flex-shrink:0" onclick="startListVoiceCommand()">🎤</button>':'')
     +'</div>';
   bar+='<div class="chips" id="cust-seg-chips" style="margin-bottom:8px;"></div>';
   bar+='<div class="chips" id="cust-src-chips" style="margin-bottom:14px;"></div>';
   const box=document.getElementById('cust-toolbar'); if(box) box.innerHTML=bar;
+  updateCustSearchClearBtn();
+}
+function updateCustSearchClearBtn(){
+  const has=!!(custSearch||'').trim();
+  const clearBtn=document.getElementById('cust-search-clear'); if(clearBtn) clearBtn.style.display=has?'block':'none';
+  const icon=document.getElementById('cust-search-icon'); if(icon) icon.style.display=has?'none':'block';
+}
+function clearCustSearch(){
+  custSearch='';
+  const inp=document.getElementById('cust-search'); if(inp) inp.value='';
+  renderCustResults();
+  updateCustSearchClearBtn();
 }
 function renderCustFilterChips(){
   let segHtml='';
@@ -41,7 +57,9 @@ function renderCustResults(){
   let html='';
   if(list.length===0){
     html += (custSearch||'').trim()
-      ? '<div class="empty"><div class="big">\''+esc(custSearch.trim())+'\' 이름의 고객이 없어요</div>검색어를 확인하거나 지워보세요.</div>'
+      // 2026-09-06: "OO 이름의 고객이 없어요"만 보이면 마치 고객이 전부 사라진 것처럼 보일 수
+      // 있어서(실제로는 검색 필터 때문), 바로 지울 수 있는 링크를 여기에도 눈에 띄게 추가.
+      ? '<div class="empty"><div class="big">\''+esc(custSearch.trim())+'\' 이름의 고객이 없어요</div>등록된 다른 고객은 그대로 있어요 — <span style="color:var(--accent);font-weight:700;cursor:pointer;text-decoration:underline" onclick="clearCustSearch()">검색어 지우고 전체 보기</span></div>'
       : '<div class="empty"><div class="big">아직 등록된 고객이 없어요</div>오른쪽 아래 + 버튼으로 첫 고객을 등록하세요.</div>';
   } else {
     list.forEach(c=>{
@@ -74,6 +92,7 @@ function onCustSearchCompositionStart(){ _imeComposing=true; }
 function onCustSearchCompositionEnd(v){ _imeComposing=false; onCustSearch(v); }
 function onCustSearch(v){
   custSearch=v;
+  updateCustSearchClearBtn();
   if(_imeComposing) return;
   renderCustResults(); // 검색창(input)은 절대 건드리지 않고, 결과 목록만 새로 그린다
 }
