@@ -45,6 +45,11 @@ function renderCmBody(){
   h+='<div id="cm-textdrop" style="border:1.5px dashed var(--line-strong);border-radius:10px;padding:2px">'
     +'<textarea class="t" id="cm-rawtext" rows="4" placeholder="오늘 통화·상담 내용을 적거나, 텍스트(.txt) 파일을 여기로 끌어다 놓으세요.">'+esc(p.rawText||'')+'</textarea>'
     +'</div>';
+  // 2026-09-06: 음원 칸처럼 텍스트도 드래그&드롭 말고 "폴더에서 선택"·"구글드라이브에서 가져오기"로 넣을 수 있게.
+  h+='<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'
+    +'<button class="btn ghost sm" onclick="pickCmText()">📁 폴더에서 선택</button>'
+    +'<button class="btn ghost sm" onclick="pickCmTextDrive()">☁️ 구글드라이브에서 가져오기</button>'
+    +'</div>';
 
   h+='<div style="font-size:12.5px;color:var(--ink-mute);margin:14px 0 4px">음원(선택)</div>';
   h+='<div id="cm-audiodrop" style="border:1.5px dashed var(--line-strong);border-radius:10px;padding:6px;min-height:40px">'
@@ -88,13 +93,16 @@ function cmHistoryCard(item){
   const icon = item.source==='ap' ? '🗣️' : (item.hadAudio ? '🎤' : '📝');
   const preview=(item.summary||'(내용 없음)').replace(/\s*\n+\s*/g,' · ').trim();
   // .meta는 display:flex라 한 줄 말줄임(ellipsis)이랑 안 맞아서, 여기서는 색만 맞춰 직접 스타일 지정.
-  return '<div class="card tap" style="margin-bottom:8px;padding:11px 13px" onclick="viewCmHistory(\''+item.id+'\')">'
-    +'<div style="display:flex;align-items:baseline;gap:6px;font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap">'
+  // 2026-09-06: 상세보기에 가야만 삭제할 수 있던 걸, 목록 카드에서도 바로 지울 수 있게 우측에
+  // ✕ 버튼 추가. event.stopPropagation()으로 카드 클릭(상세보기 열기)과 겹치지 않게 분리.
+  return '<div class="card tap" style="margin-bottom:8px;padding:11px 13px;position:relative" onclick="viewCmHistory(\''+item.id+'\')">'
+    +'<div style="display:flex;align-items:baseline;gap:6px;font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap;padding-right:28px">'
       +'<span style="flex-shrink:0">'+icon+'</span>'
       +'<span style="flex-shrink:0;font-weight:600;font-size:12px;color:var(--ink-mute)">'+esc(cmDateShort(item.at))+'</span>'
       +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.title||'(제목 없음)')+'</span>'
     +'</div>'
-    +'<div style="margin-top:3px;font-size:12px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(preview)+'</div>'
+    +'<div style="margin-top:3px;font-size:12px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:28px">'+esc(preview)+'</div>'
+    +'<button onclick="event.stopPropagation();deleteCmHistory(\''+item.id+'\')" title="삭제" style="position:absolute;top:6px;right:6px;width:28px;height:28px;background:none;border:none;color:var(--ink-mute);font-size:16px;cursor:pointer;line-height:1;border-radius:50%">✕</button>'
   +'</div>';
 }
 function viewCmHistory(id){
@@ -143,6 +151,13 @@ function pickCmAudio(){
   inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await attachCmAudioFile(f);};
   inp.click();
 }
+// 2026-09-06: pools.js pickPoolText()/advisor.js pickAdminPoolText()와 같은 방식 — 공용 숨김
+// input(#txt-input)을 재사용해 폴더에서 텍스트 파일을 골라 넣는다.
+function pickCmText(){
+  const inp=document.getElementById('txt-input'); inp.value='';
+  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await appendCmText(f);};
+  inp.click();
+}
 /* ---- 구글 드라이브 연동 (2026-09-06) ----
    jam님이 Google Cloud Console에서 직접 발급받은 값. API 키·클라이언트 ID는 카카오 JS키처럼
    웹페이지 코드에 그대로 들어가도 되는 값(도메인 제한을 걸어뒀음) — 절대 비밀로 지켜야 하는
@@ -153,6 +168,9 @@ const GOOGLE_CLIENT_ID='161287319413-3qlg5ug6ltmch0ag8csb40rbhhoapgsl.apps.googl
 const GOOGLE_APP_ID='161287319413';
 const GOOGLE_DRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
 let _gpPickerInited=false, _gpGisInited=false, _gpTokenClient=null, _gpAccessToken=null;
+// 2026-09-06: 처음엔 음원 전용이었는데, 텍스트(.txt) 파일도 구글드라이브에서 가져올 수 있게
+// 확장하면서 "이번엔 뭘 가져오는 중인지"를 이 변수로 구분한다. 'audio' | 'text'.
+let _gpDriveTarget='audio';
 
 /* index.html의 <script onload="onGoogleApiLoad()">/<script onload="onGoogleGisLoad()"> 에서 호출됨. */
 function onGoogleApiLoad(){ if(window.gapi) gapi.load('picker', ()=>{ _gpPickerInited=true; }); }
@@ -162,7 +180,9 @@ function onGoogleGisLoad(){
   _gpGisInited=true;
 }
 
-function pickCmAudioDrive(){
+function pickCmAudioDrive(){ _gpDriveTarget='audio'; requestGoogleDrivePicker(); }
+function pickCmTextDrive(){ _gpDriveTarget='text'; requestGoogleDrivePicker(); }
+function requestGoogleDrivePicker(){
   if(!_gpPickerInited || !_gpGisInited){
     alert('구글 드라이브 연동을 불러오는 중이에요. 인터넷 연결을 확인하고 3~5초 뒤 다시 눌러주세요. 계속 안 되면 새로고침 해보세요.');
     return;
@@ -190,16 +210,24 @@ function showGoogleDrivePicker(){
   picker.setVisible(true);
 }
 
-/* 사용자가 Picker에서 파일을 고르면, Drive API로 그 파일의 실제 내용을 내려받아
-   기존 attachCmAudioFile()에 그대로 넘긴다(드래그&드롭·폴더선택과 이후 흐름이 동일). */
+/* 사용자가 Picker에서 파일을 고르면, Drive API로 그 파일의 실제 내용을 내려받는다.
+   _gpDriveTarget에 따라 음원은 attachCmAudioFile()로, 텍스트는 appendCmText()로 넘긴다
+   (드래그&드롭·폴더선택과 이후 흐름이 동일). */
 async function onGoogleDrivePicked(data){
   if(data[google.picker.Response.ACTION]!==google.picker.Action.PICKED) return;
   const doc=data[google.picker.Response.DOCUMENTS][0]; if(!doc) return;
   const fileId=doc[google.picker.Document.ID];
   const name=doc[google.picker.Document.NAME]||'파일';
   const mime=doc[google.picker.Document.MIME_TYPE]||'';
-  const isAudio=(mime.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(name);
-  if(!isAudio && !confirm('선택한 파일("'+name+'")이 음원 파일이 아닌 것 같아요. 그래도 가져올까요?')) return;
+  const target=_gpDriveTarget;
+
+  if(target==='text'){
+    const isTextLike=(mime.indexOf('text')===0) || /\.(txt|md|csv)$/i.test(name);
+    if(!isTextLike && !confirm('선택한 파일("'+name+'")이 텍스트 파일이 아닌 것 같아요. 그래도 가져올까요?')) return;
+  } else {
+    const isAudio=(mime.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(name);
+    if(!isAudio && !confirm('선택한 파일("'+name+'")이 음원 파일이 아닌 것 같아요. 그래도 가져올까요?')) return;
+  }
 
   toast('구글 드라이브에서 가져오는 중…');
   try{
@@ -209,7 +237,8 @@ async function onGoogleDrivePicked(data){
     if(!res.ok) throw new Error('다운로드 실패(상태 '+res.status+')');
     const blob=await res.blob();
     toastHide();
-    await attachCmAudioFile(blob);
+    if(target==='text') await appendCmText(blob);
+    else await attachCmAudioFile(blob);
     toast('✓ 구글 드라이브에서 "'+name+'" 가져왔어요'); setTimeout(toastHide,2000);
   }catch(err){
     toastHide();
@@ -257,10 +286,20 @@ async function organizeCmEntry(){
       const rec=await idbGet('images',p.audio);
       if(rec&&rec.blob){
         const mb=rec.blob.size/(1024*1024);
-        if(mb>20){ alert('음원이 너무 큽니다(약 '+mb.toFixed(1)+'MB). 20MB 이하 음원만 지원해요.'); return; }
-        if(mb>5){ if(!confirm('이 음원은 좀 큰 편이에요(약 '+mb.toFixed(1)+'MB). 받아쓰기가 실패하거나 앞부분만 인식될 수 있어요.\n\n그래도 진행할까요?')) return; }
-        const durl=await blobToDataURL(rec.blob);
-        audioBase64=String(durl).split(',')[1]||'';
+        if(mb>20){
+          // 2026-09-06: 예전엔 음원이 크면 텍스트가 같이 있어도 그냥 통째로 멈췄음 — jam님 요청으로
+          // 텍스트가 있으면 "음원은 빼고 텍스트만이라도" 자동 진행할지 물어보게 바꿈.
+          if(src && confirm('음원이 너무 큽니다(약 '+mb.toFixed(1)+'MB). 20MB 이하 음원만 지원해요.\n\n음원은 빼고 텍스트만 정리할까요?')){
+            // audioBase64는 빈 채로 두고 아래 텍스트만으로 계속 진행.
+          } else {
+            if(!src) alert('음원이 너무 큽니다(약 '+mb.toFixed(1)+'MB). 20MB 이하 음원만 지원해요.');
+            return;
+          }
+        } else {
+          if(mb>5 && !confirm('이 음원은 좀 큰 편이에요(약 '+mb.toFixed(1)+'MB). 받아쓰기가 실패하거나 앞부분만 인식될 수 있어요.\n\n그래도 진행할까요?')) return;
+          const durl=await blobToDataURL(rec.blob);
+          audioBase64=String(durl).split(',')[1]||'';
+        }
       }
     }catch(e){ /* 음원을 못 읽으면 텍스트만으로 진행 */ }
   }
