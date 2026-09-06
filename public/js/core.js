@@ -387,9 +387,10 @@ function go(s){
   const tb=document.getElementById('tab-'+s); if(tb) tb.classList.add('on');
   const nav=document.querySelector('nav.tabs'); if(nav) nav.style.display='flex';
   const fab=document.getElementById('fab');
-  if(fab) fab.style.display = (s==='analysis'||s==='ap'||s==='ta'||s==='customermgmt')?'none':'flex';
+  if(fab) fab.style.display = (s==='analysis'||s==='ap'||s==='ta'||s==='customermgmt'||s==='cmqna')?'none':'flex';
   if(s==='ta') renderTA();
   if(s==='customermgmt') fillCmSelect();
+  if(s==='cmqna') renderCmQnaScreen();
   if(s==='customers') renderCustomers();
   if(s==='pools'){ renderPools(); renderPoolCtx(); }
   if(s==='analysis'){

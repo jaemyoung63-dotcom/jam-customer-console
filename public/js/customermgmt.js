@@ -404,23 +404,38 @@ async function aiOrganizeHistory(text, audioBase64){
 
 /* ---- Q&A 코너 (2026-09-06, 6탭 개편 4단계) ----
    저장된 히스토리 요약(summary)만 근거로 자유 질문에 답한다. 원문(rawText)은 안 보내고,
-   최근 항목 위주로 글자 수를 제한해서(6000자) 히스토리가 쌓여도 비용이 크게 안 늘게 한다. */
+   최근 항목 위주로 글자 수를 제한해서(6000자) 히스토리가 쌓여도 비용이 크게 안 늘게 한다.
+   2026-09-06(추가): jam님 요청으로 팝업(openSubPage) 대신 별도 화면(#s-cmqna)으로 전환하고,
+   물어본 질문·답변을 c.qnaHistory에 쌓아서 통화 히스토리처럼 계속 다시 볼 수 있게 함. */
 function openCmQna(){
   const c=customers.find(x=>x.id===cmCustId); if(!c) return;
-  const hist=(c.history||[]);
-  if(!hist.length){ alert('아직 히스토리 기록이 없어서 물어볼 내용이 없어요. 먼저 위에서 통화·상담 기록을 몇 개 쌓아주세요.'); return; }
-  let h='<div class="meta" style="margin-bottom:10px">'+esc(c.name)+' 고객의 히스토리 기록(총 '+hist.length+'건)만 근거로 답해요. 반응·전략을 물으면 어느 기록의 어떤 내용을 근거로 했는지 밝히고, 긍정적인 면·우려되는 점·고객 입장·제안까지 정리해서 답해요.</div>';
+  if(!(c.history||[]).length){ alert('아직 히스토리 기록이 없어서 물어볼 내용이 없어요. 먼저 위에서 통화·상담 기록을 몇 개 쌓아주세요.'); return; }
+  go('cmqna');
+}
+function renderCmQnaScreen(){
+  const c=customers.find(x=>x.id===cmCustId);
+  const body=document.getElementById('cmqna-body'); if(!body) return;
+  header('Q&A · '+(c?c.name:''), '히스토리 기록을 근거로 질문에 답해요');
+  if(!c){ body.innerHTML='<div class="empty">먼저 "고객관리"에서 고객을 선택하세요.</div>'; return; }
+  const hist=c.history||[];
+  const qna=(c.qnaHistory||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  let h='<button class="btn ghost sm" onclick="go(\'customermgmt\')">‹ 고객관리로</button>';
+  h+='<div class="meta" style="margin:10px 0">'+esc(c.name)+' 고객의 히스토리 기록(총 '+hist.length+'건)만 근거로 답해요. 반응·전략을 물으면 어느 기록의 어떤 내용을 근거로 했는지 밝히고, 긍정적인 면·우려되는 점·고객 입장·제안까지 정리해서 답해요.</div>';
   h+='<textarea class="t" id="cm-qna-q" rows="3" placeholder="예) 이 고객 다음에 어떻게 접근하면 좋을까? / 지난번 통화 반응이 어땠어?"></textarea>';
   h+='<button class="btn btn-ai wide" style="margin-top:8px" onclick="askCmQna()">🤖 물어보기</button>';
-  h+='<div id="cm-qna-answer" style="margin-top:16px"></div>';
-  openSubPage('Q&A · '+c.name, h);
+  h+='<div id="cmqna-answer" style="margin-top:16px"></div>';
+  h+='<div class="divider"></div>';
+  h+='<label class="f">질문 기록 ('+qna.length+')</label>';
+  h+='<div id="cmqna-list"></div>';
+  body.innerHTML=h;
+  renderCmQnaList();
 }
 async function askCmQna(){
   const c=customers.find(x=>x.id===cmCustId); if(!c) return;
   const qEl=document.getElementById('cm-qna-q');
   const q=(qEl&&qEl.value||'').trim();
   if(!q){ alert('질문을 입력하세요.'); return; }
-  const box=document.getElementById('cm-qna-answer');
+  const box=document.getElementById('cmqna-answer');
   if(box) box.innerHTML='<div class="meta">답변 생각하는 중…</div>';
   try{
     const historyText=buildCmHistoryText(c);
@@ -433,9 +448,57 @@ async function askCmQna(){
     const hasSections=/^\[.*\]$/m.test(answer);
     const inner=hasSections ? linesBlock(answer) : '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(answer)+'</div>';
     if(box) box.innerHTML='<div style="padding:12px;background:var(--paper2,var(--paper));border:1px solid var(--line);border-radius:10px">'+inner+'</div>';
+    // 통화 히스토리처럼 질문·답변을 계속 쌓아서 나중에 다시 볼 수 있게 저장.
+    c.qnaHistory=c.qnaHistory||[];
+    c.qnaHistory.push({id:'q_'+uid(), at:now(), question:q, answer:answer});
+    await idbPut('customers',c); customers=await idbAll('customers');
+    if(qEl) qEl.value='';
+    renderCmQnaList();
+    const lbl=document.querySelector('#cmqna-body label.f'); if(lbl) lbl.textContent='질문 기록 ('+c.qnaHistory.length+')';
   }catch(err){
     if(box) box.innerHTML='<div class="meta" style="color:#C0392B">답변 실패: '+esc(err&&err.message?err.message:String(err))+'</div>';
   }
+}
+function renderCmQnaList(){
+  const c=customers.find(x=>x.id===cmCustId); if(!c) return;
+  const wrap=document.getElementById('cmqna-list'); if(!wrap) return;
+  const qna=(c.qnaHistory||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  if(!qna.length){ wrap.innerHTML='<div class="stage-note">아직 물어본 게 없습니다.</div>'; return; }
+  wrap.innerHTML=qna.map(item=>cmQnaCard(item)).join('');
+}
+// 히스토리 카드(cmHistoryCard)와 같은 2줄 형식 — 날짜+질문 한 줄, 답변 미리보기 한 줄.
+function cmQnaCard(item){
+  const preview=(item.answer||'(답변 없음)').replace(/\s*\n+\s*/g,' · ').replace(/^\[[^\]]*\]\s*/,'').trim();
+  return '<div class="card tap" style="margin-bottom:8px;padding:11px 13px;position:relative" onclick="viewCmQna(\''+item.id+'\')">'
+    +'<div style="display:flex;align-items:baseline;gap:6px;font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap;padding-right:28px">'
+      +'<span style="flex-shrink:0">💬</span>'
+      +'<span style="flex-shrink:0;font-weight:600;font-size:12px;color:var(--ink-mute)">'+esc(cmDateShort(item.at))+'</span>'
+      +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.question||'(질문 없음)')+'</span>'
+    +'</div>'
+    +'<div style="margin-top:3px;font-size:12px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:28px">'+esc(preview)+'</div>'
+    +'<button onclick="event.stopPropagation();deleteCmQna(\''+item.id+'\')" title="삭제" style="position:absolute;top:6px;right:6px;width:28px;height:28px;background:none;border:none;color:var(--ink-mute);font-size:16px;cursor:pointer;line-height:1;border-radius:50%">✕</button>'
+  +'</div>';
+}
+function viewCmQna(id){
+  const c=customers.find(x=>x.id===cmCustId); if(!c) return;
+  const item=(c.qnaHistory||[]).find(x=>x.id===id); if(!item) return;
+  let h='<div class="meta" style="margin-bottom:6px">'+esc(item.at||'')+'</div>';
+  h+='<div style="font-weight:700;font-size:14.5px;color:var(--ink);margin-bottom:10px">Q. '+esc(item.question||'')+'</div>';
+  const answer=item.answer||'(답변 없음)';
+  const hasSections=/^\[.*\]$/m.test(answer);
+  h += hasSections ? linesBlock(answer) : '<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(answer)+'</div>';
+  h+='<div class="row" style="margin-top:16px"><button class="btn danger sm" onclick="deleteCmQna(\''+id+'\')">이 질문 삭제</button></div>';
+  openSubPage('Q&A 기록', h);
+}
+async function deleteCmQna(id){
+  if(!confirm('이 질문·답변을 삭제할까요?')) return;
+  const c=customers.find(x=>x.id===cmCustId); if(!c) return;
+  c.qnaHistory=(c.qnaHistory||[]).filter(x=>x.id!==id);
+  await idbPut('customers',c); customers=await idbAll('customers');
+  closeSheet('ov-subpage');
+  renderCmQnaList();
+  const lbl=document.querySelector('#cmqna-body label.f'); if(lbl) lbl.textContent='질문 기록 ('+c.qnaHistory.length+')';
+  toast('✓ 삭제했습니다'); setTimeout(toastHide,1200);
 }
 /* 최신 항목부터 6000자 예산 안에서 채우고, 다시 오래된 순으로 정렬해 흐름대로 읽히게 한다. */
 function buildCmHistoryText(c){
