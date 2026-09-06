@@ -389,7 +389,7 @@ function go(s){
   const fab=document.getElementById('fab');
   if(fab) fab.style.display = (s==='analysis'||s==='ap'||s==='ta'||s==='customermgmt')?'none':'flex';
   if(s==='ta') renderTA();
-  if(s==='customermgmt') renderCustomerMgmt();
+  if(s==='customermgmt') fillCmSelect();
   if(s==='customers') renderCustomers();
   if(s==='pools'){ renderPools(); renderPoolCtx(); }
   if(s==='analysis'){
@@ -447,10 +447,8 @@ function taItemCard(p){
     +'<div class="pill-tags">'+tags+'</div>'
     +'<div class="meta" style="margin-top:6px;">'+(p.created||'')+(p.audio?' · ♪ 음원':'')+((p.images&&p.images.length)?' · ◇ 이미지 '+p.images.length:'')+'</div></div>';
 }
-function renderCustomerMgmt(){
-  header('고객관리', '통화·상담 히스토리 모아보기 + Q&A (준비중)');
-  document.getElementById('cm-body').innerHTML='<div class="empty">고객관리 화면은 준비 중입니다.<br>완성되면 이 고객과의 통화·상담 히스토리를 모아보고, Q&A로 물어볼 수 있게 됩니다.</div>';
-}
+/* 고객관리 화면 자체(fillCmSelect·renderCmBody 등)는 js/customermgmt.js에 있다
+   (2026-09-06 3단계 — 음원/텍스트 → AI 정리 → 히스토리 타임라인). Q&A(4단계)는 아직 없음. */
 function enterCustomers(){ currentCustId=null; go('customers'); }
 // 2026-08-17: 참조풀은 이제 공용(관리자 화면에서만 추가·수정)이라, 이 화면(+ 버튼)에서는
 // 더 이상 새 자료를 추가하지 않는다 — 안내만 띄운다.

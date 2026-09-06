@@ -190,8 +190,12 @@
     <div id="ap-body"></div>
   </div>
 
-  <!-- ===== 고객관리 (히스토리·Q&A, 준비중) ===== -->
+  <!-- ===== 고객관리 (히스토리) ===== -->
   <div class="screen" id="s-customermgmt">
+    <div id="cm-picker">
+      <label class="f" style="margin:0 0 4px">고객관리할 고객</label>
+      <select class="t" id="cm-custsel" onchange="onCmCustSel()"></select>
+    </div>
     <div id="cm-body"></div>
   </div>
 </div>
@@ -450,6 +454,7 @@
 <script src="js/pools.js"></script>
 <script src="js/analysis.js"></script>
 <script src="js/ap.js"></script>
+<script src="js/customermgmt.js"></script>
 <script src="js/voice.js"></script>
 <script src="js/advisor.js"></script>
 </body>

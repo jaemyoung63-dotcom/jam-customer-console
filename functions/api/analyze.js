@@ -12,6 +12,7 @@ import {
   apSystem as buildApSystem,
   summarizeSystem as buildSummarizeSystem,
   organizePoolSystem as buildOrganizePoolSystem,
+  organizeHistorySystem as buildOrganizeHistorySystem,
   planSystem as buildPlanSystem,
   analyzeSystem as buildAnalyzeSystem
 } from '../_lib/prompts.js';
@@ -308,6 +309,56 @@ export async function onRequestPost(context) {
         tags: tags,
         transcript: transcript || undefined,
         _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || oModel }
+      });
+    } catch (err) {
+      return json({ error: '정리 실패: ' + (err && err.message ? err.message : String(err)) }, 500);
+    }
+  }
+
+  // 고객관리 히스토리 정리 모드(2026-09-06 추가): 담당자가 "고객관리" 화면에 올린 통화·상담
+  // 음원/텍스트를 "무슨 일이 있었는지" 기록으로 정리한다. organize_pool(관리자 공용 자료)과 달리
+  // 이건 담당자 개인이 자기 고객에 대해 쓰는 기능이라, 위 2단계 분기에서 이미 일반 담당자
+  // 로그인(checkAdvisor)으로 인증됐다 — 관리자 비밀번호가 필요 없다.
+  if (payload.mode === 'organize_history') {
+    let src = (payload.text || '').trim();
+    const audioBase64 = (payload.audioBase64 || '').toString();
+    let transcript = '';
+    if (audioBase64) {
+      if (!context.env.AI) {
+        return json({ error: '음성인식을 쓰려면 Cloudflare Pages 프로젝트에 "Workers AI" 바인딩(변수명 AI)을 추가하고 다시 배포해야 합니다.' }, 400);
+      }
+      const approxBytes = Math.floor(audioBase64.length * 3 / 4);
+      if (approxBytes > 20 * 1024 * 1024) {
+        return json({ error: '음원이 너무 큽니다(약 ' + Math.round(approxBytes / (1024 * 1024)) + 'MB). 20MB 이하 음원만 지원해요.' }, 400);
+      }
+      try {
+        const whisperRes = await context.env.AI.run('@cf/openai/whisper-large-v3-turbo', { audio: audioBase64 });
+        transcript = (whisperRes && whisperRes.text) ? String(whisperRes.text).trim() : '';
+        if (!transcript) return json({ error: '음성에서 글자를 읽어내지 못했습니다. 음원이 너무 길어 중간에 끊겼거나 인식이 어려운 음질일 수 있어요. 더 짧게 나눠 시도해보세요.' }, 400);
+      } catch (err) {
+        return json({ error: '음성인식 실패: ' + (err && err.message ? err.message : String(err)) + ' — 음원이 크면 실패할 수 있어요. 더 짧게 나눠보세요.' }, 500);
+      }
+    }
+    if (transcript) src = src ? (src + '\n\n[음원 인식 내용]\n' + transcript) : transcript;
+    if (!src) return json({ error: '정리할 내용이 없습니다.' }, 400);
+
+    const hModel = context.env.TIDY_MODEL || 'claude-haiku-4-5-20251001';
+    const hsys = buildOrganizeHistorySystem();
+    try {
+      const rr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: hModel, max_tokens: 1400, system: sysCached(hsys), messages: [{ role: 'user', content: src.slice(0, 20000) }] })
+      });
+      const rd = await rr.json();
+      if (!rr.ok) { const msg = (rd && rd.error && rd.error.message) ? rd.error.message : ('API 오류 (' + rr.status + ')'); return json({ error: msg }, rr.status); }
+      const raw = (rd.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      const parsed = parseModelJson(raw) || {};
+      return json({
+        title: (parsed.title || '').toString().slice(0, 60),
+        summary: (parsed.summary || '').toString().slice(0, 800),
+        transcript: transcript || undefined,
+        _usage: { input_tokens: (rd.usage && rd.usage.input_tokens) || 0, output_tokens: (rd.usage && rd.usage.output_tokens) || 0, model: rd.model || hModel }
       });
     } catch (err) {
       return json({ error: '정리 실패: ' + (err && err.message ? err.message : String(err)) }, 500);

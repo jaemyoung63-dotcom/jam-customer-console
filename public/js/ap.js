@@ -221,6 +221,14 @@ async function saveConsultResult(){
   if(c.consultResult==='성공') c.seg='계약';
   else if(c.consultResult && c.seg!=='계약') c.seg='상담';
   c.consultResultAt=now();
+  // 2026-09-06: 고객관리(js/customermgmt.js) 히스토리 타임라인에도 자동으로 한 줄 남긴다.
+  c.history=c.history||[];
+  c.history.push({
+    id:'h_'+uid(), at:c.consultResultAt,
+    title:'AP 상담결과: '+(c.consultResult||'기록'),
+    summary:((c.consultMemo||'').trim()||'(메모 없음)')+(c.nextFollowUp?('\n다음 일정: '+c.nextFollowUp):''),
+    source:'ap'
+  });
   await idbPut('customers',c); customers=await idbAll('customers');
   closeSheet('ov-consult');
   toast('✓ 상담결과가 저장됐어요'); setTimeout(toastHide,2200);

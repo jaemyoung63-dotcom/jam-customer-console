@@ -132,6 +132,25 @@ export function organizePoolSystem({ poolTypeLabel = '참조 자료' } = {}) {
 }
 
 /**
+ * [organize_history] 고객관리 화면 — 통화·상담 히스토리 정리
+ * 입력: text(원문 또는 음원 인식 텍스트)
+ * 출력: JSON { title, summary }
+ * 모델: TIDY_MODEL (기본값: Haiku 4.5)
+ * 비고: organize_pool과 달리 관리자 공용 자료가 아니라 담당자 개인 고객의 히스토리 1건이라,
+ *       가벼운 형식(제목+요약)만 만든다. 2026-09-06 6탭 개편(고객관리) 3단계에서 추가.
+ */
+export function organizeHistorySystem() {
+  return [
+    '당신은 보험설계사가 고객과 나눈 통화·상담 내용을 정리해 히스토리 기록으로 남기는 조수입니다.',
+    '아래 원문을 읽고, 다른 설명 없이 아래 JSON 형식으로만 답하세요:',
+    '{"title":"이 기록을 8~20자로 나타내는 제목(예: 보험료 부담 문의 통화)","summary":"실제 있었던 일을 개조식(하이픈 -)으로 정리. 날짜·고객 반응·다음 일정·요청사항 등 나중에 참고할 내용 위주로. 800자를 넘지 않게."}',
+    '원문에 없는 내용은 지어내지 마세요.',
+    '이 원문은 휴대폰 음성녹음의 자동 문자변환 결과일 수 있어, 오탈자·잘못 들린 단어가 섞여 있을 수 있습니다.',
+    '사람 이름·숫자(날짜·금액 등)가 문맥상 어색하거나 확실치 않으면, 임의로 고치거나 그럴듯하게 추측하지 말고 원문 표현 뒤에 "(확인 필요)"를 붙여 표시하세요.'
+  ].join('\n');
+}
+
+/**
  * [plan] 가입설계서(신규 제안 설계) 분석 — 현재 보장분석 + 가입설계서 사진으로 부족·보완 분석
  * 입력: focusAreas/excludeAreas(집중·제외 영역), episodesText·catalogText 계열(참조풀 자료, Fixed=전역고정, Dynamic=고객맞춤)
  * 출력: JSON { shortfallRate, summary, planDetail, questions }
