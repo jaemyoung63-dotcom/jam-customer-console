@@ -50,6 +50,10 @@ function renderCmBody(){
     +'<button class="btn ghost sm" onclick="pickCmText()">📁 폴더에서 선택</button>'
     +'<button class="btn ghost sm" onclick="pickCmTextDrive()">☁️ 구글드라이브에서 가져오기</button>'
     +'</div>';
+  // 2026-09-06: 텍스트·음원 파일을 넣어도 뭘 넣었는지 안 보인다는 jam님 피드백 — 지금까지 넣은
+  // 파일 이름을 칩(chip) 목록으로 보여주고, ×로 개별 삭제도 가능하게 함(advisor.js 관리자
+  // 화면의 파일 목록과 같은 방식).
+  h+='<div class="pill-tags" id="cm-filelist" style="margin-top:6px"></div>';
 
   h+='<div style="font-size:12.5px;color:var(--ink-mute);margin:14px 0 4px">음원(선택)</div>';
   h+='<div id="cm-audiodrop" style="border:1.5px dashed var(--line-strong);border-radius:10px;padding:6px;min-height:40px">'
@@ -76,6 +80,7 @@ function renderCmBody(){
 
   body.innerHTML=h;
   renderCmAudio();
+  renderCmFileList();
   const textDrop=document.getElementById('cm-textdrop');
   if(textDrop) enableDrop(textDrop, handleCmDropFile, f=>(f.type&&f.type.indexOf('text')===0)||/\.txt$/i.test(f.name||''));
   const audioDrop=document.getElementById('cm-audiodrop');
@@ -134,21 +139,30 @@ function syncCmFields(){
 function handleCmDropFile(file){
   if(!file) return;
   const isAudio=(file.type&&file.type.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(file.name||'');
-  if(isAudio){ attachCmAudioFile(file); return; }
+  if(isAudio){ attachCmAudioFile(file, file.name); return; }
   appendCmText(file);
 }
-async function appendCmText(file){
+// 2026-09-06: 파일을 넣어도 뭘 넣었는지 안 보인다는 피드백 — advisor.js 관리자 화면과 같은 방식으로,
+// 텍스트 파일은 "━━━ 📄 파일명 ━━━" 구분선으로 본문에 표시하고 _cmPending.files 목록에도 남긴다.
+// nameOverride는 구글드라이브에서 가져온 경우처럼 file 객체에 .name이 없을 때 씀.
+async function appendCmText(file, nameOverride){
   try{
     const full=(await file.text()||'').trim();
     if(!full){ alert('파일에서 읽을 텍스트가 없습니다. (텍스트(.txt) 파일만 여기서 지원해요, 음원은 아래 음원 칸에)'); return; }
     syncCmFields();
-    _cmPending.rawText = _cmPending.rawText ? (_cmPending.rawText+'\n\n'+full) : full;
+    const name=nameOverride || file.name || '텍스트';
+    const header='━━━ 📄 '+name+' ━━━';
+    const block=header+'\n'+full;
+    _cmPending.rawText = _cmPending.rawText ? (_cmPending.rawText+'\n\n'+block) : block;
     const ta=document.getElementById('cm-rawtext'); if(ta) ta.value=_cmPending.rawText;
+    _cmPending.files=_cmPending.files||[];
+    _cmPending.files.push({kind:'text', name:name, header:header});
+    renderCmFileList();
   }catch(err){ alert('파일 처리 실패: '+(err&&err.message?err.message:err)); }
 }
 function pickCmAudio(){
   const inp=document.getElementById('audio-input'); inp.value='';
-  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await attachCmAudioFile(f);};
+  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await attachCmAudioFile(f, f.name);};
   inp.click();
 }
 // 2026-09-06: pools.js pickPoolText()/advisor.js pickAdminPoolText()와 같은 방식 — 공용 숨김
@@ -157,6 +171,35 @@ function pickCmText(){
   const inp=document.getElementById('txt-input'); inp.value='';
   inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await appendCmText(f);};
   inp.click();
+}
+/* 지금까지 넣은 텍스트·음원 파일 이름을 칩(chip) 목록으로 보여준다. ×를 누르면
+   텍스트는 본문에서 그 블록만 제거, 음원은 첨부 해제(removeCmAudio 재사용). */
+function renderCmFileList(){
+  const wrap=document.getElementById('cm-filelist'); if(!wrap) return;
+  const files=(_cmPending&&_cmPending.files)||[];
+  wrap.innerHTML=files.map((f,i)=>'<span class="pt">'+(f.kind==='audio'?'🎤 ':'📄 ')+esc(f.name)
+    +' <b style="cursor:pointer;color:var(--danger,#e5484d);margin-left:4px" onclick="removeCmFileAt('+i+')">×</b></span>').join('');
+}
+async function removeCmFileAt(i){
+  const files=(_cmPending&&_cmPending.files)||[]; const f=files[i]; if(!f) return;
+  if(!confirm((f.name||'이 파일')+'을(를) 삭제할까요?')) return;
+  if(f.kind==='audio'){ await removeCmAudio(); return; } // removeCmAudio가 files 정리·재렌더까지 함
+  syncCmFields();
+  const txt=_cmPending.rawText||'';
+  const header=f.header||('━━━ 📄 '+f.name+' ━━━');
+  const start=txt.indexOf(header);
+  if(start<0){
+    alert('이 파일이 본문에서 직접 수정된 것 같아 자동으로 정확히 빼지 못했어요. 본문에서 해당 내용을 직접 확인·삭제해주세요. (목록에서는 지웁니다)');
+  } else {
+    const after=txt.indexOf('━━━', start+header.length);
+    const end=(after<0)?txt.length:after;
+    let removed=txt.slice(0,start)+txt.slice(end);
+    removed=removed.replace(/\n{3,}/g,'\n\n').replace(/^\s+|\s+$/g,'');
+    _cmPending.rawText=removed;
+    const ta=document.getElementById('cm-rawtext'); if(ta) ta.value=_cmPending.rawText;
+  }
+  _cmPending.files.splice(i,1);
+  renderCmFileList();
 }
 /* ---- 구글 드라이브 연동 (2026-09-06) ----
    jam님이 Google Cloud Console에서 직접 발급받은 값. API 키·클라이언트 ID는 카카오 JS키처럼
@@ -237,21 +280,26 @@ async function onGoogleDrivePicked(data){
     if(!res.ok) throw new Error('다운로드 실패(상태 '+res.status+')');
     const blob=await res.blob();
     toastHide();
-    if(target==='text') await appendCmText(blob);
-    else await attachCmAudioFile(blob);
+    if(target==='text') await appendCmText(blob, name);
+    else await attachCmAudioFile(blob, name);
     toast('✓ 구글 드라이브에서 "'+name+'" 가져왔어요'); setTimeout(toastHide,2000);
   }catch(err){
     toastHide();
     alert('구글 드라이브에서 파일을 가져오지 못했어요: '+(err&&err.message?err.message:err));
   }
 }
-async function attachCmAudioFile(file){
+// nameOverride: 구글드라이브에서 가져온 Blob은 .name이 없어서 따로 넘겨받는다.
+async function attachCmAudioFile(file, nameOverride){
   syncCmFields();
   const rid=uid();
   await idbPut('images',{id:rid,kind:'음원',blob:file,created:today()});
   if(_cmPending.audio) await idbDel('images',_cmPending.audio);
   _cmPending.audio=rid;
+  // 음원은 한 번에 하나만 유지되니, 파일 목록에서도 이전 음원 항목을 빼고 새로 하나만 넣는다.
+  _cmPending.files=(_cmPending.files||[]).filter(f=>f.kind!=='audio');
+  _cmPending.files.push({kind:'audio', name:(nameOverride||(file&&file.name)||'음원')});
   renderCmAudio();
+  renderCmFileList();
 }
 function renderCmAudio(){
   const wrap=document.getElementById('cm-audio'); if(!wrap) return;
@@ -270,7 +318,9 @@ function renderCmAudio(){
 }
 async function removeCmAudio(){
   if(_cmPending&&_cmPending.audio){ await idbDel('images',_cmPending.audio); _cmPending.audio=null; }
+  if(_cmPending) _cmPending.files=(_cmPending.files||[]).filter(f=>f.kind!=='audio');
   renderCmAudio();
+  renderCmFileList();
 }
 
 /* ---- AI로 정리 → 히스토리 항목 추가 ---- */
