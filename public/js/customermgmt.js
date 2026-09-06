@@ -101,6 +101,7 @@ function viewCmHistory(id){
   const c=customers.find(x=>x.id===cmCustId); if(!c) return;
   const item=(c.history||[]).find(x=>x.id===id); if(!item) return;
   let h='<div class="meta" style="margin-bottom:10px">'+esc(item.at||'')+'</div>';
+  if(item.reaction) h+='<div style="font-size:13px;font-weight:700;color:#0B7A5C;background:#E6F8F0;border-radius:9px;padding:8px 11px;margin-bottom:12px">🎯 반응·관심도: '+esc(item.reaction)+'</div>';
   h+='<div style="white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)">'+esc(item.summary||'(내용 없음)')+'</div>';
   if(item.rawText) h+='<div style="font-weight:700;margin:16px 0 4px">원문</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.7;color:var(--ink-mute)">'+esc(item.rawText)+'</div>';
   h+='<div class="row" style="margin-top:16px"><button class="btn danger sm" onclick="deleteCmHistory(\''+id+'\')">이 기록 삭제</button></div>';
@@ -274,6 +275,9 @@ async function organizeCmEntry(){
       at: now(),
       title: (d.title||'').trim() || '기록',
       summary: d.summary||'',
+      // 2026-09-06: 받아쓰기 글에 남아있는 어조 단서(망설임·반복질문·즉각 반응 등)로 AI가 읽은
+      // 관심도·반응을 별도 필드로 저장 — Q&A에서 "반응이 어땠어?" 같은 질문에 답할 근거가 됨.
+      reaction: (d.reaction||'').trim(),
       rawText: d.transcript ? ((src?src+'\n\n':'')+'[음원 인식 내용]\n'+d.transcript) : src,
       hadAudio: !!audioBase64,
       source:'call'
@@ -342,7 +346,7 @@ function buildCmHistoryText(c){
   const hist=(c.history||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
   const chosen=[]; let total=0;
   for(const item of hist){
-    const block='['+(item.at||'')+'] '+(item.title||'')+'\n'+(item.summary||'')+'\n\n';
+    const block='['+(item.at||'')+'] '+(item.title||'')+'\n'+(item.summary||'')+(item.reaction?('\n반응: '+item.reaction):'')+'\n\n';
     if(total+block.length>6000) break;
     chosen.push(block); total+=block.length;
   }
