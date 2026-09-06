@@ -371,7 +371,7 @@ function header(title,sub,micFn){
   const h=document.createElement('header'); h.className='top';
   const mic = micFn ? '<button class="mic-btn" id="hdr-mic-btn" aria-label="음성 명령" title="음성으로 고객 찾기·추가">🎤</button>' : '';
   // 2026-09-06: 홈 버튼을 하단 탭에서 빼면서, 화면 상단 우측(제목 오른쪽 끝)으로 이동.
-  h.innerHTML='<div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic+'<button class="home-btn" onclick="goHome()" aria-label="홈">⌂</button>';
+  h.innerHTML='<div class="ht"><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+mic+'<button class="home-btn" onclick="goHome()" aria-label="홈"><span class="ic">⌂</span><span class="lbl">홈</span></button>';
   document.getElementById('app').prepend(h);
   if(micFn){ const mb2=document.getElementById('hdr-mic-btn'); if(mb2) mb2.onclick=micFn; }
 }
