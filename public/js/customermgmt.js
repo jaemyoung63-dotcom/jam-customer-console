@@ -124,8 +124,78 @@ function pickCmAudio(){
   inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await attachCmAudioFile(f);};
   inp.click();
 }
+/* ---- 구글 드라이브 연동 (2026-09-06) ----
+   jam님이 Google Cloud Console에서 직접 발급받은 값. API 키·클라이언트 ID는 카카오 JS키처럼
+   웹페이지 코드에 그대로 들어가도 되는 값(도메인 제한을 걸어뒀음) — 절대 비밀로 지켜야 하는
+   "클라이언트 보안 비밀"은 이 방식(웹 애플리케이션)에서는 아예 안 쓴다.
+   scope는 drive.file — 사용자가 Picker에서 직접 고른 파일에만 접근(드라이브 전체를 보는 권한 아님). */
+const GOOGLE_API_KEY='AIzaSyAnDQTfDa0YpvcJnXgxGZR931qYbrDfKWg';
+const GOOGLE_CLIENT_ID='161287319413-3qlg5ug6ltmch0ag8csb40rbhhoapgsl.apps.googleusercontent.com';
+const GOOGLE_APP_ID='161287319413';
+const GOOGLE_DRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
+let _gpPickerInited=false, _gpGisInited=false, _gpTokenClient=null, _gpAccessToken=null;
+
+/* index.html의 <script onload="onGoogleApiLoad()">/<script onload="onGoogleGisLoad()"> 에서 호출됨. */
+function onGoogleApiLoad(){ if(window.gapi) gapi.load('picker', ()=>{ _gpPickerInited=true; }); }
+function onGoogleGisLoad(){
+  if(!window.google || !google.accounts || !google.accounts.oauth2) return;
+  _gpTokenClient=google.accounts.oauth2.initTokenClient({ client_id:GOOGLE_CLIENT_ID, scope:GOOGLE_DRIVE_SCOPE, callback:'' });
+  _gpGisInited=true;
+}
+
 function pickCmAudioDrive(){
-  alert('구글드라이브에서 바로 가져오기는 아직 준비 중이에요(구글 계정 연동 설정이 추가로 필요해요).\n\n지금은 구글드라이브 앱에서 음원 파일을 기기로 내려받은 뒤, "📁 폴더에서 선택"으로 올려주세요.');
+  if(!_gpPickerInited || !_gpGisInited){
+    alert('구글 드라이브 연동을 불러오는 중이에요. 인터넷 연결을 확인하고 3~5초 뒤 다시 눌러주세요. 계속 안 되면 새로고침 해보세요.');
+    return;
+  }
+  _gpTokenClient.callback=(resp)=>{
+    if(resp.error){ toast('구글 로그인/권한 요청이 취소됐어요'); setTimeout(toastHide,1800); return; }
+    _gpAccessToken=resp.access_token;
+    showGoogleDrivePicker();
+  };
+  // 처음 연결할 땐 항상 동의 화면을 보여주고, 이미 허용한 세션이면 다시 안 물어본다.
+  _gpTokenClient.requestAccessToken({prompt: _gpAccessToken===null ? 'consent' : ''});
+}
+
+function showGoogleDrivePicker(){
+  const view=new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setIncludeFolders(false)
+    .setSelectFolderEnabled(false);
+  const picker=new google.picker.PickerBuilder()
+    .setOAuthToken(_gpAccessToken)
+    .setDeveloperKey(GOOGLE_API_KEY)
+    .setAppId(GOOGLE_APP_ID)
+    .addView(view)
+    .setCallback(onGoogleDrivePicked)
+    .build();
+  picker.setVisible(true);
+}
+
+/* 사용자가 Picker에서 파일을 고르면, Drive API로 그 파일의 실제 내용을 내려받아
+   기존 attachCmAudioFile()에 그대로 넘긴다(드래그&드롭·폴더선택과 이후 흐름이 동일). */
+async function onGoogleDrivePicked(data){
+  if(data[google.picker.Response.ACTION]!==google.picker.Action.PICKED) return;
+  const doc=data[google.picker.Response.DOCUMENTS][0]; if(!doc) return;
+  const fileId=doc[google.picker.Document.ID];
+  const name=doc[google.picker.Document.NAME]||'파일';
+  const mime=doc[google.picker.Document.MIME_TYPE]||'';
+  const isAudio=(mime.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(name);
+  if(!isAudio && !confirm('선택한 파일("'+name+'")이 음원 파일이 아닌 것 같아요. 그래도 가져올까요?')) return;
+
+  toast('구글 드라이브에서 가져오는 중…');
+  try{
+    const res=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media', {
+      headers:{ 'Authorization':'Bearer '+_gpAccessToken }
+    });
+    if(!res.ok) throw new Error('다운로드 실패(상태 '+res.status+')');
+    const blob=await res.blob();
+    toastHide();
+    await attachCmAudioFile(blob);
+    toast('✓ 구글 드라이브에서 "'+name+'" 가져왔어요'); setTimeout(toastHide,2000);
+  }catch(err){
+    toastHide();
+    alert('구글 드라이브에서 파일을 가져오지 못했어요: '+(err&&err.message?err.message:err));
+  }
 }
 async function attachCmAudioFile(file){
   syncCmFields();
