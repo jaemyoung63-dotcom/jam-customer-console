@@ -435,9 +435,11 @@ function renderTA(){
   header('TA', 'DB 고객·지인 고객에게 전화·상담할 때 쓸 요령');
   const items=pools.filter(p=>p.poolType==='ta').sort((a,b)=>(b.created||'').localeCompare(a.created||''));
   const wrap=document.getElementById('ta-body');
-  if(!items.length){ wrap.innerHTML='<div class="empty">아직 등록된 TA 자료가 없습니다.<br>자료 등록은 "⚙ 관리자 화면 → TA 관리"에서 합니다.</div>'; return; }
+  const nextBtn='<button class="btn primary wide" style="margin-top:14px" onclick="go(\'customers\')">다음: 고객정보 →</button>';
+  if(!items.length){ wrap.innerHTML='<div class="empty">아직 등록된 TA 자료가 없습니다.<br>자료 등록은 "⚙ 관리자 화면 → TA 관리"에서 합니다.</div>'+nextBtn; return; }
   let html='<div class="meta" style="margin-bottom:10px">📌 TA 자료는 "⚙ 관리자 화면 → TA 관리"에서 관리합니다. 항목을 눌러 전화·상담 요령을 확인하세요.</div>';
   items.forEach(p=>{ html+=taItemCard(p); });
+  html+=nextBtn;
   wrap.innerHTML=html;
 }
 function taItemCard(p){
@@ -449,7 +451,8 @@ function taItemCard(p){
 }
 /* 고객관리 화면 자체(fillCmSelect·renderCmBody 등)는 js/customermgmt.js에 있다
    (2026-09-06 3단계 — 음원/텍스트 → AI 정리 → 히스토리 타임라인). Q&A(4단계)는 아직 없음. */
-function enterCustomers(){ currentCustId=null; go('customers'); }
+// 2026-09-06: 6탭 흐름상 시작은 TA(전화·상담 요령)부터 — 고객정보로 바로 넘어가지 않는다.
+function enterCustomers(){ currentCustId=null; go('ta'); }
 // 2026-08-17: 참조풀은 이제 공용(관리자 화면에서만 추가·수정)이라, 이 화면(+ 버튼)에서는
 // 더 이상 새 자료를 추가하지 않는다 — 안내만 띄운다.
 function onFab(){ if(curScreen==='customers') openCustomer(null); else if(curScreen==='pools'){ toast('참조풀 자료 추가·수정은 "⚙ 관리자 화면 → 참조풀 관리"에서 합니다.'); setTimeout(toastHide,2200); } }

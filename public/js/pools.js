@@ -546,6 +546,16 @@ function poolItemCard(p){
 /* 참조풀 목록: 상품별 섹션으로 묶어서 보여준다 (2026-09-04, 필터 방식 → 섹션 방식으로 변경).
    PRODUCTS 순서대로 그 상품 태그가 붙은 항목을 모으고, 한 항목이 상품 여러 개에 걸쳐 있으면
    해당하는 섹션 모두에 나온다. 상품 태그가 하나도 없는 항목은 맨 아래 '미분류' 섹션에 모은다. */
+/* 2026-09-06: saveAdminPool()이 product/situation/age를 항상 비워두고 태그를 전부 free에
+   넣기 때문에, p.product만 보면 거의 다 "미분류"로 빠진다. 실제 분류창(구 openPool())도 죽은
+   코드라 쓸 수 없는 상태였음 — 그래서 저장 단계가 아니라 이 표시(렌더) 단계에서, 상품 태그가
+   product/situation/age/free 어디에 들어있든 PRODUCTS 8종과 부분일치(포함 관계, 양방향)로
+   찾아서 분류한다. 기존에 이미 "미분류"로 저장된 자료도 마이그레이션 없이 바로 다시 분류됨. */
+function matchedProducts(p){
+  const tags=[...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])];
+  if(!tags.length) return [];
+  return PRODUCTS.filter(prod=>tags.some(t=>t && (t.includes(prod)||prod.includes(t))));
+}
 function renderPools(){
   ensurePinsForCustomer(currentCustId);
   renderPoolCtx();
@@ -559,10 +569,10 @@ function renderPools(){
 
   const sections=[];
   PRODUCTS.forEach(prod=>{
-    const list=items.filter(p=>(p.product||[]).includes(prod)).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+    const list=items.filter(p=>matchedProducts(p).includes(prod)).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
     if(list.length) sections.push({title:prod, list});
   });
-  const untagged=items.filter(p=>!(p.product&&p.product.length)).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+  const untagged=items.filter(p=>matchedProducts(p).length===0).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
   if(untagged.length) sections.push({title:'미분류', list:untagged});
 
   let html='<div class="meta" style="margin-bottom:10px">📌 참조풀 자료(내용)는 이제 "⚙ 관리자 화면 → 참조풀 관리"에서 전체 담당자 공용으로 관리합니다. 항목을 누르면 AI가 정리한 내용을 볼 수 있고, 아래에서 이 고객 <b>분석에 포함</b>할 자료를 체크하세요(체크가 없으면 자동으로 비슷한 걸 골라 씁니다).</div>';

@@ -132,11 +132,12 @@ function renderAP(){
       h+='</div>';
     } else {
       h+='</div>';
-      // 2026-09-04: 저장 버튼 2개로 분리 — "AP 저장하고 닫기"는 저장 후 상담결과 입력 화면으로
-      // 이어지고, "저장만 하고 나가기"는 상담결과는 나중에 입력하기로 하고 바로 고객 목록으로 나간다.
+      // 2026-09-06: 고객관리(히스토리) 탭이 생기면서 상담 이후 흐름을 그쪽으로 잇는 게 자연스러워짐.
+      // "저장하고 고객관리로"는 저장 후 상담결과(성공/보류/실패·다음일정) 입력까지 마치면 고객관리
+      // 화면으로 이어지고(거기서 바로 히스토리 확인·Q&A 가능), "저장"은 그런 것 없이 저장만 하고 나간다.
       h+='<div class="btn-grid" style="margin-top:8px">';
-      h+='<button class="btn primary" onclick="saveAP()">✓ AP 저장하고 닫기</button>';
-      h+='<button class="btn ghost" onclick="saveAPAndExit()">저장만 하고 나가기</button>';
+      h+='<button class="btn primary" onclick="saveAP()">✓ 저장하고 고객관리로 →</button>';
+      h+='<button class="btn ghost" onclick="saveAPAndExit()">저장</button>';
       h+='</div>';
       h+='<button class="btn ghost sm wide" style="margin-top:8px" onclick="apGo('+(apStage-1)+')">‹ 이전</button>';
     }
@@ -231,8 +232,9 @@ async function saveConsultResult(){
   });
   await idbPut('customers',c); customers=await idbAll('customers');
   closeSheet('ov-consult');
-  toast('✓ 상담결과가 저장됐어요'); setTimeout(toastHide,2200);
-  go('customers');
+  toast('✓ 상담결과가 저장됐어요 · 고객관리로 이동'); setTimeout(toastHide,2200);
+  currentCustId=c.id;
+  go('customermgmt');
 }
 function closeConsult(){ closeSheet('ov-consult'); go('customers'); }
 let lastPlan=null;
