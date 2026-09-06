@@ -59,12 +59,15 @@ function renderCmBody(){
   h+='<div class="meta" style="margin-top:4px">음원을 올리면 받아쓰기해서 함께 정리해요(짧은 음원용). 텍스트만 적어도 정리할 수 있어요.</div>';
 
   h+='<div class="divider"></div>';
+  // 2026-09-06: 예전엔 Q&A 버튼이 히스토리 목록보다 위에 있었음 — jam님 요청으로 목록 아래로 이동.
   const hist=(c.history||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
-  h+='<button class="btn btn-ai wide" onclick="openCmQna()">🤖 이 고객 히스토리로 Q&A 물어보기</button>';
-  h+='<div class="meta" style="margin:4px 0 12px">저장된 기록만 근거로 답해요. 예) "지난달에 통화했을 때 반응 어땠어?" · "다음에 만나면 뭘 챙겨가면 좋을까?"</div>';
   h+='<label class="f">히스토리 ('+hist.length+')</label>';
   if(!hist.length){ h+='<div class="stage-note">아직 기록이 없습니다.</div>'; }
   hist.forEach(item=>{ h+=cmHistoryCard(item); });
+
+  h+='<div class="divider"></div>';
+  h+='<button class="btn btn-ai wide" onclick="openCmQna()">🤖 이 고객 히스토리로 Q&A 물어보기</button>';
+  h+='<div class="meta" style="margin:4px 0 2px">저장된 기록만 근거로 답해요. 예) "지난달에 통화했을 때 반응 어땠어?" · "다음에 만나면 뭘 챙겨가면 좋을까?"</div>';
 
   body.innerHTML=h;
   renderCmAudio();
@@ -74,12 +77,25 @@ function renderCmBody(){
   if(audioDrop) enableDrop(audioDrop, attachCmAudioFile, f=>(f.type&&f.type.indexOf('audio')===0)||/\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(f.name||''));
 }
 
+// 2026-09-06: 카드 한 장에 제목·날짜·요약이 따로따로 줄을 차지해서 목록이 길어 보였음 —
+// jam님 요청대로 "날짜+제목" 한 줄, "요약 미리보기" 한 줄, 딱 두 줄로 간략하게 정리.
+// 클릭하면 기존대로 viewCmHistory()가 상세 내용 창을 띄운다.
+function cmDateShort(at){
+  const m=String(at||'').match(/^\d{4}-(\d{2})-(\d{2}) (\d{2}:\d{2})/);
+  return m ? (m[1]+'/'+m[2]+' '+m[3]) : (at||'');
+}
 function cmHistoryCard(item){
   const icon = item.source==='ap' ? '🗣️' : (item.hadAudio ? '🎤' : '📝');
-  return '<div class="card tap" style="margin-bottom:10px" onclick="viewCmHistory(\''+item.id+'\')">'
-    +'<div class="row" style="margin-bottom:4px;align-items:center"><span class="name" style="font-size:15px">'+icon+' '+esc(item.title||'(제목 없음)')+'</span></div>'
-    +'<div class="meta" style="margin-top:2px;white-space:pre-wrap;max-height:44px;overflow:hidden">'+esc((item.summary||'').slice(0,120))+'</div>'
-    +'<div class="meta" style="margin-top:6px">'+(item.at||'')+'</div></div>';
+  const preview=(item.summary||'(내용 없음)').replace(/\s*\n+\s*/g,' · ').trim();
+  // .meta는 display:flex라 한 줄 말줄임(ellipsis)이랑 안 맞아서, 여기서는 색만 맞춰 직접 스타일 지정.
+  return '<div class="card tap" style="margin-bottom:8px;padding:11px 13px" onclick="viewCmHistory(\''+item.id+'\')">'
+    +'<div style="display:flex;align-items:baseline;gap:6px;font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap">'
+      +'<span style="flex-shrink:0">'+icon+'</span>'
+      +'<span style="flex-shrink:0;font-weight:600;font-size:12px;color:var(--ink-mute)">'+esc(cmDateShort(item.at))+'</span>'
+      +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.title||'(제목 없음)')+'</span>'
+    +'</div>'
+    +'<div style="margin-top:3px;font-size:12px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(preview)+'</div>'
+  +'</div>';
 }
 function viewCmHistory(id){
   const c=customers.find(x=>x.id===cmCustId); if(!c) return;
