@@ -211,6 +211,7 @@ function addImageDirect(file){
           const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
           cv.getContext('2d').drawImage(img,0,0,w,h);
           cv.toBlob(async(blob)=>{
+            if(!blob){ alert('사진을 저장하지 못했습니다. 사진 크기가 너무 크거나 형식이 맞지 않을 수 있어요. 다른 사진으로 다시 시도해주세요.'); res(); return; }
             const rid=uid();
             await idbPut('images',{id:rid,kind,blob,created:today()});
             editingCust.images=editingCust.images||[]; editingCust.images.push(rid);

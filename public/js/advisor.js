@@ -627,7 +627,7 @@ async function renderAdminPoolThumbs(){
     const rec=await idbGet('images',ref);
     const d=document.createElement('div'); d.className='thumb';
     if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'" onclick="event.stopPropagation();openLightbox(this.src)"><button class="del" onclick="removeAdminPoolImage(event,\''+ref+'\')">×</button>'; }
-    else d.innerHTML='<span class="k">없음</span>';
+    else d.innerHTML='<span class="k">없음</span><button class="del" onclick="removeAdminPoolImage(event,\''+ref+'\')">×</button>';
     wrap.appendChild(d);
   }
   const add=document.createElement('div'); add.className='add-thumb';
@@ -666,6 +666,7 @@ function addAdminPoolImageDirect(file){
           const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
           cv.getContext('2d').drawImage(img,0,0,w,h);
           cv.toBlob(async(blob)=>{
+            if(!blob){ alert('사진을 저장하지 못했습니다. 사진 크기가 너무 크거나 형식이 맞지 않을 수 있어요. 다른 사진으로 다시 시도해주세요.'); res(); return; }
             const rid=uid();
             await idbPut('images',{id:rid,kind:'자료',blob,created:today()});
             p.images=p.images||[]; p.images.push(rid);
