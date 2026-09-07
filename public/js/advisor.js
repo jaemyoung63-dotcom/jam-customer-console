@@ -667,11 +667,18 @@ function renderAdminPoolAudio(){
   if(p.audio){
     idbGet('images',p.audio).then(rec=>{
       if(rec&&rec.blob){
+        const nm=document.createElement('div'); nm.className='meta'; nm.style.marginBottom='4px';
+        nm.textContent='📎 '+(rec.name||'음원 파일')+(rec.blob.size?(' · '+(rec.blob.size/(1024*1024)).toFixed(1)+'MB'):'');
+        wrap.appendChild(nm);
         const a=document.createElement('audio'); a.controls=true; a.style.width='100%'; a.src=blobUrl(rec.blob);
         wrap.appendChild(a);
         const del=document.createElement('button'); del.className='btn danger sm wide'; del.style.marginTop='8px';
         del.textContent='음원 삭제'; del.onclick=removeAdminPoolAudio; wrap.appendChild(del);
-      } else addAdminAudioBtn(wrap);
+      } else {
+        wrap.innerHTML='<div class="meta" style="color:#c0392b;margin-bottom:6px">⚠ 이 기기에 음원 실물이 없어요(다른 기기에서 올렸거나 지워졌을 수 있음)</div>';
+        const del=document.createElement('button'); del.className='btn ghost sm wide';
+        del.textContent='이 음원 연결 지우기'; del.onclick=removeAdminPoolAudio; wrap.appendChild(del);
+      }
     });
   } else addAdminAudioBtn(wrap);
 }
@@ -687,7 +694,7 @@ async function attachAdminPoolAudioFile(file){
   // 다만 너무 크면(대략 60MB 이상) 클라우드 업로드가 오래 걸리거나 실패할 수 있어 안내만 한다.
   const mb=(file.size||0)/(1024*1024);
   if(mb>60 && !confirm('이 음원은 꽤 큽니다(약 '+mb.toFixed(0)+'MB). 저장 자체는 되지만, 클라우드에 올리는 데 시간이 걸리거나 실패할 수 있어요.\n\n그래도 진행할까요?')) return;
-  const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:file,created:today()});
+  const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:file,name:file.name||'음원',created:today()});
   if(p.audio) await idbDel('images',p.audio);
   p.audio=rid; renderAdminPoolAudio();
 }
