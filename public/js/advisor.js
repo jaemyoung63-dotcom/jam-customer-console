@@ -426,9 +426,9 @@ function renderAdminPoolEditorHtml(p){
     +'<div class="thumbs" id="ap-thumbs"></div>'
     +'</div>'
 
-    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택) <span style="font-weight:400">· 올리면 "AI로 정리" 때 받아쓰기해서 함께 정리돼요 (1개만 · 짧은 음원용)</span></div>'
+    +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">음원(선택) <span style="font-weight:400">· 참고용 재생 전용(1개만) — ④번 PDF·이미지처럼 AI 정리에는 쓰이지 않아요</span></div>'
     +'<div id="ap-audio"></div>'
-    +'<div class="meta" style="margin-top:4px">음원을 올리고 "AI로 정리"를 누르면 <b>AI가 받아쓰기</b>해서 함께 정리돼요. 단 <b>짧은 음원용</b>이에요 — 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꿔 ①번 칸에 넣는 게 더 안정적이에요.</div>'
+    +'<div class="meta" style="margin-top:4px">담당자 화면에서 들어볼 수 있는 참고용 녹음이에요. <b>"AI로 정리"에는 사용되지 않으니</b> 길이·용량 제한 없이 올려도 돼요(단 너무 크면 올리는 데 시간이 걸릴 수 있어요). 내용을 AI로 정리하고 싶으면 ①번 칸에 텍스트로 옮겨 넣어주세요.</div>'
 
     +'<div style="font-size:12.5px;color:var(--ink-mute);margin:16px 0 4px">태그(상품·상황·나이 등, 쉼표로 구분 — 자동 매칭에 쓰입니다) <span style="font-weight:400">· AI 정리 후 자동으로 채워지며, 직접 고쳐도 돼요</span></div>'
     +'<input class="t" id="ap-tags" value="'+esc([...(p.product||[]),...(p.situation||[]),...(p.age||[]),...(p.free||[])].join(', '))+'" placeholder="예: 종신보험, 은퇴설계, 40대 (AI로 정리를 누르면 자동으로 채워져요)">'
@@ -476,7 +476,7 @@ async function handleAdminPoolDropFile(file){
   const isAudio=(file.type&&file.type.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(file.name||'');
   if(isAudio){
     // 음원은 이 ①번 칸에서 받지 않는다 — 아래 "음원" 칸에서 올려 듣기 전용으로만 쓴다.
-    alert('음원 파일은 여기(①번 텍스트 칸)가 아니라, 아래 "음원" 칸의 [＋ 음원 추가]로 넣어주세요.\n\n음원을 올리면 "AI로 정리" 때 받아쓰기해서 함께 정리돼요(짧은 음원용). 긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꿔 여기에 넣는 게 더 안정적이에요.');
+    alert('음원 파일은 여기(①번 텍스트 칸)가 아니라, 아래 "음원" 칸의 [＋ 음원 추가]로 넣어주세요.\n\n음원은 참고용 재생 전용이라 "AI로 정리"에는 쓰이지 않아요(길이 제한 없음). 내용을 AI로 정리하고 싶으면 텍스트로 옮겨서 여기에 넣어주세요.');
     return;
   }
   await appendAdminPoolText(file);
@@ -559,8 +559,8 @@ async function aiOrganizePool(text, poolTypeLabel, audioBase64){
   try{ data=JSON.parse(raw); }
   catch(e){
     throw new Error('서버 응답이 올바르지 않습니다(정상적인 결과가 아니라 오류 페이지가 돌아왔어요). '
-      +'음원 파일이 너무 크거나 길어서 처리 시간이 오래 걸려 서버 쪽에서 중간에 끊겼을 가능성이 높습니다. '
-      +'음원을 더 짧게 나누거나, 음원 없이 텍스트만 넣고 다시 시도해보세요. (상태 코드 '+res.status+')');
+      +'텍스트가 너무 길어서 처리 시간이 오래 걸려 서버 쪽에서 중간에 끊겼을 가능성이 높습니다. '
+      +'내용을 나눠서 다시 시도해보세요. (상태 코드 '+res.status+')');
   }
   if(!res.ok) throw new Error(data.error||'정리 실패');
   // 2026-09-06: 예전엔 무조건 "참조풀 정리"로만 기록돼서, TA 자료를 정리해도 사용 히스토리에는
@@ -569,51 +569,32 @@ async function aiOrganizePool(text, poolTypeLabel, audioBase64){
   if(typeof addUsage==='function') addUsage(data._usage,(poolTypeLabel||'참조풀')+' 정리');
   return data;
 }
-/* "AI로 정리"는 ①번 칸의 텍스트를 정리한다. 아래 음원 칸에 음원이 붙어 있으면,
-   먼저 AI(Whisper)로 받아쓰기해서 그 내용까지 함께 정리한다. 음원은 짧은 것 전용이라
-   너무 크면 미리 경고하고, 긴 상담 녹음은 휴대폰 음성녹음 앱을 안내한다. */
+/* "AI로 정리"는 ①번 칸의 텍스트만 정리한다. 2026-09-07부터 음원은 참고용 재생 전용으로
+   바뀌어(AI 정리에 포함 안 함) 여기서 더는 음원을 다루지 않는다 — 길이·용량 제한도 없앰. */
 async function organizeAdminPool(){
   const p=_adminPoolEditing; if(!p) return;
   syncAdminPoolEditorFields();
   const src=(p.rawText||'').trim();
 
-  // 첨부된 음원이 있으면 base64로 바꿔 함께 보낸다. 크기 검사로 실패를 미리 막는다.
-  let audioBase64='';
-  if(p.audio){
-    try{
-      const rec=await idbGet('images',p.audio);
-      if(rec&&rec.blob){
-        const mb=rec.blob.size/(1024*1024);
-        if(mb>20){
-          alert('음원이 너무 큽니다(약 '+mb.toFixed(1)+'MB). 앱 내장 받아쓰기는 짧은 음원용이에요.\n\n긴 상담 녹음은 휴대폰 음성녹음 앱으로 글로 바꾼 뒤, 그 텍스트를 ①번 칸에 넣고 정리해주세요.');
-          return;
-        }
-        if(mb>5){
-          if(!confirm('이 음원은 좀 큰 편이에요(약 '+mb.toFixed(1)+'MB). 받아쓰기가 실패하거나 앞부분만 인식될 수 있어요.\n\n그래도 진행할까요? (긴 녹음은 휴대폰 음성녹음 앱을 추천해요)')) return;
-        }
-        const durl=await blobToDataURL(rec.blob);
-        audioBase64=String(durl).split(',')[1]||'';
-      }
-    }catch(e){ /* 음원을 못 읽으면 텍스트만으로 진행 */ }
-  }
-
-  if(!src && !audioBase64){ alert('①번 칸에 텍스트를 넣거나, 아래 음원 칸에 음원을 올려주세요. (음원을 올리면 AI가 받아쓰기해서 함께 정리해요)'); return; }
+  // 2026-09-07: jam님 요청으로 음원은 이제 "AI로 정리"에 쓰이지 않는다(받아쓰기 안 함) —
+  // 참고용 재생 전용(④번 PDF·이미지와 같은 성격)으로만 쓰고, 그 대신 길이·용량 제한 없이
+  // 올릴 수 있게 함(예전엔 Whisper 받아쓰기 때문에 20MB로 막혀 있었음).
+  if(!src){ alert('①번 칸에 텍스트를 넣어주세요. (음원은 이제 참고용 재생 전용이라 "AI로 정리"에는 쓰이지 않아요 — 내용을 정리하려면 텍스트로 옮겨 넣어주세요)'); return; }
   // 2026-09-06: TA(poolType 'ta')는 ADMIN_POOL_TYPES에 없어서 여기서 빠지면 항상 기본값
   // '상담사례'로 잘못 표시됐다(AI에게 보내는 종류 설명도, 사용 히스토리 라벨도 틀리게 나감).
   // renderAdminPoolEditorHtml()의 라벨 계산과 동일하게 맞춤.
   const label = p.poolType==='ta' ? 'TA 자료' : (ADMIN_POOL_TYPES.find(t=>t[0]===p.poolType)||['case','상담사례'])[1];
-  const _pg=startProgress(pc=>toast((audioBase64?'음원 받아쓰기·정리 중… ':'AI로 정리 중… ')+pc+'%'));
+  const _pg=startProgress(pc=>toast('AI로 정리 중… '+pc+'%'));
   try{
-    const r=await aiOrganizePool(src, label, audioBase64);
+    const r=await aiOrganizePool(src, label);
     _pg.done(); toastHide();
     const keyword=(r.titleKeyword||'').trim();
     p.title=(today()+' · '+label+(keyword?(' · '+keyword):'')).trim();
     p.tocSummary=r.summary||'';
     p.keyContent=(r.keyContent||'').slice(0,4000);
     if(Array.isArray(r.tags) && r.tags.length){ p.free=r.tags; p.product=[]; p.situation=[]; p.age=[]; delete p._tagsRaw; }
-    if(r.transcript) p.rawText = p.rawText ? (p.rawText+'\n\n[음원 인식 내용]\n'+r.transcript) : ('[음원 인식 내용]\n'+r.transcript);
     renderAdminPools();
-    toast(r.transcript?'✓ 음원 받아쓰기·정리 완료':'✓ AI 정리 완료'); setTimeout(toastHide,2000);
+    toast('✓ AI 정리 완료'); setTimeout(toastHide,2000);
   }catch(err){ _pg.done(); toastHide(); alert('AI 정리 실패: '+(err&&err.message?err.message:err)); }
 }
 
@@ -702,6 +683,10 @@ function addAdminAudioBtn(wrap){
    ①번 드래그&드롭 칸(handleAdminPoolDropFile) 양쪽에서 공용으로 쓴다. */
 async function attachAdminPoolAudioFile(file){
   const p=_adminPoolEditing; if(!p) return;
+  // 2026-09-07: 참고용 재생 전용으로 바뀌면서(AI 정리에 안 쓰임) 용량 제한을 없앴다.
+  // 다만 너무 크면(대략 60MB 이상) 클라우드 업로드가 오래 걸리거나 실패할 수 있어 안내만 한다.
+  const mb=(file.size||0)/(1024*1024);
+  if(mb>60 && !confirm('이 음원은 꽤 큽니다(약 '+mb.toFixed(0)+'MB). 저장 자체는 되지만, 클라우드에 올리는 데 시간이 걸리거나 실패할 수 있어요.\n\n그래도 진행할까요?')) return;
   const rid=uid(); await idbPut('images',{id:rid,kind:'음원',blob:file,created:today()});
   if(p.audio) await idbDel('images',p.audio);
   p.audio=rid; renderAdminPoolAudio();
@@ -747,6 +732,16 @@ async function saveAdminPool(){
   const d=await adminCall('adminSavePool', {item});
   if(d&&d.ok){
     toast('✓ 저장했습니다'); setTimeout(toastHide,1500);
+    // 2026-09-07: 관리자 저장은 서버(D1)에만 올라가고, 이 기기의 로컬 IndexedDB "pools" 저장소와
+    // 화면에서 쓰는 전역 pools 배열에는 반영되지 않던 문제가 있었다. 그래서 "저장소 관리 → 안 쓰는
+    // 이미지 정리"가 방금 올린 사진·음원을 "어디서도 안 쓰는 이미지"로 착각해 실제로 지워버리는
+    // 사고가 났었다(참조풀 화면에서는 "아직 안 내려받아졌어요"만 보이다가, 관리자 화면으로
+    // 돌아오면 "없음"/음원 사라짐으로 나타남). 저장 직후 로컬에도 즉시 반영해서 막는다.
+    try{
+      await _idbPut('pools', item);
+      const i=pools.findIndex(x=>x.id===item.id);
+      if(i>=0) pools[i]=item; else pools.push(item);
+    }catch(e){}
     // 음원·이미지 실물(blob)은 이 기기 로컬에만 있으므로, 다른 담당자 화면에서도 보이도록 클라우드(R2)에 올린다.
     if((item.audio || (item.images&&item.images.length)) && typeof fsQueueForOwner==='function') fsQueueForOwner('pool', item);
     await reloadAdminPoolsScreen();
@@ -765,6 +760,11 @@ async function toggleAdminPoolFlag(id, field, value){
 async function doAdminDeletePool(id, title){
   if(!confirm((title||'이 자료')+'를 삭제할까요? 전체 담당자에게서 사라집니다.')) return;
   const d=await adminCall('adminDeletePool', {id});
-  if(d&&d.ok){ toast('✓ 삭제했습니다'); setTimeout(toastHide,1500); await reloadAdminPoolsScreen(); }
+  if(d&&d.ok){
+    toast('✓ 삭제했습니다'); setTimeout(toastHide,1500);
+    // 로컬에도 즉시 반영(안 지우면 이 기기의 로컬 사본이 남아 다음 "저장소 진단"에서 혼란을 줄 수 있음).
+    try{ await idbDel('pools', id); pools=pools.filter(x=>x.id!==id); }catch(e){}
+    await reloadAdminPoolsScreen();
+  }
   else alert('삭제 실패: '+((d&&d.error)||'알 수 없음'));
 }
