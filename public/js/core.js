@@ -179,13 +179,18 @@ async function advisorLogin(id, pw, silent){
   try{
     const d=await cloudCall({pw:cloudPW, advisorId:id, advisorPw:pw, action:'advisorLogin'});
     if(d && d.ok){
-      let prevId=''; try{ prevId=localStorage.getItem('advisorId')||''; }catch(e){}
-      // prevId가 비어있어도(=이 기기에서 처음으로 "담당자 로그인"을 하는 경우) 반드시 비운다.
-      // 다중 담당자 구조로 바뀌기 전, 혹은 로그아웃 후 처음 다시 로그인할 때 이 기기에 남아있던
-      // 예전 자료(다른 담당자 것일 수 있음)가 새 담당자 화면에 섞여 보이는 문제를 막기 위함.
-      if(prevId!==id){ await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images'); }
+      // 2026-09-07: 예전엔 여기서 "이전 담당자"를 localStorage.advisorId로 판단했는데, 이 값은
+      // 로그아웃(cloudLogout)만 해도 지워진다. 그러면 "로그아웃했다가 같은 담당자로 바로 다시
+      // 로그인"만 해도 prevId가 비어서 "새 기기"로 오인해 로컬(IndexedDB)을 통째로 비웠고,
+      // 그 안에 있던 — 아직 클라우드(R2)에 못 올라간 — 사진·음원 실물이 통째로 사라지는 사고가
+      // 있었다(참조풀에 방금 올린 사진·음원이 몇 번을 다시 올려도 계속 사라지던 원인).
+      // 로그아웃해도 지워지지 않는 별도 키(lastLocalAdvisorId)로 "이 기기에 실제로 로컬 자료를
+      // 쌓아둔 담당자"를 추적해서, 같은 담당자가 로그아웃 후 다시 들어오는 경우는 안전하게 보존하고
+      // "진짜 다른 담당자"로 바뀔 때만(advisorSwitch 등) 비우도록 한다.
+      let prevId=''; try{ prevId=localStorage.getItem('lastLocalAdvisorId')||''; }catch(e){}
+      if(prevId && prevId!==id){ await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images'); }
       advisorId=id; advisorPw=pw; advisorName=(d.advisor&&d.advisor.name)||'';
-      try{ localStorage.setItem('advisorId',id); localStorage.setItem('advisorPw',pw); localStorage.setItem('advisorName',advisorName); }catch(e){}
+      try{ localStorage.setItem('advisorId',id); localStorage.setItem('advisorPw',pw); localStorage.setItem('advisorName',advisorName); localStorage.setItem('lastLocalAdvisorId',id); }catch(e){}
       await mergeCloud(d);
       return true;
     }
@@ -253,7 +258,7 @@ function cloudLogout(){
    화면·로컬에 남아있던 이전 담당자 자료를 바로 비워서 잠깐이라도 섞여 보이지 않게 한다. */
 async function advisorSwitch(){
   advisorId=''; advisorPw=''; advisorName='';
-  try{ localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); }catch(e){}
+  try{ localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); localStorage.removeItem('lastLocalAdvisorId'); }catch(e){}
   await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images');
   customers=[]; pools=[];
   if(typeof showAdvisorPicker==='function') showAdvisorPicker();
