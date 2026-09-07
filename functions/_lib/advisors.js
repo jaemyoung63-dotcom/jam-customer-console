@@ -82,5 +82,10 @@ export async function ownerBelongsToAdvisor(env, ownerType, ownerId, advisorId) 
   const table = ownerType === 'pool' ? 'pools' : 'customers';
   const row = await env.DB.prepare('SELECT owner FROM ' + table + ' WHERE id = ?').bind(String(ownerId)).first();
   if (!row) return false; // 존재하지 않는 고객/참조풀
+  // 2026-09-07: 참조풀(pool)은 2026-08-17부터 담당자 개인 소유가 아니라 owner='shared'인
+  // 공용 자료로 바뀌었는데, 이 함수는 그걸 반영하지 못해 row.owner('shared')와 advisorId가
+  // 항상 달라서 모든 담당자의 참조풀 이미지·음성 업로드/다운로드가 403으로 막혀 있었다.
+  // (그래서 참조풀에 사진을 올려도 다른 화면·다른 기기에서 "아직 안 내려받아졌어요"로만 계속 뜸)
+  if (ownerType === 'pool' && row.owner === 'shared') return true;
   return row.owner === advisorId;
 }
