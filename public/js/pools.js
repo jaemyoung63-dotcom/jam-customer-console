@@ -629,7 +629,10 @@ async function viewPoolItem(id){
     const rec=await idbGet('images',p.audio);
     const box=document.getElementById('poolview-audio');
     if(box){
-      if(rec&&rec.blob) box.innerHTML='<audio controls style="width:100%" src="'+blobUrl(rec.blob)+'"></audio>';
+      if(rec&&rec.blob){
+        const nm='📎 '+esc(rec.name||'음원 파일')+(rec.blob.size?(' · '+(rec.blob.size/(1024*1024)).toFixed(1)+'MB'):'');
+        box.innerHTML='<div class="meta" style="margin-bottom:4px">'+nm+'</div><audio controls style="width:100%" src="'+blobUrl(rec.blob)+'"></audio>';
+      }
       else box.innerHTML='<div class="meta">♪ 음원(아직 이 기기로 안 내려받아졌어요 — 홈 화면에서 잠시 후 다시 열어보세요)</div>';
     }
   }
