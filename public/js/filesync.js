@@ -109,19 +109,39 @@ async function fsDownloadMissing() {
   await fsSaveUploadedCache();
 }
 
-/* "지금 동기화" 수동 버튼 — 저장소 진단 화면에서 호출 */
-async function fsSyncNow() {
+/* "지금 동기화" 수동 버튼 — 저장소 진단 화면에서 호출.
+   2026-09-10: silent=true로 부르면 토스트·진단화면 갱신 없이 조용히 백그라운드로만 돈다
+   (앱 켤 때 자동 동기화용 — autoFileSyncTick()에서 사용). */
+async function fsSyncNow(silent) {
   if (fsBusy) return;
-  if (!cloudOn) { toast('먼저 클라우드에 로그인하세요.'); setTimeout(toastHide, 1800); return; }
+  if (!cloudOn) { if (!silent) { toast('먼저 클라우드에 로그인하세요.'); setTimeout(toastHide, 1800); } return; }
   fsBusy = true;
   try {
     for (const c of (customers || [])) { await fsQueueForOwner('customer', c); }
     for (const p of (pools || [])) { await fsQueueForOwner('pool', p); }
     await fsDownloadMissing();
-    toast('✓ 파일 동기화 완료'); setTimeout(toastHide, 2000);
+    if (!silent) { toast('✓ 파일 동기화 완료'); setTimeout(toastHide, 2000); }
   } finally { fsBusy = false; }
   const box = document.getElementById('storage-diagnostic-result');
   if (box && lastStorageDiagnostic) box.innerHTML = renderStorageDiagnostic(lastStorageDiagnostic);
+}
+
+/* ---------- 자동 동기화 ----------
+   2026-09-10 추가: jam님 요청 — "지금 동기화"를 매번 손으로 누르지 않아도 되게.
+   진짜 "하루에 한 번, 앱이 꺼져 있어도" 자동 실행은 불가능하다(이 파일들은 이 기기의 브라우저
+   저장소에만 있어서, 브라우저가 열려 있어야 올리고 받을 수 있음 — 서버가 알아서 대신 할 수 없음).
+   대신 실질적으로 같은 효과를 내도록: ①앱을 열 때(로그인 직후) 자동으로 한 번 조용히 동기화하고,
+   ②앱을 계속 켜놓고 쓰는 동안에는 일정 시간마다(기본 20분) 백그라운드로 다시 동기화한다.
+   그래서 "지금 동기화" 버튼은 급할 때 바로 확인하고 싶을 때만 쓰면 된다. */
+const FS_AUTO_SYNC_INTERVAL_MS = 20 * 60 * 1000; // 20분
+let _fsAutoSyncTimer = null;
+function startAutoFileSync() {
+  if (_fsAutoSyncTimer) return; // 이미 돌고 있으면 중복 시작 안 함
+  fsSyncNow(true); // 로그인 직후 1회
+  _fsAutoSyncTimer = setInterval(() => { fsSyncNow(true); }, FS_AUTO_SYNC_INTERVAL_MS);
+}
+function stopAutoFileSync() {
+  if (_fsAutoSyncTimer) { clearInterval(_fsAutoSyncTimer); _fsAutoSyncTimer = null; }
 }
 
 /* 저장소 진단 화면에 넣을 요약(동기화 상태) — 동기적으로 현재 메모리 상태만 계산 */

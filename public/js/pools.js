@@ -172,6 +172,7 @@ function renderCloudFileSyncSection(){
       +'<div class="meta" style="margin-top:6px">⚠ 서버에 파일 저장소(R2)가 아직 설정되지 않았습니다. 관리자가 Cloudflare 대시보드에서 R2 버킷을 연결하면 사용할 수 있습니다.</div></div>';
   }
   return '<div class="card" style="margin-top:12px"><div style="font-size:14px;font-weight:700">☁ 클라우드 파일 동기화</div>'
+    +'<div class="meta" style="margin-top:4px">앱을 열 때, 그리고 켜놓은 동안 20분마다 자동으로 동기화돼요 — 급할 때만 아래 버튼으로 바로 확인하세요.</div>'
     +'<div class="meta" style="margin-top:6px">참조된 파일 '+s.totalRefs+'개 · 업로드됨 '+s.uploaded+' · 대기 '+s.pendingUpload
     +(s.uploadFailed?' · ⚠ 업로드 실패 '+s.uploadFailed:'')+(s.downloadFailed?' · ⚠ 다운로드 실패 '+s.downloadFailed:'')+'</div>'
     +'<button class="btn ghost sm wide" style="margin-top:10px" onclick="fsSyncNow()">지금 동기화</button></div>';

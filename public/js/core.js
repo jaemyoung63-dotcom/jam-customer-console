@@ -239,7 +239,10 @@ async function mergeCloud(d){
   localHasUnsynced = (rePushCust.length>0 || rePushPool.length>0);
   for(const [rec, baseUpdated] of rePushCust) cloudSync('saveCustomer', rec, baseUpdated);
   for(const [rec, baseUpdated] of rePushPool) cloudSync('savePool', rec, baseUpdated);
-  if(typeof fsDownloadMissing==='function') fsDownloadMissing();   // 백그라운드, 저장/화면전환을 막지 않음
+  // 2026-09-10: 예전엔 여기서 다운로드만 했는데, 이제 업로드까지 포함한 전체 파일 동기화를
+  // 자동으로 주기적으로 돌리도록 확장(filesync.js의 startAutoFileSync 참고) — 백그라운드,
+  // 저장/화면전환을 막지 않음.
+  if(typeof startAutoFileSync==='function') startAutoFileSync();
 }
 async function cloudUpload(){
   if(!cloudOn){ alert('먼저 클라우드에 로그인하세요.'); return; }
@@ -252,6 +255,7 @@ async function cloudUpload(){
 function cloudLogout(){
   cloudOn=false; cloudPW=''; advisorId=''; advisorPw=''; advisorName='';
   try{ localStorage.removeItem('cloudPW'); localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); }catch(e){}
+  if(typeof stopAutoFileSync==='function') stopAutoFileSync();
   showLogin();
 }
 /* 담당자만 바꾸기(사이트 로그인은 유지) — 같은 기기를 다른 담당자가 이어서 쓸 때.
@@ -259,6 +263,7 @@ function cloudLogout(){
 async function advisorSwitch(){
   advisorId=''; advisorPw=''; advisorName='';
   try{ localStorage.removeItem('advisorId'); localStorage.removeItem('advisorPw'); localStorage.removeItem('advisorName'); localStorage.removeItem('lastLocalAdvisorId'); }catch(e){}
+  if(typeof stopAutoFileSync==='function') stopAutoFileSync();
   await _idbClear('customers'); await _idbClear('pools'); await _idbClear('images');
   customers=[]; pools=[];
   if(typeof showAdvisorPicker==='function') showAdvisorPicker();
