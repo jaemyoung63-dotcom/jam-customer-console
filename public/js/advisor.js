@@ -295,7 +295,10 @@ function renderAdminPools(){
   const type=_adminPoolType, label=(ADMIN_POOL_TYPES.find(t=>t[0]===type)||['case','상담사례'])[1];
   const items=_adminPools.filter(p=>p.poolType===type);
   h+='<div class="row" style="align-items:center;margin-bottom:10px"><span class="spacer"></span>'
-    +'<button class="btn ghost sm" onclick="openAdminPoolEditor(null,\''+type+'\')">＋ 새 '+label+'</button></div>';
+    +'<button class="btn ghost sm" onclick="document.getElementById(\'admin-pool-import-input\').click()">📁 백업 불러오기(합치기)</button>'
+    +'<button class="btn ghost sm" onclick="openAdminPoolEditor(null,\''+type+'\')">＋ 새 '+label+'</button></div>'
+    +'<input type="file" id="admin-pool-import-input" accept="application/json" style="display:none" onchange="importAdminPoolsBackup(event)">'
+    +'<div class="meta" style="margin-bottom:8px">"PC로 전체 백업"이 만든 참조풀전체_*.json을 불러오면, 지금 있는 자료는 그대로 두고 <b>겹치지 않는 자료만 추가</b>됩니다(다른 기기에서 만든 백업을 합칠 때 사용).</div>';
   if(!items.length){ h+='<div class="stage-note">등록된 '+label+'이(가) 없습니다.</div>'; }
   items.forEach(p=>{
     const pub=!!p.published;
@@ -774,4 +777,49 @@ async function doAdminDeletePool(id, title){
     await reloadAdminPoolsScreen();
   }
   else alert('삭제 실패: '+((d&&d.error)||'알 수 없음'));
+}
+
+/* 2026-09-11: jam님 요청 — "PC로 전체 백업"(pcBackupAll, core.js)이 만든 참조풀전체_*.json을
+   다른 기기(또는 같은 기기)에서 불러올 때, 지금 있는 자료를 지우지 않고 "합쳐서"(겹치지 않는
+   자료만 추가) 넣을 수 있게 함. 예전 client-only importPools()(pools.js)는 로컬에만 저장해서
+   서버(D1)에 안 올라가고, 게다가 그 경로로 저장하면 참조풀 owner가 그 담당자 개인 것으로
+   바뀌어버리는 위험이 있어(2026-08-17 참조풀 공용화 이후) 여기서는 쓰지 않는다. 대신 관리자
+   화면의 정식 저장 경로(adminSavePool)로 항목마다 올려서, 공용(owner='shared') 상태를 유지한
+   채로 안전하게 병합한다. id가 우연히 겹치는 경우(예: 같은 백업을 두 번 불러오는 경우)에는
+   그 항목만 백업 내용으로 갱신되고, 나머지 겹치지 않는 항목은 기존 것 그대로 둔 채 추가된다. */
+async function importAdminPoolsBackup(e){
+  const f=e.target.files&&e.target.files[0]; if(!f){ return; }
+  let data;
+  try{ data=JSON.parse(await f.text()); }
+  catch(err){ alert('파일을 읽을 수 없습니다. 참조풀 백업 파일(json)이 맞는지 확인하세요.'); e.target.value=''; return; }
+  const arr = Array.isArray(data) ? data : (data.pools||[]);
+  const imgs = Array.isArray(data) ? [] : (data.images||[]);
+  if(!arr.length){ alert('백업 파일에 불러올 자료가 없습니다.'); e.target.value=''; return; }
+  if(!confirm('참조풀 '+arr.length+'건'+(imgs.length?(' · 사진·음원 '+imgs.length+'개'):'')+'을 지금 목록에 합칠까요?\n(겹치지 않는 자료는 그대로 추가되고, 기존 자료는 지워지지 않습니다)')) { e.target.value=''; return; }
+  const _pg=startProgress(pc=>toast('불러오는 중… '+pc+'%'));
+  let ok=0, fail=0;
+  try{
+    // ① 사진·음원 실물(dataURL)을 이 기기 로컬(IndexedDB)에 먼저 채워 넣는다 — 이게 있어야
+    //    ②번에서 각 참조풀을 저장할 때 fsQueueForOwner가 R2로 올려서 다른 기기에서도 보인다.
+    for(const im of imgs){
+      if(im&&im.id&&im.dataURL){
+        try{ const blob=await (await fetch(im.dataURL)).blob(); await idbPut('images',{id:im.id,kind:im.kind,created:im.created,blob}); }
+        catch(err){ /* 사진 하나 실패해도 나머지는 계속 진행 */ }
+      }
+    }
+    // ② 참조풀 항목마다 관리자 정식 저장 경로로 올린다(공용 소유권 유지).
+    for(const p of arr){
+      if(!p||!p.id){ fail++; continue; }
+      const item=Object.assign({}, p, { published: !!p.published, globalPinned: true });
+      const d=await adminCall('adminSavePool', {item});
+      if(d&&d.ok){
+        ok++;
+        try{ await _idbPut('pools', item); const i=pools.findIndex(x=>x.id===item.id); if(i>=0) pools[i]=item; else pools.push(item); }catch(err){}
+        if((item.audio || (item.images&&item.images.length)) && typeof fsQueueForOwner==='function') fsQueueForOwner('pool', item);
+      } else fail++;
+    }
+  } finally{ _pg.done(); toastHide(); }
+  alert('불러오기 완료: '+ok+'건 합쳐짐'+(fail?(' · 실패 '+fail+'건'):''));
+  e.target.value='';
+  await reloadAdminPoolsScreen();
 }

@@ -525,15 +525,23 @@ async function exportCustomers(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='고객백업_'+today()+'.json'; a.click();
 }
+/* 2026-09-11: 이 기기에 이미 있는 고객은 그대로 두고(지우지 않음), 백업 파일에만 있는
+   고객은 새로 추가한다("합치기"). 단, id가 완전히 같은 고객이 양쪽에 다 있으면(예: 같은
+   백업을 두 번 불러오거나, 그 고객을 백업 시점 이후 다시 수정한 경우) 백업 파일 내용으로
+   덮어써진다 — 이 경우만 미리 알려준다. */
 async function importCustomers(e){
   const f=e.target.files&&e.target.files[0]; if(!f){return;}
   try{
     const data=JSON.parse(await f.text());
     const custs=data.customers||[], imgs=data.images||[];
+    const existingIds=new Set(customers.map(c=>c.id));
+    const overlap=custs.filter(c=>c&&existingIds.has(c.id)).length;
+    const added=custs.length-overlap;
+    if(!confirm('고객 '+custs.length+'명을 불러올까요?\n(새로 추가될 고객 '+added+'명'+(overlap?(' · 이미 있는 고객 '+overlap+'명은 백업 내용으로 덮어써짐'):'')+')')) { e.target.value=''; return; }
     for(const im of imgs){ if(im&&im.id&&im.dataURL){ const blob=await (await fetch(im.dataURL)).blob(); await idbPut('images',{id:im.id,kind:im.kind,created:im.created,blob}); } }
     for(const c of custs){ if(c&&c.id){ await idbPut('customers',c); } }
     customers=await idbAll('customers'); renderCustomers();
-    alert('불러오기 완료: 고객 '+custs.length+'명, 이미지 '+imgs.length+'장');
+    alert('불러오기 완료: 새로 추가 '+added+'명'+(overlap?(' · 덮어씀 '+overlap+'명'):'')+' · 이미지 '+imgs.length+'장\n(기존에 있던 다른 고객은 그대로 남아있습니다)');
   }catch(err){ alert('파일을 읽을 수 없습니다. 고객 백업 파일이 맞는지 확인하세요.'); }
   e.target.value='';
 }
