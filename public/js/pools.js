@@ -84,7 +84,8 @@ async function deleteCustomer(){
     const sel=document.getElementById('an-cust'); if(sel) sel.value='';
     const anBody=document.getElementById('an-body'); if(anBody) anBody.innerHTML='<div class="empty">분석할 고객을 선택하세요.</div>';
   }
-  go('customers');
+  // 2026-09-13: 삭제 후 목록으로 나가는 것도 "뒤로가기"와 같은 동작 — navBack으로 히스토리도 같이 정리.
+  if(typeof navBack==='function') navBack('customers'); else go('customers');
 }
 function blobToDataURL(blob){return new Promise(res=>{const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob);});}
 

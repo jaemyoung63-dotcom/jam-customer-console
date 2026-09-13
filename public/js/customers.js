@@ -99,6 +99,9 @@ function onCustSearch(v){
 
 async function openCustomer(id){
   const c = id ? customers.find(x=>x.id===id) : {id:null,source:'db',seg:'방문예정',product:[],situation:[],images:[]};
+  // 2026-09-13: id가 있는데 못 찾으면(삭제된 고객을 가리키는 옛 뒤로가기 기록 등) 상세를 열다가
+  // 멎지 않고 조용히 목록으로 — 안 그러면 JSON.parse(undefined)에서 화면이 멈춰버림.
+  if(id && !c){ if(typeof navBack==='function') navBack('customers'); else go('customers'); return; }
   editingCust = JSON.parse(JSON.stringify(c));
   /* 상담·분석(연결) 모드에서 고객을 선택하면 "작업 고객"으로 물고 간다 —
      이후 하단 탭(분석·상담·참조풀)으로 옮겨가도 이 고객 정보가 계속 뜨게 하기 위함(navGo()에서 유지). */
@@ -138,6 +141,8 @@ async function openCustomer(id){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('on'));
   const tb=document.getElementById('tab-customers'); if(tb) tb.classList.add('on');
   window.scrollTo(0,0);
+  // 2026-09-13: 고객상세도 뒤로가기 대상에 포함 — 열 때마다 히스토리에 한 칸 쌓는다(core.js navPush 참고).
+  if(typeof navPush==='function') navPush({scr:'custdetail', id:id||null});
 }
 /* ===== 주소 찾기 (카카오/다음 우편번호 서비스) =====
    일부만 입력해도 도로명·지번으로 찾아준다. 스크립트는 처음 누를 때만 불러온다(지연 로딩). */

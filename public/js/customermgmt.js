@@ -456,7 +456,7 @@ function renderCmQnaScreen(){
   if(!c){ body.innerHTML='<div class="empty">먼저 "고객관리"에서 고객을 선택하세요.</div>'; return; }
   const hist=c.history||[];
   const qna=(c.qnaHistory||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
-  let h='<button class="btn ghost sm" onclick="go(\'customermgmt\')">‹ 고객관리로</button>';
+  let h='<button class="btn ghost sm" onclick="navBack(\'customermgmt\')">‹ 고객관리로</button>';
   h+='<div class="meta" style="margin:10px 0">'+esc(c.name)+' 고객의 히스토리 기록(총 '+hist.length+'건)만 근거로 답해요. 반응·전략을 물으면 어느 기록의 어떤 내용을 근거로 했는지 밝히고, 긍정적인 면·우려되는 점·고객 입장·제안까지 정리해서 답해요.</div>';
   h+='<textarea class="t" id="cm-qna-q" rows="3" placeholder="예) 이 고객 다음에 어떻게 접근하면 좋을까? / 지난번 통화 반응이 어땠어?"></textarea>';
   h+='<button class="btn btn-ai wide" style="margin-top:8px" onclick="askCmQna()">🤖 물어보기</button>';

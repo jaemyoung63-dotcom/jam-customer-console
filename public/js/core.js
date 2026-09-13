@@ -352,6 +352,9 @@ const oneLine=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length
 /* ---------- 상태 ---------- */
 let customers=[], pools=[], curScreen='customers';
 let lastAnalysis=null;
+/* 2026-09-13: 모바일 하단 뒤로가기(<) 대응용 — 화면을 옮길 때마다 브라우저 히스토리에 한 칸씩
+   쌓아두는 카운터·플래그. 자세한 설명은 아래 navPush/navReset/navBack과 popstate 리스너 참고. */
+let _navDepth=0, _navRestoring=false;
 let currentCustId=null;   // 고객상세→참조풀→분석으로 이어지는 '작업 고객'
 let pinnedOwner=null;     // 현재 선택(pinned)이 어느 고객의 것인지
 /* 작업 고객이 바뀌면 그 고객이 저장해둔 선택(pinnedPools)으로 복원. 새 고객이면 초기화 */
@@ -388,6 +391,7 @@ function header(title,sub,micFn){
 
 /* ---------- 네비 ---------- */
 function go(s){
+  const _prevScr=curScreen;
   curScreen=s; freeUrls();
   const home=document.getElementById('s-home'); if(home) home.classList.remove('active');
   const oldHdr=document.querySelector('header.top'); if(oldHdr) oldHdr.remove();
@@ -413,6 +417,7 @@ function go(s){
   }
   if(s==='ap') fillApSelect();
   window.scrollTo(0,0);
+  if(_prevScr!==s) navPush({scr:s});
 }
 function goHome(){
   curScreen='home'; freeUrls();
@@ -424,7 +429,41 @@ function goHome(){
   const fab=document.getElementById('fab'); if(fab) fab.style.display='none';
   updateCloudUI();
   window.scrollTo(0,0);
+  navReset();
 }
+/* ---------- 모바일 하단 뒤로가기(<) 대응 (2026-09-13, jam님 요청) ----------
+   원래는 화면을 옮겨도 브라우저 히스토리에 아무 기록이 안 남아서, 뒤로가기를 누르면
+   화면 몇 개를 거쳤든 상관없이 곧장 앱 밖으로 나가버렸다. 이제 화면을 옮길 때마다(go()로
+   탭을 바꾸거나 openCustomer()로 고객상세를 열 때)마다 히스토리에 한 칸씩 쌓아두고
+   (navPush), 뒤로가기가 눌리면(popstate) 그 기록을 읽어서 바로 전 화면을 다시 그려준다.
+   "‹ 고객 목록"처럼 화면 안에 있는 뒤로가기 버튼도 navBack()으로 바꿔서, 기기 뒤로가기와
+   똑같이 히스토리를 한 칸 되감도록 통일했다(그래야 기록이 어긋나지 않는다).
+   홈으로 이동할 때는 쌓아둔 기록을 전부 되감아서(navReset) 다음 뒤로가기부터는
+   원래대로(앱 밖으로) 나가지게 만든다 — "홈화면은 제외"라는 요청 그대로. */
+function navPush(state){
+  if(_navRestoring) return;
+  _navDepth++;
+  try{ history.pushState(Object.assign({d:_navDepth}, state), ''); }catch(e){}
+}
+function navReset(){
+  if(_navDepth>0){ try{ history.go(-_navDepth); }catch(e){} }
+  _navDepth=0;
+}
+function navBack(fallbackScreen){
+  if(_navDepth>0){ try{ history.back(); return; }catch(e){} }
+  if(fallbackScreen) go(fallbackScreen); else goHome();
+}
+window.addEventListener('popstate', function(e){
+  _navRestoring=true;
+  try{
+    const st=e.state;
+    if(!st){ _navDepth=0; goHome(); return; }
+    _navDepth=st.d||0;
+    if(st.scr==='custdetail'){ if(typeof openCustomer==='function') openCustomer(st.id||null); }
+    else if(st.scr){ go(st.scr); }
+    else { goHome(); }
+  } finally { _navRestoring=false; }
+});
 function updateCloudUI(){
   const st=document.getElementById('cloud-status'), dot=document.getElementById('cloud-dot');
   const up=document.getElementById('cloud-upload-row'), lo=document.getElementById('cloud-logout');
