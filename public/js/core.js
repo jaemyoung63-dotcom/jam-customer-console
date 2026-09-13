@@ -464,6 +464,48 @@ window.addEventListener('popstate', function(e){
     else { goHome(); }
   } finally { _navRestoring=false; }
 });
+
+/* ---------- 옆으로 밀기(스와이프)로 화면 넘기기 (2026-09-13, jam님 요청) ----------
+   폰·태블릿에서 화면을 손가락으로 좌우로 밀면 하단 탭 순서(TA·고객·참조풀·분석·상담·관리)를
+   따라 다음/이전 탭으로 넘어간다. 예) TA 화면에서 왼쪽으로 밀면 고객 화면. ⚙관리자 화면
+   안의 3개 탭(담당자 관리·참조풀 관리·TA 관리)도 같은 방식으로 지원.
+   세로 스크롤·사진 확대 같은 다른 손동작과 헷갈리지 않게, 가로로 충분히(60px 이상) +
+   세로보다 훨씬 더 가로로 움직였을 때만 스와이프로 인정한다. 홈 화면·고객상세(입력 폼)·
+   Q&A 화면이나 관리자 이외의 다른 팝업이 떠 있을 때는 실수로 화면이 안 바뀌게 건너뛴다. */
+const TAB_ORDER=['ta','customers','pools','analysis','ap','customermgmt'];
+const ADMIN_TAB_ORDER=['advisors','pools','ta'];
+let _swipeX=0, _swipeY=0, _swipeActive=false;
+function _swipeStart(e){
+  const t=e.touches&&e.touches[0]; if(!t) return;
+  _swipeX=t.clientX; _swipeY=t.clientY; _swipeActive=true;
+}
+function _swipeEnd(e){
+  if(!_swipeActive) return; _swipeActive=false;
+  const t=e.changedTouches&&e.changedTouches[0]; if(!t) return;
+  const dx=t.clientX-_swipeX, dy=t.clientY-_swipeY;
+  if(Math.abs(dx)<60 || Math.abs(dx)<Math.abs(dy)*1.5) return;
+  _handleSwipe(dx<0?'left':'right');
+}
+function _handleSwipe(dir){
+  const openOverlay=document.querySelector('.overlay.show');
+  if(openOverlay){
+    if(openOverlay.id!=='ov-admin') return; // 관리자 이외의 팝업이 떠 있으면 스와이프 안 함
+    if(typeof _adminPoolEditing!=='undefined' && _adminPoolEditing) return; // 글 작성 중엔 건너뜀
+    if(typeof _adminTab==='undefined' || typeof switchAdminTab!=='function') return;
+    const i=ADMIN_TAB_ORDER.indexOf(_adminTab); if(i<0) return;
+    const ni=dir==='left'?i+1:i-1;
+    if(ni>=0 && ni<ADMIN_TAB_ORDER.length) switchAdminTab(ADMIN_TAB_ORDER[ni]);
+    return;
+  }
+  const cd=document.getElementById('s-custdetail');
+  if(cd && cd.classList.contains('active')) return; // 고객상세(입력 폼)에서는 스와이프로 화면 안 바꿈
+  const i=TAB_ORDER.indexOf(curScreen); if(i<0) return; // 홈·Q&A 등은 대상 아님
+  const ni=dir==='left'?i+1:i-1;
+  if(ni>=0 && ni<TAB_ORDER.length) go(TAB_ORDER[ni]);
+}
+document.addEventListener('touchstart', _swipeStart, {passive:true});
+document.addEventListener('touchend', _swipeEnd, {passive:true});
+
 function updateCloudUI(){
   const st=document.getElementById('cloud-status'), dot=document.getElementById('cloud-dot');
   const up=document.getElementById('cloud-upload-row'), lo=document.getElementById('cloud-logout');
