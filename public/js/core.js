@@ -418,6 +418,7 @@ function go(s){
   if(s==='ap') fillApSelect();
   window.scrollTo(0,0);
   if(_prevScr!==s) navPush({scr:s});
+  navUpdateSideBtns();
 }
 function goHome(){
   curScreen='home'; freeUrls();
@@ -430,6 +431,7 @@ function goHome(){
   updateCloudUI();
   window.scrollTo(0,0);
   navReset();
+  navUpdateSideBtns();
 }
 /* ---------- 모바일 하단 뒤로가기(<) 대응 (2026-09-13, jam님 요청) ----------
    원래는 화면을 옮겨도 브라우저 히스토리에 아무 기록이 안 남아서, 뒤로가기를 누르면
@@ -505,6 +507,21 @@ function _handleSwipe(dir){
 }
 document.addEventListener('touchstart', _swipeStart, {passive:true});
 document.addEventListener('touchend', _swipeEnd, {passive:true});
+
+/* 2026-09-13: 컴퓨터(마우스)에는 스와이프가 없으니, 화면 양쪽 끝에 ‹ › 버튼을 두고
+   똑같은 _handleSwipe() 로직을 그대로 재사용한다(CSS에서 마우스 있는 화면에서만 보이게 함
+   — .nav-side-btn 규칙, style.css 참고). ‹(이전)은 스와이프 오른쪽과, ›(다음)은
+   스와이프 왼쪽과 같은 동작이라 그대로 매핑. */
+function navStepPrev(){ _handleSwipe('right'); }
+function navStepNext(){ _handleSwipe('left'); }
+function navUpdateSideBtns(){
+  const p=document.getElementById('nav-prev-btn'), n=document.getElementById('nav-next-btn');
+  if(!p||!n) return;
+  const cd=document.getElementById('s-custdetail');
+  const hide = (curScreen==='home') || (cd && cd.classList.contains('active'));
+  p.style.display = hide ? 'none' : '';
+  n.style.display = hide ? 'none' : '';
+}
 
 function updateCloudUI(){
   const st=document.getElementById('cloud-status'), dot=document.getElementById('cloud-dot');

@@ -84,6 +84,15 @@ async function adminCall(action, extra){
 
 /* 관리자 화면 탭 전환 + 진입 시 첫 로딩을 함께 처리 */
 function switchAdminTab(tab){ _adminTab=tab; reloadAdminScreen(); }
+/* 2026-09-13: 컴퓨터(마우스)에서는 옆으로 밀기(스와이프)가 안 되니, 화살표 버튼으로도
+   담당자 관리 ↔ 참조풀 관리 ↔ TA 관리 사이를 옮길 수 있게 함(adminTabsHtml 참고).
+   ADMIN_TAB_ORDER는 core.js(스와이프 기능)에서 이미 선언해둔 걸 그대로 재사용 — 여기서
+   또 선언하면 "이미 선언됨" 오류로 스크립트가 통째로 멈춘다. */
+function switchAdminTabStep(dir){
+  const i=ADMIN_TAB_ORDER.indexOf(_adminTab); if(i<0) return;
+  const ni=dir==='next'?i+1:i-1;
+  if(ni>=0 && ni<ADMIN_TAB_ORDER.length) switchAdminTab(ADMIN_TAB_ORDER[ni]);
+}
 async function reloadAdminScreen(){
   if(_adminTab==='pools') return await reloadAdminPools();
   if(_adminTab==='ta') return await reloadAdminTA();
@@ -96,10 +105,13 @@ async function reloadAdminScreen(){
 function renderAdminPoolsScreen(){ if(_adminTab==='ta') renderAdminTA(); else renderAdminPools(); }
 async function reloadAdminPoolsScreen(){ if(_adminTab==='ta') await reloadAdminTA(); else await reloadAdminPools(); }
 function adminTabsHtml(){
-  return '<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap">'
+  // 2026-09-13: 컴퓨터(마우스)용 ‹ › 화살표 버튼 추가 — CSS에서 마우스 있는 화면(데스크톱)에서만 보이게 함.
+  return '<div class="row" style="gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center">'
+    +'<button class="btn ghost sm admin-tab-arrow" onclick="switchAdminTabStep(\'prev\')" aria-label="이전 관리 탭">‹</button>'
     +'<button class="btn '+(_adminTab==='advisors'?'primary':'ghost')+' sm" onclick="switchAdminTab(\'advisors\')">담당자 관리</button>'
     +'<button class="btn '+(_adminTab==='pools'?'primary':'ghost')+' sm" onclick="switchAdminTab(\'pools\')">참조풀 관리</button>'
     +'<button class="btn '+(_adminTab==='ta'?'primary':'ghost')+' sm" onclick="switchAdminTab(\'ta\')">TA 관리</button>'
+    +'<button class="btn ghost sm admin-tab-arrow" onclick="switchAdminTabStep(\'next\')" aria-label="다음 관리 탭">›</button>'
     +'</div>';
 }
 

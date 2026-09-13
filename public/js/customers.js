@@ -143,6 +143,7 @@ async function openCustomer(id){
   window.scrollTo(0,0);
   // 2026-09-13: 고객상세도 뒤로가기 대상에 포함 — 열 때마다 히스토리에 한 칸 쌓는다(core.js navPush 참고).
   if(typeof navPush==='function') navPush({scr:'custdetail', id:id||null});
+  if(typeof navUpdateSideBtns==='function') navUpdateSideBtns(); // 고객상세에서는 PC용 좌우 버튼도 숨김
 }
 /* ===== 주소 찾기 (카카오/다음 우편번호 서비스) =====
    일부만 입력해도 도로명·지번으로 찾아준다. 스크립트는 처음 누를 때만 불러온다(지연 로딩). */

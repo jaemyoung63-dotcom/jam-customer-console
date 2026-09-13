@@ -212,6 +212,28 @@
   .grow{flex:1;}
   .spacer{flex:1;}
 
+  /* 2026-09-13: 컴퓨터(마우스)용 화면 좌우 이동 버튼 — 폰·태블릿은 스와이프로 이미 되니
+     마우스가 있는 화면(데스크톱)에서만 보이게 함. z-index를 오버레이(팝업, 100 이상)보다
+     낮춰서 관리자 화면 같은 팝업이 떠 있을 때는 자동으로 가려지게 함(팝업 안에는 같은
+     기능을 하는 자체 ‹ › 버튼이 따로 있음 — adminTabsHtml 참고). */
+  .nav-side-btn{ display:none; }
+  /* button.admin-tab-arrow(요소+클래스)로 써야 위쪽 button.btn 규칙(같은 우선순위 방식)을
+     이길 수 있어서 .admin-tab-arrow 단독이 아니라 .btn.admin-tab-arrow로 씀(우선순위 문제). */
+  .btn.admin-tab-arrow{ display:none; }
+  @media (hover:hover) and (pointer:fine){
+    .nav-side-btn{
+      display:flex; position:fixed; top:50%; transform:translateY(-50%);
+      width:42px; height:42px; border-radius:50%; border:none;
+      background:rgba(20,24,29,.35); color:#fff; font-size:22px; line-height:1;
+      align-items:center; justify-content:center; cursor:pointer; z-index:40;
+      transition:background .15s;
+    }
+    .nav-side-btn:hover{ background:rgba(20,24,29,.6); }
+    .btn.admin-tab-arrow{ display:inline-flex; }
+  }
+  .nav-side-prev{ left:10px; }
+  .nav-side-next{ right:10px; }
+
   .chips{display:flex; flex-wrap:wrap; gap:6px;}
   .chip{
     font-size:12.5px; padding:6px 12px; border-radius:999px;
