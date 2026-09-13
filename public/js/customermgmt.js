@@ -46,9 +46,10 @@ function renderCmBody(){
     +'<textarea class="t" id="cm-rawtext" rows="4" placeholder="오늘 통화·상담 내용을 적거나, 텍스트(.txt) 파일을 여기로 끌어다 놓으세요.">'+esc(p.rawText||'')+'</textarea>'
     +'</div>';
   // 2026-09-06: 음원 칸처럼 텍스트도 드래그&드롭 말고 "폴더에서 선택"·"구글드라이브에서 가져오기"로 넣을 수 있게.
-  h+='<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'
-    +'<button class="btn ghost sm" onclick="pickCmText()">📁 폴더에서 선택</button>'
-    +'<button class="btn ghost sm" onclick="pickCmTextDrive()">☁️ 구글드라이브에서 가져오기</button>'
+  // 2026-09-13: 좁은 화면에서 줄바꿈(상하 배치)되던 것을 grow(균등폭)로 바꿔 항상 좌우로 나란히 뜨게 함.
+  h+='<div class="row" style="gap:8px;margin-top:8px">'
+    +'<button class="btn ghost sm grow" onclick="pickCmText()">📁 폴더에서 선택</button>'
+    +'<button class="btn ghost sm grow" onclick="pickCmTextDrive()">☁️ 구글드라이브</button>'
     +'</div>';
   // 2026-09-06: 텍스트·음원 파일을 넣어도 뭘 넣었는지 안 보인다는 jam님 피드백 — 지금까지 넣은
   // 파일 이름을 칩(chip) 목록으로 보여주고, ×로 개별 삭제도 가능하게 함(advisor.js 관리자
@@ -59,9 +60,9 @@ function renderCmBody(){
   h+='<div id="cm-audiodrop" style="border:1.5px dashed var(--line-strong);border-radius:10px;padding:6px;min-height:40px">'
     +'<div id="cm-audio"></div>'
     +'</div>';
-  h+='<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'
-    +'<button class="btn ghost sm" onclick="pickCmAudio()">📁 폴더에서 선택</button>'
-    +'<button class="btn ghost sm" onclick="pickCmAudioDrive()">☁️ 구글드라이브에서 가져오기</button>'
+  h+='<div class="row" style="gap:8px;margin-top:8px">'
+    +'<button class="btn ghost sm grow" onclick="pickCmAudio()">📁 폴더에서 선택</button>'
+    +'<button class="btn ghost sm grow" onclick="pickCmAudioDrive()">☁️ 구글드라이브</button>'
     +'</div>';
 
   h+='<button class="btn btn-ai wide" style="margin-top:12px" onclick="organizeCmEntry()">🤖 AI로 정리해서 히스토리에 추가</button>';
@@ -169,7 +170,11 @@ function pickCmAudio(){
 // input(#txt-input)을 재사용해 폴더에서 텍스트 파일을 골라 넣는다.
 function pickCmText(){
   const inp=document.getElementById('txt-input'); inp.value='';
-  inp.onchange=async e=>{const f=e.target.files&&e.target.files[0]; inp.onchange=null; if(!f) return; await appendCmText(f);};
+  // 2026-09-13: 텍스트 파일 여러 개를 한꺼번에 골라도 첫 번째만 들어가던 것을 고쳐서,
+  // advisor.js pickAdminPoolText()처럼 고른 파일을 전부(순서대로) 이어붙이게 함.
+  inp.onchange=async e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null;
+    for(const f of fs){ await appendCmText(f); }
+  };
   inp.click();
 }
 /* 지금까지 넣은 텍스트·음원 파일 이름을 칩(chip) 목록으로 보여준다. ×를 누르면
@@ -225,18 +230,33 @@ function onGoogleGisLoad(){
 
 function pickCmAudioDrive(){ _gpDriveTarget='audio'; requestGoogleDrivePicker(); }
 function pickCmTextDrive(){ _gpDriveTarget='text'; requestGoogleDrivePicker(); }
+/* 2026-09-13: jam님 신고 — 누를 때마다 "계정 선택→계속→계속→계속"을 반복해야 했음.
+   원인: _gpAccessToken은 이 페이지를 새로 열 때마다(=거의 매번) null로 초기화되는 값인데,
+   그걸 기준으로 "null이면 항상 consent(전체 동의화면)"를 강제하고 있었다. 그런데 구글 계정
+   자체에는 이 앱에 대한 동의가 이미 저장되어 있어서, 매번 새로 동의받을 필요가 없다.
+   그래서 이제는 매번 먼저 "조용히"(prompt:'') 시도하고, 그게 실패할 때만(=진짜 처음 쓰거나
+   동의가 취소된 경우) 전체 동의 화면(prompt:'consent')으로 한 번 더 시도한다. 이렇게 하면
+   한 번 허용한 뒤로는 대부분 화면 깜빡임 정도로 끝나고 여러 번 누를 필요가 없어진다. */
 function requestGoogleDrivePicker(){
   if(!_gpPickerInited || !_gpGisInited){
     alert('구글 드라이브 연동을 불러오는 중이에요. 인터넷 연결을 확인하고 3~5초 뒤 다시 눌러주세요. 계속 안 되면 새로고침 해보세요.');
     return;
   }
+  let triedConsent=false;
   _gpTokenClient.callback=(resp)=>{
-    if(resp.error){ toast('구글 로그인/권한 요청이 취소됐어요'); setTimeout(toastHide,1800); return; }
+    if(resp.error){
+      if(!triedConsent){
+        triedConsent=true;
+        _gpTokenClient.requestAccessToken({prompt:'consent'});
+        return;
+      }
+      toast('구글 로그인/권한 요청이 취소됐어요'); setTimeout(toastHide,1800);
+      return;
+    }
     _gpAccessToken=resp.access_token;
     showGoogleDrivePicker();
   };
-  // 처음 연결할 땐 항상 동의 화면을 보여주고, 이미 허용한 세션이면 다시 안 물어본다.
-  _gpTokenClient.requestAccessToken({prompt: _gpAccessToken===null ? 'consent' : ''});
+  _gpTokenClient.requestAccessToken({prompt:''});
 }
 
 function showGoogleDrivePicker(){
@@ -248,6 +268,9 @@ function showGoogleDrivePicker(){
     .setDeveloperKey(GOOGLE_API_KEY)
     .setAppId(GOOGLE_APP_ID)
     .addView(view)
+    // 2026-09-13: jam님 요청 — 텍스트 파일은 여러 개를 한 번에 선택해서 가져올 수 있게(음원은
+    // 한 번에 1개만 쓰는 구조라 여러 개를 골라도 첫 번째만 사용됨 — onGoogleDrivePicked 참고).
+    .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
     .setCallback(onGoogleDrivePicked)
     .build();
   picker.setVisible(true);
@@ -256,37 +279,51 @@ function showGoogleDrivePicker(){
 /* 사용자가 Picker에서 파일을 고르면, Drive API로 그 파일의 실제 내용을 내려받는다.
    _gpDriveTarget에 따라 음원은 attachCmAudioFile()로, 텍스트는 appendCmText()로 넘긴다
    (드래그&드롭·폴더선택과 이후 흐름이 동일). */
+/* 2026-09-13: 여러 파일을 한꺼번에 고를 수 있게(MULTISELECT_ENABLED) 되면서, 텍스트는
+   고른 파일을 순서대로 전부 내려받아 이어붙이고, 음원은 (한 번에 1개만 쓰는 구조라)
+   맨 처음 고른 파일 하나만 쓰고 나머지는 건너뛴다고 안내한다. */
 async function onGoogleDrivePicked(data){
   if(data[google.picker.Response.ACTION]!==google.picker.Action.PICKED) return;
-  const doc=data[google.picker.Response.DOCUMENTS][0]; if(!doc) return;
-  const fileId=doc[google.picker.Document.ID];
-  const name=doc[google.picker.Document.NAME]||'파일';
-  const mime=doc[google.picker.Document.MIME_TYPE]||'';
+  const docs=data[google.picker.Response.DOCUMENTS]||[]; if(!docs.length) return;
   const target=_gpDriveTarget;
 
-  if(target==='text'){
-    const isTextLike=(mime.indexOf('text')===0) || /\.(txt|md|csv)$/i.test(name);
-    if(!isTextLike && !confirm('선택한 파일("'+name+'")이 텍스트 파일이 아닌 것 같아요. 그래도 가져올까요?')) return;
-  } else {
-    const isAudio=(mime.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(name);
-    if(!isAudio && !confirm('선택한 파일("'+name+'")이 음원 파일이 아닌 것 같아요. 그래도 가져올까요?')) return;
+  const list = (target==='text') ? docs : docs.slice(0,1);
+  if(target!=='text' && docs.length>1){
+    toast('음원은 한 번에 1개만 쓸 수 있어 첫 번째 파일만 가져와요'); setTimeout(toastHide,2200);
   }
 
-  toast('구글 드라이브에서 가져오는 중…');
-  try{
-    const res=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media', {
-      headers:{ 'Authorization':'Bearer '+_gpAccessToken }
-    });
-    if(!res.ok) throw new Error('다운로드 실패(상태 '+res.status+')');
-    const blob=await res.blob();
-    toastHide();
-    if(target==='text') await appendCmText(blob, name);
-    else await attachCmAudioFile(blob, name);
-    toast('✓ 구글 드라이브에서 "'+name+'" 가져왔어요'); setTimeout(toastHide,2000);
-  }catch(err){
-    toastHide();
-    alert('구글 드라이브에서 파일을 가져오지 못했어요: '+(err&&err.message?err.message:err));
+  toast('구글 드라이브에서 가져오는 중… (0/'+list.length+')');
+  let done=0, failed=[];
+  for(const doc of list){
+    const fileId=doc[google.picker.Document.ID];
+    const name=doc[google.picker.Document.NAME]||'파일';
+    const mime=doc[google.picker.Document.MIME_TYPE]||'';
+
+    if(target==='text'){
+      const isTextLike=(mime.indexOf('text')===0) || /\.(txt|md|csv)$/i.test(name);
+      if(!isTextLike && !confirm('선택한 파일("'+name+'")이 텍스트 파일이 아닌 것 같아요. 그래도 가져올까요?')) continue;
+    } else {
+      const isAudio=(mime.indexOf('audio')===0) || /\.(mp3|m4a|wav|aac|ogg|webm|caf|amr)$/i.test(name);
+      if(!isAudio && !confirm('선택한 파일("'+name+'")이 음원 파일이 아닌 것 같아요. 그래도 가져올까요?')) continue;
+    }
+
+    try{
+      const res=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media', {
+        headers:{ 'Authorization':'Bearer '+_gpAccessToken }
+      });
+      if(!res.ok) throw new Error('다운로드 실패(상태 '+res.status+')');
+      const blob=await res.blob();
+      if(target==='text') await appendCmText(blob, name);
+      else await attachCmAudioFile(blob, name);
+      done++;
+      toast('구글 드라이브에서 가져오는 중… ('+done+'/'+list.length+')');
+    }catch(err){
+      failed.push(name);
+    }
   }
+  toastHide();
+  if(done) { toast('✓ 구글 드라이브에서 '+done+'개 가져왔어요'+(failed.length?(' · 실패 '+failed.length+'개'):'')); setTimeout(toastHide,2200); }
+  if(failed.length) alert('가져오지 못한 파일: '+failed.join(', '));
 }
 // nameOverride: 구글드라이브에서 가져온 Blob은 .name이 없어서 따로 넘겨받는다.
 async function attachCmAudioFile(file, nameOverride){
