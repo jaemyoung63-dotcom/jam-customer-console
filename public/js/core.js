@@ -468,14 +468,18 @@ window.addEventListener('popstate', function(e){
 });
 
 /* ---------- 옆으로 밀기(스와이프)로 화면 넘기기 (2026-09-13, jam님 요청) ----------
-   폰·태블릿에서 화면을 손가락으로 좌우로 밀면 하단 탭 순서(TA·고객·참조풀·분석·상담·관리)를
-   따라 다음/이전 탭으로 넘어간다. 예) TA 화면에서 왼쪽으로 밀면 고객 화면. ⚙관리자 화면
-   안의 3개 탭(담당자 관리·참조풀 관리·TA 관리)도 같은 방식으로 지원.
+   폰·태블릿에서 화면을 손가락으로 좌우로 밀면 "홈 → TA → 고객 → 고객상세 → 참조풀 →
+   매니저상담(분석) → AP고객대면(상담) → 고객관리" 순서를 따라 다음/이전으로 넘어간다.
+   참조풀 화면 안에서는 이 큰 순서보다 먼저, 그 안의 4개 풀(아이스브레이크·상담사례·
+   에피소드·카달로그)을 옆으로 밀어서 넘길 수 있고, 첫/마지막 풀에서 한 번 더 밀면 그때
+   비로소 옆(고객상세 쪽/분석 쪽) 화면으로 넘어간다. ⚙관리자 화면 안의 3개 탭(담당자 관리·
+   참조풀 관리·TA 관리)도 같은 방식으로 지원(이건 큰 순서와 별개로 그 안에서만 돈다).
    세로 스크롤·사진 확대 같은 다른 손동작과 헷갈리지 않게, 가로로 충분히(60px 이상) +
-   세로보다 훨씬 더 가로로 움직였을 때만 스와이프로 인정한다. 홈 화면·고객상세(입력 폼)·
-   Q&A 화면이나 관리자 이외의 다른 팝업이 떠 있을 때는 실수로 화면이 안 바뀌게 건너뛴다. */
-const TAB_ORDER=['ta','customers','pools','analysis','ap','customermgmt'];
+   세로보다 훨씬 더 가로로 움직였을 때만 스와이프로 인정한다. Q&A 화면이나 관리자 이외의
+   다른 팝업이 떠 있을 때는 실수로 화면이 안 바뀌게 건너뛴다. */
+const NAV_SEQ=['home','ta','customers','custdetail','pools','analysis','ap','customermgmt'];
 const ADMIN_TAB_ORDER=['advisors','pools','ta'];
+const POOL_TYPE_ORDER=['icebreak','case','episode','catalog'];
 let _swipeX=0, _swipeY=0, _swipeActive=false;
 function _swipeStart(e){
   const t=e.touches&&e.touches[0]; if(!t) return;
@@ -488,6 +492,23 @@ function _swipeEnd(e){
   if(Math.abs(dx)<60 || Math.abs(dx)<Math.abs(dy)*1.5) return;
   _handleSwipe(dx<0?'left':'right');
 }
+/* 지금 화면이 이 큰 순서(NAV_SEQ) 안에서 어디에 있는지 — 고객상세는 curScreen이 안
+   바뀌므로(고객 탭이 그대로 켜져 있음) 따로 화면 표시(.active)를 직접 확인해야 한다. */
+function _navCurrentPos(){
+  const cd=document.getElementById('s-custdetail');
+  if(cd && cd.classList.contains('active')) return 'custdetail';
+  return curScreen;
+}
+/* 순서 한 칸(pos)으로 실제 이동. custdetail은 "지금 작업 중인 고객"이 있을 때만 열 수
+   있어서, 없으면 false를 돌려줘 호출한 쪽(_handleSwipe)이 한 칸 더 건너뛰게 한다. */
+function _navGoTo(pos){
+  if(pos==='home'){ goHome(); return true; }
+  if(pos==='custdetail'){
+    if(currentCustId && customers.some(c=>c.id===currentCustId)){ openCustomer(currentCustId); return true; }
+    return false;
+  }
+  go(pos); return true;
+}
 function _handleSwipe(dir){
   const openOverlay=document.querySelector('.overlay.show');
   if(openOverlay){
@@ -499,11 +520,22 @@ function _handleSwipe(dir){
     if(ni>=0 && ni<ADMIN_TAB_ORDER.length) switchAdminTab(ADMIN_TAB_ORDER[ni]);
     return;
   }
-  const cd=document.getElementById('s-custdetail');
-  if(cd && cd.classList.contains('active')) return; // 고객상세(입력 폼)에서는 스와이프로 화면 안 바꿈
-  const i=TAB_ORDER.indexOf(curScreen); if(i<0) return; // 홈·Q&A 등은 대상 아님
-  const ni=dir==='left'?i+1:i-1;
-  if(ni>=0 && ni<TAB_ORDER.length) go(TAB_ORDER[ni]);
+  /* 참조풀 화면 안에서는 4개 풀 사이 이동이 먼저 — 첫/마지막 풀의 바깥쪽으로 밀 때만
+     아래로 내려가서 옆(고객상세·분석) 화면으로 넘어간다. */
+  if(curScreen==='pools' && typeof setPoolType==='function'){
+    const pi=POOL_TYPE_ORDER.indexOf(poolType);
+    if(pi>=0){
+      const pni=dir==='left'?pi+1:pi-1;
+      if(pni>=0 && pni<POOL_TYPE_ORDER.length){ setPoolType(POOL_TYPE_ORDER[pni]); return; }
+    }
+  }
+  const pos=_navCurrentPos();
+  let i=NAV_SEQ.indexOf(pos); if(i<0) return; // Q&A 등은 대상 아님
+  let ni=dir==='left'?i+1:i-1;
+  while(ni>=0 && ni<NAV_SEQ.length){
+    if(_navGoTo(NAV_SEQ[ni])) return;
+    ni = dir==='left'?ni+1:ni-1; // 고객상세인데 작업 고객이 없으면 한 칸 더 건너뜀
+  }
 }
 document.addEventListener('touchstart', _swipeStart, {passive:true});
 document.addEventListener('touchend', _swipeEnd, {passive:true});
@@ -517,8 +549,7 @@ function navStepNext(){ _handleSwipe('left'); }
 function navUpdateSideBtns(){
   const p=document.getElementById('nav-prev-btn'), n=document.getElementById('nav-next-btn');
   if(!p||!n) return;
-  const cd=document.getElementById('s-custdetail');
-  const hide = (curScreen==='home') || (cd && cd.classList.contains('active'));
+  const hide = NAV_SEQ.indexOf(_navCurrentPos())<0; // Q&A 등 순서 밖의 화면에서만 숨김
   p.style.display = hide ? 'none' : '';
   n.style.display = hide ? 'none' : '';
 }
