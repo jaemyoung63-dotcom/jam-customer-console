@@ -44,7 +44,7 @@ async function fsUploadOne(id, ownerType, ownerId, category) {
     const contentType = rec.blob.type || 'application/octet-stream';
     const d = await fsCall({
       pw: cloudPW, advisorId, advisorPw, action: 'upload', id, owner_type: ownerType, owner_id: ownerId,
-      category: rec.kind || category || '기타', filename: null, content_type: contentType, data: b64
+      category: rec.kind || category || '보장급부', filename: null, content_type: contentType, data: b64
     });
     if (d && d.ok) {
       fsUploadedIds.add(id); fsUploadFailed.delete(id); await fsSaveUploadedCache();
@@ -64,7 +64,7 @@ async function fsUploadOne(id, ownerType, ownerId, category) {
 async function fsQueueForOwner(ownerType, record) {
   if (!cloudOn || !record || !record.id) return;
   const items = [];
-  (record.images || []).forEach(id => items.push({ id, category: record.docKind || '기타' }));
+  (record.images || []).forEach(id => items.push({ id, category: '보장급부' })); // 실제로는 아래 fsUploadOne()이 rec.kind(사진별 실제 종류)를 우선 사용하므로 이 값은 거의 안 쓰임
   if (ownerType === 'customer') (record.planImages || []).forEach(id => items.push({ id, category: '설계서' }));
   if (ownerType === 'pool' && record.audio) items.push({ id: record.audio, category: '음원' });
   const pending = items.filter(x => x.id && !fsUploadedIds.has(x.id));

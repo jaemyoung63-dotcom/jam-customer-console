@@ -88,7 +88,7 @@ async function addPdfInto(file, arr, kind, renderFn, saveObj){
     let skipped=0;
     for(const b of blobs){
       if(arr.length>=IMG_CAP){ skipped++; continue; }
-      const rid=uid(); await idbPut('images',{id:rid,kind:kind||'기타',blob:b,created:today()}); arr.push(rid);
+      const rid=uid(); await idbPut('images',{id:rid,kind:kind||'보장급부',blob:b,created:today()}); arr.push(rid);
     }
     if(saveObj){ try{ await idbPut('customers',saveObj); }catch(e){} }
     toastHide();
@@ -103,7 +103,7 @@ async function runOCR(){
   btn.disabled=true; btn.style.opacity=.6; prog.style.display='block'; prog.textContent='OCR 엔진 준비 중… (처음 한 번은 다운로드로 시간이 걸립니다)';
   try{
     await ensureTesseract();
-    const n=editingCust.images.length; const groups={'보장급부':[],'내보장자산':[],'기타':[]};
+    const n=editingCust.images.length; const groups={'보장급부':[],'내보장자산':[]};
     for(let i=0;i<n;i++){
       const rec=await idbGet('images',editingCust.images[i]); if(!rec||!rec.blob) continue;
       const url=URL.createObjectURL(rec.blob);
@@ -112,11 +112,11 @@ async function runOCR(){
         else prog.textContent='이미지 '+(i+1)+'/'+n+' 준비 중…';
       }});
       URL.revokeObjectURL(url);
-      const kind=(rec.kind && groups[rec.kind])?rec.kind:'기타';
+      const kind=(rec.kind && groups[rec.kind])?rec.kind:'보장급부';
       const txt=(res.data.text||'').trim(); if(txt) groups[kind].push(txt);
     }
     let blocks=[];
-    ['보장급부','내보장자산','기타'].forEach(k=>{ if(groups[k].length) blocks.push('['+k+']\n'+groups[k].join('\n')); });
+    ['보장급부','내보장자산'].forEach(k=>{ if(groups[k].length) blocks.push('['+k+']\n'+groups[k].join('\n')); });
     const joined=blocks.join('\n\n');
     const ta=document.getElementById('c-coverage');
     ta.value = ta.value ? (ta.value+'\n\n'+joined) : joined;
@@ -124,28 +124,45 @@ async function runOCR(){
   }catch(err){ prog.textContent=(err&&err.message)?err.message:'OCR 중 오류가 발생했습니다.'; }
   btn.disabled=false; btn.style.opacity=1;
 }
-async function tidyCoverage(confirmations){
+/* 2026-09-19: "AI로 정리·분석"을 보장급부/내보장자산 두 섹션으로 분리(jam님 요청).
+   kind별로 사진을 따로 걸러 보내고, 결과도 각 섹션 전용 버튼·진행표시(tidy-btn-보장급부/내보장자산)를 쓴다.
+   최종 c-coverage(합본 텍스트)는 editingCust.coverageParts{보장급부,내보장자산}를 순서대로 이어붙여 만든다 —
+   문자열 안에서 [보장급부]/[내보장자산] 표시를 찾아 잘라붙이는 방식(마커 파싱)은 jam님이 직접 c-coverage를
+   수정했을 때 깨지기 쉬워서, 두 섹션 결과를 아예 따로 저장해두고 매번 다시 조립하는 방식을 택함. */
+function tidySuffix(kind){ return kind==='내보장자산' ? 'nae' : 'bojang'; }
+function rebuildCoverageText(){
+  const parts=(editingCust&&editingCust.coverageParts)||{};
+  const order=['보장급부','내보장자산'];
+  return order.filter(k=>parts[k]).map(k=>'['+k+']\n'+parts[k]).join('\n\n');
+}
+async function tidyCoverage(kind, confirmations){
+  kind = (kind==='내보장자산') ? '내보장자산' : '보장급부';
+  const s=tidySuffix(kind);
   const ta=document.getElementById('c-coverage');
-  const imgs=editingCust.images||[];
-  if(!imgs.length){alert('먼저 보장 자료 이미지를 추가하세요.'); return;}
+  const rawEl=document.getElementById('c-rawtext-'+s);
+  const rawText=(rawEl&&rawEl.value||'').trim();
+  const allRefs=editingCust.images||[];
+  const kindRefs=[];
+  for(const ref of allRefs){ const rec=await idbGet('images',ref); if(rec && (rec.kind||'보장급부')===kind) kindRefs.push(ref); }
+  if(!kindRefs.length && !rawText){alert('먼저 '+kind+' 사진을 추가하거나 참고 텍스트를 입력하세요.'); return;}
   if(!cloudOn){alert('AI 정리 기능은 로그인 후 사용할 수 있습니다.'); return;}
   const tq=document.getElementById('tidy-questions'); if(tq) tq.innerHTML='';
-  const btn=document.getElementById('tidy-btn'), prog=document.getElementById('tidy-progress');
+  const btn=document.getElementById('tidy-btn-'+s), prog=document.getElementById('tidy-progress-'+s);
   btn.disabled=true; btn.style.opacity=.6; prog.style.display='block';
   try{
     // 사진을 AI 비전이 직접 판독 (Tesseract 없이 정확도↑)
-    const n=Math.min(imgs.length, 12);
+    const n=Math.min(kindRefs.length, 12);
     const items=[];
     for(let i=0;i<n;i++){
       prog.textContent='사진 준비 중… '+(i+1)+'/'+n;
-      const rec=await idbGet('images',imgs[i]); if(!rec||!rec.blob) continue;
+      const rec=await idbGet('images',kindRefs[i]); if(!rec||!rec.blob) continue;
       let b64=''; try{ b64=await blobToScaledBase64(rec.blob, 1568, 0.92); }catch(e){}
-      if(b64) items.push({kind:(rec.kind||'기타'), media_type:'image/jpeg', data:b64});
+      if(b64) items.push({kind, media_type:'image/jpeg', data:b64});
     }
-    if(!items.length){ prog.textContent='사진을 읽지 못했습니다. 다시 등록해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
-    const _pg=startProgress(p=>{ prog.textContent='AI가 사진을 직접 판독·정리 중… '+p+'%'+(imgs.length>12?' (앞 12장)':''); });
+    if(!items.length && !rawText){ prog.textContent='사진을 읽지 못했습니다. 다시 등록해 주세요.'; btn.disabled=false; btn.style.opacity=1; return; }
+    const _pg=startProgress(p=>{ prog.textContent='AI가 '+kind+' 자료를 판독·정리 중… '+p+'%'+(kindRefs.length>12?' (앞 12장)':''); });
     const res=await fetch(ANALYZE_URL,{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'tidy', images:items, confirmations:confirmations||'', custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
+      body:JSON.stringify({pw:cloudPW, advisorId, advisorPw, mode:'tidy', kind, images:items, rawText, confirmations:confirmations||'', custName:editingCust.name||'', custAge:(editingCust.ageNum?editingCust.ageNum+'세':'')})});
     const rawResp=await res.text(); _pg.done();
     let data;
     try{ data=JSON.parse(rawResp); }
@@ -156,19 +173,23 @@ async function tidyCoverage(confirmations){
     if(!res.ok){prog.textContent='정리 실패: '+(data.error||'오류')+' (HTTP '+res.status+')'; btn.disabled=false; btn.style.opacity=1; return;}
     const txt=(data.text||'').trim();
     const qn=(data.questions&&data.questions.length)||0;
-    if(txt){ ta.value=data.text;
+    if(txt){
+      editingCust.coverageParts=editingCust.coverageParts||{};
+      editingCust.coverageParts[kind]=txt;
+      const combined=rebuildCoverageText();
+      ta.value=combined;
+      editingCust.coverageText=combined;
       editingCust.coverageHistory=editingCust.coverageHistory||[];
-      editingCust.coverageHistory.unshift({at:now(), text:data.text});
+      editingCust.coverageHistory.unshift({at:now(), text:txt, kind:kind});
       if(editingCust.coverageHistory.length>30) editingCust.coverageHistory=editingCust.coverageHistory.slice(0,30);
-      editingCust.coverageText=data.text;
       if(editingCust.id){ try{ await idbPut('customers',editingCust); }catch(e){} }
     }
     // 부가 처리는 각각 격리 — 여기서 오류가 나도 결과 표시에 영향 없음
-    try{ addUsage(data._usage,'보장 정리(비전)'); }catch(e){}
+    try{ addUsage(data._usage,kind+' 정리(비전)'); }catch(e){}
     try{ refreshCoverageUI(); }catch(e){}
-    try{ renderTidyQuestions(data.questions||[]); }catch(e){}
+    try{ renderTidyQuestions(data.questions||[], kind); }catch(e){}
     prog.textContent = txt
-      ? ('정리·분석 완료 (본문 '+txt.length+'자'+(qn?(' · 확인질문 '+qn+'개'):'')+')'+((data._debug&&data._debug.stop_reason==='max_tokens')?' ⚠ 길어서 일부 잘렸을 수 있어요':'')+'. 아래 "AI 정리 기록"을 눌러 확인하세요. 숫자·회사명은 원본과 대조하세요.')
+      ? (kind+' 정리 완료 (본문 '+txt.length+'자'+(qn?(' · 확인질문 '+qn+'개'):'')+')'+((data._debug&&data._debug.stop_reason==='max_tokens')?' ⚠ 길어서 일부 잘렸을 수 있어요':'')+'. 아래 "AI 정리 기록"을 눌러 확인하세요. 숫자·회사명은 원본과 대조하세요.'+(kind==='보장급부'?' 이어서 내보장자산도 정리해 보세요.':''))
       : ('응답은 받았으나 정리 본문이 비어 있습니다 (HTTP '+res.status+' · 질문 '+qn+'개). '+(data._debug?('[진단: 중단='+data._debug.stop_reason+' · 블록='+data._debug.blocks+'('+(data._debug.types||[]).join(',')+') · 출력토큰='+data._debug.out_tokens+' · 입력토큰='+data._debug.in_tokens+' · 사진='+data._debug.img_count+']'):'')+' 다시 시도하거나 이 문구를 캡처해 주세요.');
   }catch(err){
     prog.textContent='정리 요청 실패: '+((err&&err.message)?err.message:String(err));
@@ -177,24 +198,26 @@ async function tidyCoverage(confirmations){
 }
 
 let redState=null;
-function pickImage(){
+/* 2026-09-19: 보장급부/내보장자산 두 섹션으로 나뉘면서, 어느 섹션의 ＋/카메라 버튼을 눌렀는지
+   kind로 직접 넘겨받는다(예전처럼 공용 doc-kind 칩 선택값에 의존하지 않음). */
+function pickImage(kind){
   const inp=document.getElementById('img-input');
   inp.value='';
   inp.onchange=async e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null;
-    for(const f of fs){ await addImageDirect(f); }
+    for(const f of fs){ await addImageDirect(f, kind); }
   };
   inp.click();
 }
-function pickCamera(){
+function pickCamera(kind){
   const inp=document.getElementById('cam-input');
   inp.value='';
   inp.onchange=async e=>{const fs=e.target.files?Array.from(e.target.files):[]; inp.onchange=null;
-    for(const f of fs){ await addImageDirect(f); }
+    for(const f of fs){ await addImageDirect(f, kind); }
   };
   inp.click();
 }
-function addImageDirect(file){
-  const kind=editingCust.docKind||'보장급부';
+function addImageDirect(file, kind){
+  kind = kind || '보장급부';
   editingCust.images=editingCust.images||[];
   if(overImageCap(editingCust.images)) return Promise.resolve();
   if(isPdfFile(file)){ return addPdfInto(file, editingCust.images, kind, renderThumbs, null); }
@@ -355,6 +378,8 @@ function readCustFields(){
   var _rrn=document.getElementById('c-rrn'); if(_rrn){ var _raw=_rrn.value.replace(/\D/g,'').slice(0,13); editingCust.birth6=_raw.slice(0,6); editingCust.rrnBack=_raw.slice(6,13); editingCust.ageNum=computeAge6(editingCust.birth6); }
   editingCust.memo=document.getElementById('c-memo').value.trim();
   editingCust.coverageText=document.getElementById('c-coverage').value.trim();
+  var _rtb=document.getElementById('c-rawtext-bojang'), _rtn=document.getElementById('c-rawtext-nae');
+  editingCust.rawTextParts={ '보장급부':(_rtb?_rtb.value.trim():''), '내보장자산':(_rtn?_rtn.value.trim():'') };
   editingCust.age=document.getElementById('c-age').value;
   editingCust.grade=document.getElementById('c-grade').value;
 }

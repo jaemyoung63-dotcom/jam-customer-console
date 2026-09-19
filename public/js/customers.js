@@ -127,8 +127,8 @@ async function openCustomer(id){
   chipGroup(document.getElementById('cust-product'),PRODUCTS,editingCust.product,true);
   chipGroup(document.getElementById('cust-situation'),SITUATIONS,editingCust.situation,true);
   toggleImageBlock();
-  editingCust.docKind='보장급부';
-  chipGroup(document.getElementById('doc-kind'),IMG_KINDS,'보장급부',false,v=>editingCust.docKind=v);
+  document.getElementById('c-rawtext-bojang').value=(c.rawTextParts&&c.rawTextParts['보장급부'])||'';
+  document.getElementById('c-rawtext-nae').value=(c.rawTextParts&&c.rawTextParts['내보장자산'])||'';
   await renderThumbs();
   custStep(1);
   refreshCoverageUI();
@@ -376,7 +376,7 @@ function renderTidyHistory(){
   let h='<label class="f">AI 정리 기록 ('+list.length+')</label>';
   const cards=list.map((e,i)=>
     '<div class="card" style="padding:9px 11px"><div class="row" style="align-items:center">'
-      +'<div style="flex:1;min-width:0" onclick="openTidyEntry('+i+')"><div style="font-size:12.5px;font-weight:600">'+esc(e.at||e.date||'')+'</div>'
+      +'<div style="flex:1;min-width:0" onclick="openTidyEntry('+i+')"><div style="font-size:12.5px;font-weight:600">'+(e.kind?('['+esc(e.kind)+'] '):'')+esc(e.at||e.date||'')+'</div>'
       +'<div class="meta" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(oneLine(e.text))+'</div></div>'
       +'<button class="btn ghost sm" style="margin-left:8px" onclick="openTidyEntry('+i+')">보기</button>'
       +'<button class="btn danger sm" style="margin-left:6px" onclick="delTidyEntry('+i+')">삭제</button></div></div>');
@@ -453,7 +453,9 @@ function collectAnswers(box){
   const lines=[]; box.querySelectorAll('.q-answer').forEach(inp=>{ const a=inp.value.trim(); if(a) lines.push('- '+inp.getAttribute('data-q')+' → '+a); });
   return lines;
 }
-function renderTidyQuestions(questions){
+let _tidyQKind='보장급부';
+function renderTidyQuestions(questions, kind){
+  _tidyQKind = kind||'보장급부';
   const box=document.getElementById('tidy-questions'); if(!box) return;
   if(!questions||!questions.length){ box.innerHTML=''; return; }
   box.innerHTML=qPanel('확인', questions, 'resubmitTidy()');
@@ -461,7 +463,7 @@ function renderTidyQuestions(questions){
 function resubmitTidy(){
   const box=document.getElementById('tidy-questions'); const lines=collectAnswers(box);
   if(!lines.length){ alert('확인할 답변을 하나 이상 입력하세요.'); return; }
-  tidyCoverage(lines.join('\n'));
+  tidyCoverage(_tidyQKind, lines.join('\n'));
 }
 let planQCust=null;
 function renderPlanQuestions(custId, questions){
@@ -485,24 +487,34 @@ function enableDrop(el, onFile, filterFn){
     for(const f of files){ if(ok(f)) await onFile(f); }
   });
 }
+/* 2026-09-19: 보장급부/내보장자산 두 섹션으로 나뉘면서, 썸네일도 종류별로 따로 그린다.
+   editingCust.images는 예전처럼 하나의 배열(순서 보존)로 두고, 렌더링할 때만 kind로 걸러서
+   두 군데(c-thumbs-bojang / c-thumbs-nae)에 나눠 그린다 — 사진 저장 구조 자체는 안 바뀜. */
 async function renderThumbs(){
-  const wrap=document.getElementById('c-thumbs'); if(!wrap) return; wrap.innerHTML='';
+  await renderThumbGroup('보장급부','c-thumbs-bojang');
+  await renderThumbGroup('내보장자산','c-thumbs-nae');
+}
+async function renderThumbGroup(kind, wrapId){
+  const wrap=document.getElementById(wrapId); if(!wrap) return; wrap.innerHTML='';
   for(const ref of (editingCust.images||[])){
     const rec=await idbGet('images',ref);
+    // 레코드가 사라진(깨진) 사진은 종류를 알 수 없으므로 편의상 보장급부 쪽에만 "없음"으로 표시(양쪽 중복 방지)
+    const k = rec ? (rec.kind||'보장급부') : '보장급부';
+    if(k!==kind) continue;
     const d=document.createElement('div'); d.className='thumb';
-    if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'" onclick="event.stopPropagation();openLightbox(this.src)"><span class="k">'+(rec.kind||'')+'</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>'; }
+    if(rec&&rec.blob){ d.innerHTML='<img src="'+blobUrl(rec.blob)+'" onclick="event.stopPropagation();openLightbox(this.src)"><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>'; }
     else d.innerHTML='<span class="k">없음</span><button class="del" onclick="removeImage(event,\''+ref+'\')">×</button>';
     wrap.appendChild(d);
   }
   const add=document.createElement('div'); add.className='add-thumb';
   add.innerHTML='<span style="font-size:22px">＋</span>파일 추가';
-  add.onclick=pickImage;
+  add.onclick=()=>pickImage(kind);
   wrap.appendChild(add);
   const cam=document.createElement('div'); cam.className='add-thumb';
   cam.innerHTML='<span style="font-size:22px">📷</span>카메라 촬영';
-  cam.onclick=pickCamera;
+  cam.onclick=()=>pickCamera(kind);
   wrap.appendChild(cam);
-  enableDrop(wrap, addImageDirect);
+  enableDrop(wrap, (file)=>addImageDirect(file, kind));
 }
 function removeImage(e,ref){e.stopPropagation(); if(!confirm('이 사진을 삭제할까요?')) return; editingCust.images=editingCust.images.filter(x=>x!==ref); idbDel('images',ref); renderThumbs();}
 

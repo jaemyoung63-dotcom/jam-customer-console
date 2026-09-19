@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS files (
   id            TEXT PRIMARY KEY,          -- IndexedDB 'images' 스토어의 파일 id와 동일
   owner_type    TEXT NOT NULL CHECK (owner_type IN ('customer', 'pool')),
   owner_id      TEXT NOT NULL,             -- customers.id 또는 pools.id
-  category      TEXT NOT NULL,             -- 예: 보장급부/내보장자산/기타/설계서/음원 (core.js IMG_KINDS 등)
+  category      TEXT NOT NULL,             -- 예: 보장급부/내보장자산/설계서/음원 (core.js IMG_KINDS 등, 2026-09-19 '기타' 삭제)
   filename      TEXT,
   content_type  TEXT NOT NULL,             -- 예: image/jpeg, audio/webm
   size_bytes    INTEGER NOT NULL,

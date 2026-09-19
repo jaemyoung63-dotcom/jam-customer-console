@@ -16,7 +16,7 @@ Cloudflare D1(`customers`/`pools` 테이블)에 JSON 통짜로 동기화. 테이
 | `SITUATIONS` | 신규/리모델링/갱신전환/해약방어/만기도래/증권점검 | `situation[]` |
 | `SEGMENTS` | 방문예정/상담/계약 | `seg` |
 | `SOURCES` | db(DB 고객) / acq(지인 고객) | `source` |
-| `IMG_KINDS` | 보장급부/내보장자산/기타 | `docKind`, 이미지의 `kind` |
+| `IMG_KINDS` | 보장급부/내보장자산 (2026-09-19: '기타' 삭제) | 이미지의 `kind` |
 
 ## 고객(customer) 레코드
 
@@ -50,10 +50,11 @@ Cloudflare D1(`customers`/`pools` 테이블)에 JSON 통짜로 동기화. 테이
 ### 보장분석(coverage) — OCR·AI 정리 결과
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `images[]` | string[] | 첨부 이미지/PDF변환본의 id 목록(IndexedDB `images` 스토어 참조) |
-| `docKind` | string | 마지막으로 선택한 `IMG_KINDS` 값(새 이미지 추가 시 기본 분류) |
-| `coverageText` | string(markdown) | AI가 OCR+정리한 "보장급부/내보장자산/종합분석" 텍스트(현재 버전) |
-| `coverageHistory[]` | {at, text}[] | `coverageText`의 이전 버전들. `ocr.js`의 `tidyCoverage()`가 새 정리를 만들 때마다 앞에 추가 |
+| `images[]` | string[] | 첨부 이미지/PDF변환본의 id 목록(IndexedDB `images` 스토어 참조). 각 이미지 레코드의 `kind`로 보장급부/내보장자산 구분 |
+| `rawTextParts` | {보장급부, 내보장자산} | 2026-09-19 추가 — 고객상세 화면에서 사진 외에 직접 입력하는 참고 텍스트(섹션별). AI 정리 호출 시 `rawText`로 전달됨 |
+| `coverageParts` | {보장급부, 내보장자산} | 2026-09-19 추가 — 두 섹션을 각각 별도로 AI 정리한 결과. `coverageText`는 이 값을 순서대로 이어붙여 만든 합본(재조립 가능, `ocr.js`의 `rebuildCoverageText()`) |
+| `coverageText` | string(markdown) | `coverageParts`를 이어붙인 합본 텍스트(현재 버전). "분석" 탭이 이 값을 근거로 사용. 2026-09-19부터 [종합분석] 섹션은 안 만듦(이미 "분석" 탭이 대신함) |
+| `coverageHistory[]` | {at, text, kind?}[] | `coverageParts`의 각 섹션이 갱신될 때마다 그 섹션 결과 하나를 앞에 추가(`kind`로 어느 섹션인지 표시). `ocr.js`의 `tidyCoverage(kind)`가 호출될 때마다 추가 |
 
 ### AI 영역별 분석 (보장분석 결과)
 | 필드 | 타입 | 설명 |

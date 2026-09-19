@@ -158,16 +158,17 @@ export async function onRequestPost(context) {
     const raw = (payload.rawText || '').trim();
     const images = Array.isArray(payload.images) ? payload.images : [];
     if (!raw && images.length === 0) return json({ error: '정리할 자료(이미지 또는 텍스트)가 없습니다.' }, 400);
+    const kind = (payload.kind === '내보장자산') ? '내보장자산' : '보장급부';
     const custName = (payload.custName || '').trim();
     const custAge = (payload.custAge || '').trim();
     const confirmations = (payload.confirmations || '').trim();
     const tidyModel = context.env.VISION_MODEL || model;
-    const tidySystem = buildTidySystem({ custName, custAge });
+    const tidySystem = buildTidySystem({ custName, custAge, kind });
     const content = [];
     if (raw) content.push({ type: 'text', text: '참고 텍스트(보조):\n' + raw });
     if (confirmations) content.push({ type: 'text', text: '사용자가 확인해준 확정 정보(반드시 이 값으로 사용하고, 이 항목은 다시 묻지 마세요):\n' + confirmations });
     images.forEach(function (im, i) {
-      content.push({ type: 'text', text: '[' + (im.kind || '보장급부') + '] 자료 사진 ' + (i + 1) + ':' });
+      content.push({ type: 'text', text: '[' + kind + '] 자료 사진 ' + (i + 1) + ':' });
       content.push({ type: 'image', source: { type: 'base64', media_type: im.media_type || 'image/jpeg', data: im.data } });
     });
     content.push({ type: 'text', text: '위 사진들을 직접 읽고, 형식과 규칙에 맞춰 정리·분석해 주세요. 없는 정보는 지어내지 마세요.' });

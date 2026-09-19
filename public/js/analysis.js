@@ -132,7 +132,7 @@ function renderAnalysis(){
     html+='<button class="btn ghost sm wide" style="margin-top:6px" onclick="go(\'pools\')">참조풀에서 자료 선택/변경 →</button>';
     if(!hasText) html+='<div class="stage-note" style="margin-top:10px">보장 텍스트가 아직 없습니다. 고객 화면에서 채운 뒤 분석하세요.</div>';
     else if(hasAnalysis) html+='<div class="stage-note">저장된 보장 분석입니다 (최근 '+esc((alist[0].at||alist[0].date)||'')+' · 총 '+alist.length+'회). 다시 실행하면 비용이 한 번 더 듭니다.</div>';
-    else html+='<div class="stage-note">보장급부·내보장자산·기타 + 상담사례를 함께 분석해 약 2000자로 정리합니다.</div>';
+    else html+='<div class="stage-note">보장급부·내보장자산 + 상담사례를 함께 분석해 약 2000자로 정리합니다.</div>';
     html+='<div class="btn-grid" style="margin-top:8px">';
     if(hasAnalysis){
       html+='<button class="btn result-ready" onclick="openAnResult(\''+c.id+'\')">📄 보장분석 결과 보기</button>';
